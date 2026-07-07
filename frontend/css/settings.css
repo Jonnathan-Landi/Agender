@@ -126,11 +126,13 @@
 }
 
 .settings-content {
+  min-width: 0;
   padding: 46px 52px;
 }
 
 .settings-page {
   display: none;
+  min-width: 0;
 }
 
 .settings-page.active {
@@ -171,6 +173,10 @@
   display: grid;
   place-items: center;
   color: var(--ink);
+}
+
+.settings-card > div {
+  min-width: 0;
 }
 
 .path-settings-card {

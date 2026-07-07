@@ -67,6 +67,8 @@ Revísala y publícala; desde ese momento las instalaciones anteriores podrán e
 
 Las rutas de datos crudos y QC se configuran desde **Configuración > Rutas**. El backend lee `.csv`, `.dat` y `.txt` mediante Polars y mantiene índices incrementales en `%APPDATA%\Agender\cache`.
 
+Los usuarios, credenciales, rutas, solicitudes, tareas diarias y eventos de agenda se conservan en `%APPDATA%\Agender`. Los datos funcionales se almacenan en SQLite y se vinculan al identificador interno de cada usuario. Al iniciar esta versión, Agender migra automáticamente los datos anteriores de `localStorage`; después lo utiliza solo como cola temporal de recuperación mientras confirma cada escritura en SQLite. Una actualización normal reemplaza los binarios de la aplicación sin eliminar este directorio de datos.
+
 `backend/data/stations.xlsx` es el catálogo maestro. La tabla siempre muestra sus estaciones y obtiene de allí Código, Tipo, X_UTM, Y_UTM, Z y Cuenca. Solo los archivos cuyo nombre coincide con un código del catálogo completan Primer registro, Último registro, Actualizada y Completitud.
 
 ## Viewer de estaciones

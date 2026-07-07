@@ -1,3 +1,20 @@
+@media (max-width: 1250px) {
+  .settings-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .settings-card .segmented {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .settings-card .segment {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 64px minmax(0, 1fr);
@@ -137,11 +154,12 @@
 
   .segmented {
     grid-column: 1 / -1;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .segment {
-    flex: 1 1 140px;
+    min-width: 0;
   }
 
   .path-picker {
@@ -211,6 +229,10 @@
 }
 
 @media (max-width: 620px) {
+  .settings-card .segmented {
+    grid-template-columns: 1fr;
+  }
+
   .map-legend {
     width: min(250px, calc(100% - 24px));
   }

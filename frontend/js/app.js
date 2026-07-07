@@ -9,6 +9,7 @@
   window.NotasNavigation.initNavigation();
   const authenticated = await window.NotasLogin.initLogin();
   if (!authenticated) return;
+  await window.NotasStorage.init();
   window.NotasLicenseAdmin.init();
   window.NotasSettings.initSettings();
   window.NotasRequests.initRequests();

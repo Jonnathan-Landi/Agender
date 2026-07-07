@@ -10,6 +10,8 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
 
+const BACKEND_PORT: u16 = 47831;
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateInfo {
@@ -55,9 +57,11 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 
 struct BackendProcess(Arc<Mutex<Option<Child>>>);
 
-fn available_port() -> Result<u16, Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind(("127.0.0.1", 0))?;
-    Ok(listener.local_addr()?.port())
+fn backend_port() -> Result<u16, Box<dyn std::error::Error>> {
+    // Un origen HTTP estable conserva localStorage entre reinicios y actualizaciones.
+    let listener = TcpListener::bind(("127.0.0.1", BACKEND_PORT))?;
+    drop(listener);
+    Ok(BACKEND_PORT)
 }
 
 fn main() {
@@ -86,7 +90,7 @@ fn main() {
                     }
                 });
             }
-            let port = available_port()?;
+            let port = backend_port()?;
             #[cfg(debug_assertions)]
             let mut command = {
                 let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();

@@ -13,6 +13,7 @@ from .config import read_settings, write_settings
 from .indexer import synchronize
 from .viewer.api import app as viewer_app
 from .security import auth_status, change_password, current_user, generate_license, install_authority_key, install_license, login, logout
+from .user_data import read_user_data, write_user_data
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
@@ -56,6 +57,10 @@ class LoginRequest(BaseModel):
 
 class PasswordChangeRequest(BaseModel):
     password: str
+
+
+class UserDataValue(BaseModel):
+    value: object
 
 
 class LicenseGenerationRequest(BaseModel):
@@ -145,6 +150,28 @@ def health() -> dict[str, object]:
 def app_info() -> dict[str, str]:
     config = json.loads((PROJECT_ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
     return {"name": config.get("productName", "Agender"), "version": config.get("version", "")}
+
+
+@app.get("/api/user-data")
+def get_user_data(request: Request) -> dict[str, object]:
+    user = current_user(request.cookies.get("agender_session"))
+    if not user:
+        raise HTTPException(status_code=401, detail="Debes iniciar sesión")
+    return {"data": read_user_data(user)}
+
+
+@app.put("/api/user-data/{key}")
+def put_user_data(key: str, payload: UserDataValue, request: Request) -> dict[str, bool]:
+    user = current_user(request.cookies.get("agender_session"))
+    if not user:
+        raise HTTPException(status_code=401, detail="Debes iniciar sesión")
+    try:
+        write_user_data(user, key, payload.value)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"ok": True}
 
 
 @app.get("/api/settings/paths")

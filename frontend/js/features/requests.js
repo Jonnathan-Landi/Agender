@@ -3,18 +3,6 @@
   const { csvEscape, escapeHtml, formatDate, normalizeDate, parseCsv } = window.NotasUtils;
   const { loadJson, saveJson } = window.NotasStorage;
 
-  const sampleRecord = {
-    id: crypto.randomUUID(),
-    requester: "Adriana Stumba Nauta",
-    reference: "",
-    requestDate: "2025-12-06",
-    requestedData: "Precipitacion\nTemperatura (maxima, minima, media)\nHumedad relativa (maxima, minima, media)\nRadiacion solar (media), caudales",
-    objective: "Desarrollar y evaluar un marco de modelacion de la demanda de agua por tipo de uso, que integre factores climaticos, socioeconomicos y temporales, con el proposito de caracterizar sus patrones de variabilidad.",
-    result: "Aceptado",
-    status: "Entregado",
-    deliveryDate: ""
-  };
-
   let records = [];
   let fields;
   let body;
@@ -50,11 +38,6 @@
     statusFilter = document.querySelector("#status-filter");
     csvFile = document.querySelector("#csv-file");
     records = loadJson(STORAGE_KEY, []);
-
-    if (records.length === 0) {
-      records = [sampleRecord];
-      saveRecords();
-    }
 
     document.querySelector("#new-request").addEventListener("click", () => openForm());
     document.querySelector("#export-csv").addEventListener("click", exportCsv);

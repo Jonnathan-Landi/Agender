@@ -51,6 +51,11 @@ def _connect() -> sqlite3.Connection:
         token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS user_data (
+        user_id INTEGER NOT NULL, data_key TEXT NOT NULL, value_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL, PRIMARY KEY(user_id, data_key),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""")
     return connection
 
 
