@@ -1,1 +1,1 @@
-{}
+{"main-capability":{"identifier":"main-capability","description":"Allows the main window served by Agender's local backend to call application commands.","remote":{"urls":["http://127.0.0.1:47831/*"]},"local":true,"windows":["main"],"permissions":["allow-check-for-update","allow-install-update"]}}

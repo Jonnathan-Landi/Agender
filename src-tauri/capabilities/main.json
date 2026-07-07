@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Allows the main window served by Agender's local backend to call application commands.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:47831/*"]
+  },
+  "permissions": [
+    "allow-check-for-update",
+    "allow-install-update"
+  ]
+}

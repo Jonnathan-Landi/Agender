@@ -55,17 +55,25 @@
   async function checkForUpdates() {
     const button = document.querySelector("#check-updates-button");
     const available = document.querySelector("#update-available");
+    const card = document.querySelector(".update-card");
     button.disabled = true;
+    button.textContent = "Buscar actualizaciones";
+    card.classList.remove("is-current");
     available.hidden = true;
     setUpdateMessage("Buscando actualizaciones...");
     try {
       const update = await tauriInvoke("check_for_update");
+      const checkedAt = formatLastCheck(new Date());
       if (!update) {
-        document.querySelector("#update-title").textContent = "Agender está actualizado";
-        setUpdateMessage("No hay actualizaciones disponibles.");
+        card.classList.add("is-current");
+        document.querySelector("#update-title").textContent = "¡Todo está actualizado!";
+        document.querySelector("#update-description").textContent = `Última comprobación: ${checkedAt}`;
+        button.textContent = "Buscar de nuevo";
+        setUpdateMessage("");
         return;
       }
       document.querySelector("#update-title").textContent = "Hay una actualización disponible";
+      document.querySelector("#update-description").textContent = `Última comprobación: ${checkedAt}`;
       document.querySelector("#update-version").textContent = `Versión ${update.version}`;
       document.querySelector("#update-date").textContent = update.date ? new Date(update.date).toLocaleDateString("es-CO") : "";
       document.querySelector("#update-notes").textContent = update.body || "Incluye mejoras y correcciones para Agender.";
@@ -76,6 +84,10 @@
     } finally {
       button.disabled = false;
     }
+  }
+
+  function formatLastCheck(date) {
+    return `hoy, ${date.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
   }
 
   async function installUpdate() {
