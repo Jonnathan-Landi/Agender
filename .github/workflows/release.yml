@@ -1,0 +1,50 @@
+name: Publicar actualización
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: packaging/requirements-build.txt
+
+      - name: Instalar dependencias del backend
+        run: python -m pip install -r packaging/requirements-build.txt
+
+      - name: Empaquetar backend local
+        shell: powershell
+        run: ./scripts/build-backend.ps1
+
+      - name: Preparar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cachear compilación Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Crear release, instalador y metadatos de actualización
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "Agender v__VERSION__"
+          releaseBody: "Nueva versión de Agender. Consulta los cambios incluidos en esta actualización."
+          releaseDraft: true
+          prerelease: false

@@ -1,0 +1,98 @@
+:root {
+  color-scheme: light;
+  --bg: #f3f3f3;
+  --shell: #f3f3f3;
+  --nav: #f3f3f3;
+  --surface: rgba(255, 255, 255, 0.76);
+  --acrylic: rgba(243, 243, 243, 0.78);
+  --acrylic-highlight: rgba(255, 255, 255, 0.62);
+  --panel: #ffffff;
+  --panel-soft: #f7f7f7;
+  --ink: #1b1b1b;
+  --muted: #606060;
+  --line: #e5e5e5;
+  --line-strong: #d1d1d1;
+  --accent: #0067c0;
+  --accent-strong: #005a9e;
+  --accent-soft: #e5f1fb;
+  --danger: #c42b1c;
+  --control: rgba(255, 255, 255, 0.84);
+  --subtle-hover: rgba(0, 0, 0, 0.045);
+  --subtle-pressed: rgba(0, 0, 0, 0.075);
+  --list-hover: #eeeeee;
+  --list-selected: #e6e6e6;
+  --text-on-accent: #ffffff;
+  --shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #202020;
+  --shell: #1f1f1f;
+  --nav: #202020;
+  --surface: rgba(45, 45, 45, 0.76);
+  --acrylic: rgba(32, 32, 32, 0.78);
+  --acrylic-highlight: rgba(255, 255, 255, 0.055);
+  --panel: #2b2b2b;
+  --panel-soft: #333333;
+  --ink: #f5f5f5;
+  --muted: #c7c7c7;
+  --line: #3d3d3d;
+  --line-strong: #555555;
+  --accent: #60cdff;
+  --accent-strong: #8bdcff;
+  --accent-soft: rgba(96, 205, 255, 0.18);
+  --danger: #ff99a4;
+  --control: rgba(58, 58, 58, 0.92);
+  --subtle-hover: rgba(255, 255, 255, 0.075);
+  --subtle-pressed: rgba(255, 255, 255, 0.105);
+  --list-hover: #383838;
+  --list-selected: #424242;
+  --text-on-accent: #00324a;
+  --shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(0, 103, 192, 0.08), transparent 34%),
+    var(--shell);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(96, 205, 255, 0.06), transparent 34%),
+    var(--shell);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.font-icon {
+  display: inline-grid;
+  place-items: center;
+  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}

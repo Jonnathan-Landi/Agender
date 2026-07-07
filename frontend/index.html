@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro hidrometeorológico</title>
+    <script>
+      (function () {
+        var theme = localStorage.getItem("agender.system.theme") || "system";
+        var dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="app-shell nav-expanded" id="app-shell">
+      <aside class="nav-pane" aria-label="Navegacion principal">
+        <div class="pane-top">
+          <button class="pane-toggle" type="button" id="pane-toggle" aria-label="Contraer navegacion" aria-expanded="true">
+            <span class="font-icon">&#xE700;</span>
+          </button>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" type="button" data-view="hydromet">
+            <span class="nav-icon" aria-hidden="true">
+              <span class="font-icon">&#xEC4A;</span>
+            </span>
+            <span class="nav-label">Registro hidrometeorológico</span>
+          </button>
+          <button class="nav-item" type="button" data-view="requests">
+            <span class="nav-icon" aria-hidden="true">
+              <span class="font-icon">&#xE82E;</span>
+            </span>
+            <span class="nav-label">Solicitud de datos</span>
+          </button>
+          <button class="nav-item" type="button" data-view="diary">
+            <span class="nav-icon" aria-hidden="true">
+              <span class="font-icon">&#xE70B;</span>
+            </span>
+            <span class="nav-label">Diario</span>
+          </button>
+          <button class="nav-item" type="button" data-view="agenda">
+            <span class="nav-icon" aria-hidden="true">
+              <span class="font-icon">&#xE787;</span>
+            </span>
+            <span class="nav-label">Agenda</span>
+          </button>
+        </nav>
+
+        <div class="nav-footer">
+          <button class="nav-item" type="button" id="license-admin-open" hidden>
+            <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE8F9;</span></span>
+            <span class="nav-label">Generar licencia</span>
+          </button>
+          <input id="license-authority-key" type="file" accept=".pem" hidden>
+          <button class="nav-item" type="button" id="login-open">
+            <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE77B;</span></span>
+            <span class="nav-label">Iniciar sesión</span>
+          </button>
+          <div class="account-popover" id="account-popover" role="dialog" aria-label="Cuenta" hidden>
+            <div class="account-popover-header">
+              <span class="account-popover-avatar font-icon" aria-hidden="true">&#xE77B;</span>
+              <span><strong id="account-popover-name"></strong><small id="account-popover-role"></small></span>
+            </div>
+            <button class="account-logout" type="button" id="account-logout">
+              <span class="font-icon" aria-hidden="true">&#xE8AC;</span>
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
+          <button class="nav-item" type="button" data-view="settings">
+            <span class="nav-icon" aria-hidden="true">
+              <span class="font-icon">&#xE713;</span>
+            </span>
+            <span class="nav-label">Configuracion</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="view" id="requests-view" aria-labelledby="requests-title">
+          <header class="toolbar">
+            <div>
+              <p class="eyebrow">Control y seguimiento</p>
+              <h1 id="requests-title">Solicitud de datos</h1>
+            </div>
+            <div class="toolbar-actions">
+              <button class="button secondary" type="button" id="export-csv">Exportar CSV</button>
+              <button class="button secondary" type="button" id="import-csv">Importar CSV</button>
+              <button class="button primary" type="button" id="new-request">Nueva solicitud</button>
+              <input class="visually-hidden" type="file" id="csv-file" accept=".csv,text/csv">
+            </div>
+          </header>
+
+          <section class="metrics" aria-label="Resumen de solicitudes">
+            <div class="metric">
+              <span>Total</span>
+              <strong id="metric-total">0</strong>
+            </div>
+            <div class="metric">
+              <span>Pendientes</span>
+              <strong id="metric-pending">0</strong>
+            </div>
+            <div class="metric">
+              <span>Aceptadas</span>
+              <strong id="metric-accepted">0</strong>
+            </div>
+            <div class="metric">
+              <span>Entregadas</span>
+              <strong id="metric-delivered">0</strong>
+            </div>
+          </section>
+
+          <section class="controls" aria-label="Filtros de solicitudes">
+            <label>
+              <span>Buscar</span>
+              <input type="search" id="search-input" placeholder="Solicitante, referencia, datos u objetivo">
+            </label>
+            <label>
+              <span>Solicitud</span>
+              <select id="request-filter">
+                <option value="">Todas</option>
+                <option>Aceptado</option>
+                <option>Rechazado</option>
+                <option>Pendiente</option>
+                <option>En revision</option>
+              </select>
+            </label>
+            <label>
+              <span>Estado</span>
+              <select id="status-filter">
+                <option value="">Todos</option>
+                <option>Recibido</option>
+                <option>En proceso</option>
+                <option>Entregado</option>
+                <option>Archivado</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="table-panel" aria-label="Tabla de solicitudes">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Solicitante</th>
+                    <th>Nro. Referencia</th>
+                    <th>Fecha solicitud</th>
+                    <th>Datos solicitados</th>
+                    <th>Objetivo de solicitud</th>
+                    <th>Solicitud</th>
+                    <th>Estado</th>
+                    <th>Fecha entrega</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="requests-body"></tbody>
+              </table>
+              <div class="empty-state" id="empty-state">
+                <strong>No hay solicitudes registradas</strong>
+                <span>Agrega la primera solicitud para comenzar el seguimiento.</span>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="diary-view" aria-labelledby="diary-title">
+          <header class="toolbar">
+            <div>
+              <p class="eyebrow">Planificador personal</p>
+              <h1 id="diary-title">Diario</h1>
+            </div>
+            <div class="toolbar-actions">
+              <button class="button secondary" type="button" id="diary-today">Hoy</button>
+              <button class="button primary" type="button" id="diary-new-task">Nueva tarea</button>
+            </div>
+          </header>
+
+          <section class="metrics diary-metrics" aria-label="Resumen del diario">
+            <div class="metric">
+              <span>Tareas del dia</span>
+              <strong id="diary-total">0</strong>
+            </div>
+            <div class="metric">
+              <span>Finalizadas</span>
+              <strong id="diary-done">0</strong>
+            </div>
+            <div class="metric">
+              <span>En proceso</span>
+              <strong id="diary-active">0</strong>
+            </div>
+            <div class="metric">
+              <span>Avance</span>
+              <strong id="diary-progress">0%</strong>
+            </div>
+          </section>
+
+          <section class="diary-layout">
+            <div class="diary-main">
+              <section class="controls diary-controls" aria-label="Filtros del diario">
+                <label>
+                  <span>Dia</span>
+                  <input type="date" id="diary-date">
+                </label>
+                <label>
+                  <span>Estado</span>
+                  <select id="diary-status-filter">
+                    <option value="">Todos</option>
+                    <option>Pendiente</option>
+                    <option>En proceso</option>
+                    <option>En espera</option>
+                    <option>Finalizada</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Buscar</span>
+                  <input type="search" id="diary-search" placeholder="Tarea, categoria o nota">
+                </label>
+              </section>
+
+              <section class="diary-task-panel" aria-label="Tareas del diario">
+                <div class="diary-list-head">
+                  <div>
+                    <span class="panel-eyebrow">Lista de trabajo</span>
+                    <strong id="diary-list-title">Hoy</strong>
+                  </div>
+                  <span id="diary-list-count">0 tareas</span>
+                </div>
+                <div class="diary-task-list" id="diary-task-list"></div>
+                <div class="empty-state" id="diary-empty-state">
+                  <strong>No hay tareas para este dia</strong>
+                  <span>Crea una tarea para organizar tu jornada.</span>
+                </div>
+              </section>
+            </div>
+
+            <aside class="diary-side-panel" aria-label="Foco del dia">
+              <section class="diary-focus">
+                <span class="panel-eyebrow">Foco del dia</span>
+                <textarea id="diary-focus-note" rows="5" placeholder="Define el resultado principal que quieres lograr hoy"></textarea>
+              </section>
+
+              <section class="diary-distribution">
+                <span class="panel-eyebrow">Estado</span>
+                <div class="diary-state-row">
+                  <span>Pendiente</span>
+                  <strong id="diary-count-pending">0</strong>
+                </div>
+                <div class="diary-state-row">
+                  <span>En proceso</span>
+                  <strong id="diary-count-progress">0</strong>
+                </div>
+                <div class="diary-state-row">
+                  <span>En espera</span>
+                  <strong id="diary-count-waiting">0</strong>
+                </div>
+                <div class="diary-state-row">
+                  <span>Finalizada</span>
+                  <strong id="diary-count-done">0</strong>
+                </div>
+              </section>
+            </aside>
+          </section>
+        </section>
+
+        <section class="view" id="agenda-view" aria-labelledby="agenda-title">
+          <header class="agenda-toolbar">
+            <div class="agenda-title-group">
+              <p class="eyebrow">Calendario de trabajo</p>
+              <h1 id="agenda-title">Agenda</h1>
+            </div>
+            <div class="agenda-month-controls" aria-label="Navegacion de mes">
+              <button class="icon-button" type="button" id="agenda-prev" aria-label="Mes anterior">
+                <span class="font-icon">&#xE76B;</span>
+              </button>
+              <strong id="agenda-month-title">Mes</strong>
+              <button class="icon-button" type="button" id="agenda-next" aria-label="Mes siguiente">
+                <span class="font-icon">&#xE76C;</span>
+              </button>
+            </div>
+            <div class="toolbar-actions">
+              <button class="button secondary" type="button" id="agenda-today">Hoy</button>
+              <button class="button primary" type="button" id="agenda-new-event">Nuevo evento</button>
+            </div>
+          </header>
+
+          <section class="agenda-workspace">
+            <aside class="agenda-side" aria-label="Calendario rapido">
+              <div class="mini-calendar">
+                <div class="mini-calendar-head">
+                  <strong id="agenda-mini-title">Mes</strong>
+                  <div>
+                    <button class="agenda-mini-nav" type="button" id="agenda-mini-prev" aria-label="Mes anterior">
+                      <span class="font-icon">&#xE76B;</span>
+                    </button>
+                    <button class="agenda-mini-nav" type="button" id="agenda-mini-next" aria-label="Mes siguiente">
+                      <span class="font-icon">&#xE76C;</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="mini-calendar-weekdays" aria-hidden="true">
+                  <span>L</span>
+                  <span>M</span>
+                  <span>M</span>
+                  <span>J</span>
+                  <span>V</span>
+                  <span>S</span>
+                  <span>D</span>
+                </div>
+                <div class="mini-calendar-grid" id="agenda-mini-grid"></div>
+              </div>
+
+              <div class="agenda-month-summary">
+                <span class="panel-eyebrow">Resumen del mes</span>
+                <div class="agenda-summary-row">
+                  <span>Eventos</span>
+                  <strong id="agenda-summary-total">0</strong>
+                </div>
+                <div class="agenda-summary-row">
+                  <span>Reuniones</span>
+                  <strong id="agenda-summary-meetings">0</strong>
+                </div>
+                <div class="agenda-summary-row">
+                  <span>Con ubicacion</span>
+                  <strong id="agenda-summary-location">0</strong>
+                </div>
+              </div>
+            </aside>
+
+            <section class="agenda-shell" aria-label="Calendario mensual">
+              <div class="agenda-weekdays" aria-hidden="true">
+                <span>Lun</span>
+                <span>Mar</span>
+                <span>Mie</span>
+                <span>Jue</span>
+                <span>Vie</span>
+                <span>Sab</span>
+                <span>Dom</span>
+              </div>
+              <div class="agenda-grid" id="agenda-grid"></div>
+            </section>
+          </section>
+        </section>
+
+        <section class="view hydromet-view active" id="hydromet-view" aria-labelledby="hydromet-title">
+          <header class="toolbar hydromet-header">
+            <div class="hydromet-title-group">
+              <h1 id="hydromet-title">Registro hidrometeorológico</h1>
+              <div class="hydromet-source-switch" role="radiogroup" aria-label="Fuente de los registros">
+                <button class="source-option active" type="button" role="radio" aria-checked="true" data-hydromet-source="raw">Datos crudos</button>
+                <button class="source-option" type="button" role="radio" aria-checked="false" data-hydromet-source="quality">Control de calidad</button>
+              </div>
+              <button class="connection-badge server" id="hydromet-connection-status" type="button" disabled>Archivos locales · sincronizando…</button>
+            </div>
+            <section class="hydromet-summary" aria-label="Resumen hidromet">
+              <div>
+                <span>Estaciones</span>
+                <strong id="hydromet-total">0</strong>
+              </div>
+              <div>
+                <span>Cuencas</span>
+                <strong id="hydromet-basins">0</strong>
+              </div>
+              <div>
+                <span>Actualizadas</span>
+                <strong id="hydromet-updated">0</strong>
+              </div>
+            </section>
+            <section class="hydromet-summary map-type-summary" aria-label="Estaciones por tipo">
+              <div>
+                <span>Estaciones</span>
+                <strong id="hydromet-map-total">0</strong>
+              </div>
+              <div>
+                <span>MET</span>
+                <strong id="hydromet-map-met">0</strong>
+              </div>
+              <div>
+                <span>LIM</span>
+                <strong id="hydromet-map-lim">0</strong>
+              </div>
+              <div>
+                <span>PLU</span>
+                <strong id="hydromet-map-plu">0</strong>
+              </div>
+              <div>
+                <span>MLI</span>
+                <strong id="hydromet-map-mli">0</strong>
+              </div>
+              <div>
+                <span>LPL</span>
+                <strong id="hydromet-map-lpl">0</strong>
+              </div>
+            </section>
+            <div class="toolbar-actions">
+              <button class="button secondary" type="button" id="hydromet-export">Exportar CSV</button>
+            </div>
+          </header>
+
+          <section class="hydromet-workbench">
+            <div class="hydromet-commandbar">
+              <div class="tabs" role="tablist" aria-label="Vista del registro hidromet">
+                <button class="tab active" type="button" role="tab" aria-selected="true" data-hydromet-tab="table">Tabla</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-hydromet-tab="map">Mapa</button>
+              </div>
+              <div class="hydromet-tools">
+                <div class="hydromet-filter-menu" id="hydromet-filter-menu">
+                  <button class="button secondary hydromet-filter-toggle" type="button" id="hydromet-filter-toggle" aria-expanded="false" aria-controls="hydromet-filter-panel">
+                    <span class="font-icon" aria-hidden="true">&#xE71C;</span>
+                    <span>Filtro</span>
+                  </button>
+                  <div class="hydromet-filter-panel" id="hydromet-filter-panel">
+                    <div class="multi-select" data-hydromet-filter="basin">
+                      <span class="multi-select-label">Cuenca</span>
+                      <button class="multi-select-button" type="button" aria-expanded="false">
+                        <span class="multi-select-summary">Todas</span>
+                        <span class="multi-select-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+                      </button>
+                      <div class="multi-select-flyout" role="group" aria-label="Filtrar por cuenca"></div>
+                    </div>
+                    <div class="multi-select" data-hydromet-filter="type">
+                      <span class="multi-select-label">Tipo</span>
+                      <button class="multi-select-button" type="button" aria-expanded="false">
+                        <span class="multi-select-summary">Todos</span>
+                        <span class="multi-select-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+                      </button>
+                      <div class="multi-select-flyout" role="group" aria-label="Filtrar por tipo"></div>
+                    </div>
+                    <fieldset class="linked-filter-group">
+                      <legend><span class="font-icon" aria-hidden="true">&#xE9D2;</span> Completitud</legend>
+                      <div class="linked-filter-fields">
+                        <div class="multi-select" data-hydromet-filter="variable">
+                          <span class="multi-select-label">Variable</span>
+                          <button class="multi-select-button" type="button" aria-expanded="false">
+                            <span class="multi-select-summary">Todas las variables</span>
+                            <span class="multi-select-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+                          </button>
+                          <div class="multi-select-flyout" role="group" aria-label="Filtrar por variable"></div>
+                        </div>
+                        <div class="multi-select" data-hydromet-filter="completeness">
+                          <span class="multi-select-label">Porcentaje de completitud</span>
+                          <button class="multi-select-button" type="button" aria-expanded="false">
+                            <span class="multi-select-summary">Todos</span>
+                            <span class="multi-select-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+                          </button>
+                          <div class="multi-select-flyout" role="group" aria-label="Filtrar por porcentaje de completitud"></div>
+                        </div>
+                      </div>
+                      <span class="linked-filter-hint">El porcentaje se calcula con las variables seleccionadas.</span>
+                    </fieldset>
+                  </div>
+                </div>
+                <label class="hydromet-search">
+                  <span class="visually-hidden">Buscar estaciones</span>
+                  <span class="hydromet-search-box">
+                    <input type="search" id="hydromet-search" placeholder="Buscar por código, tipo o subcuenca" autocomplete="off">
+                    <span class="font-icon hydromet-search-icon" aria-hidden="true">&#xE721;</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div class="hydromet-panel active" id="hydromet-table-panel">
+              <div class="table-wrap hydromet-table-wrap">
+                <table class="hydromet-table">
+                  <thead>
+                    <tr>
+                      <th>Codigo</th>
+                      <th>Tipo</th>
+                      <th>X_UTM</th>
+                      <th>Y_UTM</th>
+                      <th>Z</th>
+                        <th>Subcuenca</th>
+                      <th>Primer registro</th>
+                      <th>Último registro</th>
+                      <th>Actualizada</th>
+                      <th>Completitud</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hydromet-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="hydromet-panel" id="hydromet-map-panel">
+              <div class="map-layout">
+                <section class="basin-map-card" aria-label="Mapa de cuencas">
+                  <div class="map-controls" aria-label="Controles del mapa">
+                    <button type="button" id="map-zoom-in" title="Acercar" aria-label="Acercar mapa">
+                      <span class="font-icon" aria-hidden="true">&#xE8A3;</span>
+                    </button>
+                    <button type="button" id="map-reset-view" title="Restaurar vista" aria-label="Restaurar vista original">
+                      <span class="font-icon" aria-hidden="true">&#xE72C;</span>
+                    </button>
+                  </div>
+                  <aside class="map-legend" aria-label="Leyenda de tipos de estación">
+                    <strong>Tipo de estación</strong>
+                    <div class="map-legend-items">
+                      <span><i class="met"></i><b>MET</b> Meteorológica</span>
+                      <span><i class="lim"></i><b>LIM</b> Limnimétrica</span>
+                      <span><i class="plu"></i><b>PLU</b> Pluviométrica</span>
+                      <span title="Meteorológica–limnimétrica"><i class="mli"></i><b>MLI</b> Met.–lim.</span>
+                      <span title="Limnipluviométrica"><i class="lpl"></i><b>LPL</b> Lim.–pluv.</span>
+                      <span><i class="cluster"></i><b>Grupo</b> Estaciones cercanas</span>
+                    </div>
+                  </aside>
+                  <svg class="basin-map" viewBox="0 0 900 620" role="img" aria-labelledby="basin-map-title">
+                    <title id="basin-map-title">Mapa de subcuencas y estaciones</title>
+                    <g id="subcuencas-layer"></g>
+                    <g id="hydromet-map-points"></g>
+                  </svg>
+                  <aside class="map-station-popup" id="map-station-popup" aria-live="polite" hidden>
+                    <button class="map-popup-close" type="button" id="map-popup-close" aria-label="Cerrar información">×</button>
+                    <header class="map-popup-header">
+                      <span class="map-popup-icon" aria-hidden="true"><span class="font-icon">&#xE9D2;</span></span>
+                      <div>
+                        <span class="panel-eyebrow">Detalle de la estación</span>
+                        <strong class="map-popup-station" id="map-popup-station">-</strong>
+                        <span class="map-popup-meta" id="map-popup-meta">-</span>
+                      </div>
+                    </header>
+                    <section class="map-popup-overall" aria-label="Completitud general">
+                      <div>
+                        <span>Completitud general</span>
+                        <strong id="map-popup-completeness">Sin registro</strong>
+                      </div>
+                      <div class="map-progress-track"><span id="map-popup-progress"></span></div>
+                    </section>
+                    <div class="map-popup-list-head">
+                      <div>
+                        <strong>Variables</strong>
+                        <span id="map-popup-scope">Todas las variables</span>
+                      </div>
+                      <span class="map-popup-count" id="map-popup-variable-count">0</span>
+                    </div>
+                    <div class="map-variable-list" id="map-popup-variables"></div>
+                  </aside>
+                </section>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view settings-view" id="settings-view" aria-labelledby="settings-title">
+          <aside class="settings-pane" aria-label="Opciones de configuracion">
+            <div class="settings-head">
+              <button class="settings-back" type="button" data-view="hydromet" aria-label="Volver">
+                <span class="font-icon">&#xE72B;</span>
+              </button>
+              <strong>Configuracion</strong>
+            </div>
+
+            <label class="settings-search">
+              <input type="search" placeholder="Buscar una opcion de configuracion">
+              <span class="font-icon" aria-hidden="true">&#xE721;</span>
+            </label>
+
+            <nav class="settings-nav">
+              <button class="settings-nav-item active" type="button" data-settings-page="system">
+                <span class="settings-nav-icon"><span class="font-icon">&#xE770;</span></span>
+                <span>Sistema</span>
+              </button>
+              <button class="settings-nav-item" type="button" data-settings-page="paths">
+                <span class="settings-nav-icon paths-icon"><span class="font-icon">&#xED25;</span></span>
+                <span>Rutas</span>
+              </button>
+              <button class="settings-nav-item" type="button" data-settings-page="about">
+                <span class="settings-nav-icon about-icon"><span class="font-icon">&#xE946;</span></span>
+                <span>Información</span>
+              </button>
+              <button class="settings-nav-item" type="button" data-settings-page="updates">
+                <span class="settings-nav-icon updates-icon"><span class="font-icon">&#xE895;</span></span>
+                <span>Actualizaciones</span>
+              </button>
+            </nav>
+          </aside>
+
+          <div class="settings-content">
+            <section class="settings-page active" data-settings-panel="system">
+              <h1 id="settings-title">Sistema</h1>
+
+              <section class="settings-card">
+                <span class="settings-card-icon" aria-hidden="true">
+                  <span class="font-icon">&#xE793;</span>
+                </span>
+                <div>
+                  <h2>Tema</h2>
+                  <p>Ajusta la apariencia de la aplicacion.</p>
+                </div>
+                <div class="segmented" role="radiogroup" aria-label="Tema">
+                  <button class="segment active" type="button" data-theme-option="system">Seguir sistema</button>
+                  <button class="segment" type="button" data-theme-option="light">Claro</button>
+                  <button class="segment" type="button" data-theme-option="dark">Oscuro</button>
+                </div>
+              </section>
+            </section>
+
+            <section class="settings-page" data-settings-panel="paths">
+              <h1>Rutas</h1>
+              <p class="settings-page-description">Selecciona las carpetas principales donde se encuentran los archivos.</p>
+
+              <section class="settings-card path-settings-card">
+                <span class="settings-card-icon" aria-hidden="true"><span class="font-icon">&#xE8B7;</span></span>
+                <div>
+                  <h2>Datos crudos</h2>
+                  <p>Carpeta con los archivos originales, antes del procesamiento.</p>
+                  <div class="path-picker">
+                    <input id="raw-data-path" type="text" placeholder="Selecciona o escribe la ruta de la carpeta">
+                    <button class="button secondary" type="button" data-browse-path="raw-data-path">Examinar</button>
+                  </div>
+                  <label class="subfolder-option">
+                    <input id="raw-include-subfolders" type="checkbox" checked>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                    <span><strong>Incluir subcarpetas</strong><small>Lee también los archivos dentro de Histórico, HOBO y otras carpetas.</small></span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="settings-card path-settings-card">
+                <span class="settings-card-icon" aria-hidden="true"><span class="font-icon">&#xE8B7;</span></span>
+                <div>
+                  <h2>Datos con control de calidad</h2>
+                  <p>Carpeta con los archivos revisados y aprobados.</p>
+                  <div class="path-picker">
+                    <input id="quality-data-path" type="text" placeholder="Selecciona o escribe la ruta de la carpeta">
+                    <button class="button secondary" type="button" data-browse-path="quality-data-path">Examinar</button>
+                  </div>
+                  <label class="subfolder-option">
+                    <input id="quality-include-subfolders" type="checkbox" checked>
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                    <span><strong>Incluir subcarpetas</strong><small>Lee también los archivos ubicados en carpetas internas.</small></span>
+                  </label>
+                </div>
+              </section>
+              <p class="settings-message" id="paths-settings-message" role="status" aria-live="polite"></p>
+            </section>
+
+            <section class="settings-page" data-settings-panel="about">
+              <h1>Acerca de</h1>
+              <section class="about-card">
+                <div class="about-product">
+                  <span class="about-logo" aria-hidden="true">A</span>
+                  <div><h2 id="about-product-name">Agender</h2><p>Versión: <strong id="about-version">—</strong></p></div>
+                </div>
+                <dl class="about-details">
+                  <div><dt>Responsable</dt><dd>Jonnathan Landi</dd></div>
+                  <div><dt>Developer</dt><dd>Jonnathan Landi</dd></div>
+                </dl>
+              </section>
+            </section>
+
+            <section class="settings-page" data-settings-panel="updates">
+              <h1>Actualizaciones</h1>
+              <section class="update-card" aria-live="polite">
+                <div class="update-hero">
+                  <span class="update-icon font-icon" id="update-icon" aria-hidden="true">&#xE895;</span>
+                  <div>
+                    <h2 id="update-title">Busca nuevas versiones de Agender</h2>
+                    <p id="update-description">Versión instalada: <strong id="update-current-version">—</strong></p>
+                  </div>
+                  <button class="button primary" id="check-updates-button" type="button">Buscar actualizaciones</button>
+                </div>
+                <div class="update-available" id="update-available" hidden>
+                  <div><strong id="update-version"></strong><span id="update-date"></span></div>
+                  <p id="update-notes"></p>
+                  <button class="button primary" id="install-update-button" type="button">Descargar e instalar</button>
+                </div>
+                <p class="settings-message" id="update-message" role="status"></p>
+              </section>
+            </section>
+
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="diary-task-dialog">
+      <form method="dialog" class="request-form" id="diary-task-form">
+        <header>
+          <div>
+            <p class="eyebrow">Planificador diario</p>
+            <h2 id="diary-dialog-title">Nueva tarea</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="button" data-dialog-close="diary-task-dialog" aria-label="Cerrar">x</button>
+        </header>
+
+        <input type="hidden" id="diary-task-id">
+        <div class="form-grid">
+          <label class="wide">
+            <span>Tarea</span>
+            <input id="diary-task-title" required placeholder="Describe una accion concreta">
+          </label>
+          <label>
+            <span>Fecha registro</span>
+            <input id="diary-task-date" type="date" required>
+          </label>
+          <label>
+            <span>Fecha final</span>
+            <input id="diary-task-due-date" type="date">
+          </label>
+          <label>
+            <span>Categoria</span>
+            <select id="diary-task-category">
+              <option>Desarrollo y Programacion</option>
+              <option>Procesamiento de Datos</option>
+              <option>Gestion Documental</option>
+              <option>Contratacion Publica</option>
+              <option>Proyectos Institucionales</option>
+              <option>Solicitudes de Informacion</option>
+            </select>
+          </label>
+          <label>
+            <span>Prioridad</span>
+            <select id="diary-task-priority">
+              <option>Alta</option>
+              <option selected>Media</option>
+              <option>Baja</option>
+            </select>
+          </label>
+          <label>
+            <span>Estado</span>
+            <select id="diary-task-status">
+              <option>Pendiente</option>
+              <option>En proceso</option>
+              <option>En espera</option>
+              <option>Finalizada</option>
+            </select>
+          </label>
+          <label>
+            <span>Avance (%)</span>
+            <input id="diary-task-progress" type="number" min="0" max="100" step="5" value="0">
+          </label>
+          <label class="wide">
+            <span>Notas</span>
+            <textarea id="diary-task-notes" rows="4" placeholder="Contexto, dependencias o siguiente paso"></textarea>
+          </label>
+        </div>
+
+        <footer>
+          <button class="button secondary" value="cancel" type="button" data-dialog-close="diary-task-dialog">Cancelar</button>
+          <button class="button primary" value="save" type="submit">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="agenda-event-dialog">
+      <form method="dialog" class="request-form" id="agenda-event-form">
+        <header>
+          <div>
+            <p class="eyebrow">Agenda</p>
+            <h2 id="agenda-dialog-title">Nuevo evento</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="button" data-dialog-close="agenda-event-dialog" aria-label="Cerrar">x</button>
+        </header>
+
+        <input type="hidden" id="agenda-event-id">
+        <div class="form-grid">
+          <label class="wide">
+            <span>Evento</span>
+            <input id="agenda-event-title" required placeholder="Reunion, entrega, actividad o recordatorio">
+          </label>
+          <label>
+            <span>Fecha</span>
+            <input id="agenda-event-date" type="date" required>
+          </label>
+          <label>
+            <span>Hora de inicio</span>
+            <input id="agenda-event-start-time" type="time">
+          </label>
+          <label>
+            <span>Hora de finalizacion</span>
+            <input id="agenda-event-end-time" type="time">
+          </label>
+          <label>
+            <span>Categoria</span>
+            <select id="agenda-event-category">
+              <option>Reunion</option>
+              <option>Entrega</option>
+              <option>Revision</option>
+              <option>Tramite</option>
+              <option>Recordatorio</option>
+              <option>Personal</option>
+            </select>
+          </label>
+          <label>
+            <span>Estado</span>
+            <select id="agenda-event-status">
+              <option>Programado</option>
+              <option>En curso</option>
+              <option>Finalizado</option>
+              <option>Cancelado</option>
+            </select>
+          </label>
+          <label class="wide">
+            <span>Ubicacion</span>
+            <input id="agenda-event-location" placeholder="Direccion, edificio, sala o enlace de ubicacion">
+          </label>
+          <label class="wide">
+            <span>Notas</span>
+            <textarea id="agenda-event-notes" rows="4" placeholder="Lugar, enlace, responsables o detalles importantes"></textarea>
+          </label>
+        </div>
+
+        <footer>
+          <button class="button secondary agenda-delete-button" value="button" type="button" id="agenda-delete-event">Borrar</button>
+          <button class="button secondary" value="button" type="button" id="agenda-open-maps">Abrir en Maps</button>
+          <button class="button secondary" value="cancel" type="button" data-dialog-close="agenda-event-dialog">Cancelar</button>
+          <button class="button primary" value="save" type="submit">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="request-dialog">
+      <form method="dialog" class="request-form" id="request-form">
+        <header>
+          <div>
+            <p class="eyebrow">Solicitud</p>
+            <h2 id="dialog-title">Nueva solicitud</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="button" data-dialog-close="request-dialog" aria-label="Cerrar">x</button>
+        </header>
+
+        <input type="hidden" id="record-id">
+        <div class="form-grid">
+          <label>
+            <span>Solicitante</span>
+            <input id="requester" required>
+          </label>
+          <label>
+            <span>Nro. Referencia</span>
+            <input id="reference">
+          </label>
+          <label>
+            <span>Fecha solicitud</span>
+            <input id="request-date" type="date" required>
+          </label>
+          <label>
+            <span>Fecha entrega</span>
+            <input id="delivery-date" type="date">
+          </label>
+          <label>
+            <span>Solicitud</span>
+            <select id="request-result">
+              <option>Aceptado</option>
+              <option>Pendiente</option>
+              <option>En revision</option>
+              <option>Rechazado</option>
+            </select>
+          </label>
+          <label>
+            <span>Estado</span>
+            <select id="status">
+              <option>Recibido</option>
+              <option>En proceso</option>
+              <option>Entregado</option>
+              <option>Archivado</option>
+            </select>
+          </label>
+          <label class="wide">
+            <span>Datos solicitados</span>
+            <textarea id="requested-data" rows="4" required></textarea>
+          </label>
+          <label class="wide">
+            <span>Objetivo de solicitud</span>
+            <textarea id="request-objective" rows="5" required></textarea>
+          </label>
+        </div>
+
+        <footer>
+          <button class="button secondary" value="cancel" type="button" data-dialog-close="request-dialog">Cancelar</button>
+          <button class="button primary" value="save" type="submit">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="login-dialog" class="login-dialog" aria-labelledby="login-title">
+      <form class="login-form" id="login-form">
+        <header class="login-header">
+          <span class="login-avatar font-icon" aria-hidden="true">&#xE77B;</span>
+          <div><h2 id="login-title">Iniciar sesión</h2><p>Ingresa tus credenciales para continuar.</p></div>
+          <button class="login-close" type="button" id="login-close" aria-label="Cerrar">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1l10 10M11 1 1 11" /></svg>
+          </button>
+        </header>
+        <div class="login-fields">
+          <label><span>Usuario</span><input id="login-username" name="username" type="text" autocomplete="username" required autofocus></label>
+          <label>
+            <span>Contraseña</span>
+            <span class="password-field">
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+              <button type="button" id="login-toggle-password" aria-label="Mostrar contraseña" title="Mostrar contraseña"><span class="font-icon" aria-hidden="true">&#xE890;</span></button>
+            </span>
+          </label>
+          <p class="login-message" id="login-message" role="status" aria-live="polite"></p>
+          <label class="license-picker" id="license-picker" hidden>
+            <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+            <span>Seleccionar licencia</span>
+            <input id="login-license" type="file" accept=".json,.license.json,application/json" hidden>
+          </label>
+        </div>
+        <footer>
+          <button class="button secondary" type="button" id="login-cancel">Cancelar</button>
+          <button class="button primary" type="submit">Continuar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="password-change-dialog" class="login-dialog" aria-labelledby="password-change-title">
+      <form class="login-form" id="password-change-form">
+        <header class="login-header"><span class="login-avatar font-icon" aria-hidden="true">&#xE72E;</span><div><h2 id="password-change-title">Crea tu contraseña</h2><p>La clave temporal se descartará y esta contraseña quedará únicamente en este equipo.</p></div></header>
+        <div class="login-fields">
+          <label><span>Nueva contraseña</span><input id="new-password" type="password" minlength="10" required></label>
+          <label><span>Confirmar contraseña</span><input id="confirm-password" type="password" minlength="10" required></label>
+          <p class="login-message" id="password-change-message" role="status"></p>
+        </div>
+        <footer><button class="button primary" type="submit">Guardar contraseña</button></footer>
+      </form>
+    </dialog>
+
+    <dialog id="license-admin-dialog" class="login-dialog license-admin-dialog" aria-labelledby="license-admin-title">
+      <form class="login-form" id="license-admin-form">
+        <header class="login-header"><span class="login-avatar font-icon" aria-hidden="true">&#xE8F9;</span><div><h2 id="license-admin-title">Generar licencia</h2><p>Define el propietario, acceso temporal y módulos habilitados.</p></div><button class="login-close" type="button" id="license-admin-close" aria-label="Cerrar"><svg viewBox="0 0 12 12"><path d="M1 1l10 10M11 1 1 11"/></svg></button></header>
+        <div class="login-fields">
+          <label><span>Nombres</span><input name="fullName" required></label>
+          <label><span>Usuario</span><input name="username" required></label>
+          <label><span>Clave temporal</span><input name="temporaryPassword" type="password" minlength="10" required></label>
+          <label><span>Identificador</span><input name="licenseId" placeholder="CLIENTE-001" required></label>
+          <fieldset class="license-permissions"><legend>Permisos</legend>
+            <label class="license-permission-row">
+              <input type="checkbox" name="modules" value="hydromet">
+              <span class="license-permission-check" aria-hidden="true">✓</span>
+              <span class="license-permission-icon font-icon" aria-hidden="true">&#xEC4A;</span>
+              <span><strong>Registro hidrometeorológico</strong><small>Incluye Viewer, datos crudos, control de calidad y configuración de rutas.</small></span>
+            </label>
+            <label class="license-permission-row">
+              <input type="checkbox" name="modules" value="requests">
+              <span class="license-permission-check" aria-hidden="true">✓</span>
+              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE82E;</span>
+              <span><strong>Solicitud de datos</strong><small>Registro, seguimiento e importación de solicitudes.</small></span>
+            </label>
+            <label class="license-permission-row">
+              <input type="checkbox" name="modules" value="diary">
+              <span class="license-permission-check" aria-hidden="true">✓</span>
+              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE70B;</span>
+              <span><strong>Diario</strong><small>Tareas, notas de enfoque y planificación diaria.</small></span>
+            </label>
+            <label class="license-permission-row">
+              <input type="checkbox" name="modules" value="agenda">
+              <span class="license-permission-check" aria-hidden="true">✓</span>
+              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE787;</span>
+              <span><strong>Agenda</strong><small>Calendario y administración de eventos.</small></span>
+            </label>
+          </fieldset><p class="login-message" id="license-admin-message"></p>
+        </div><footer><button class="button secondary" type="button" id="license-admin-cancel">Cancelar</button><button class="button primary" type="submit">Generar archivo</button></footer>
+      </form>
+    </dialog>
+
+    <script src="js/subcuencas-data.js"></script>
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/storage.js"></script>
+    <script src="js/core/theme.js"></script>
+    <script src="js/core/settings.js"></script>
+    <script src="js/core/navigation.js"></script>
+    <script src="js/core/login.js"></script>
+    <script src="js/core/license-admin.js"></script>
+    <script src="js/features/requests.js"></script>
+    <script src="js/features/diary.js"></script>
+    <script src="js/features/agenda.js"></script>
+    <div class="station-context-menu" id="station-context-menu" role="menu" hidden>
+      <div class="station-context-heading">
+        <span class="station-context-station-icon font-icon" aria-hidden="true">&#xE80F;</span>
+        <span>
+          <strong class="station-context-label"></strong>
+          <small>Estación hidrometeorológica</small>
+        </span>
+      </div>
+      <div class="station-context-separator"></div>
+      <button type="button" role="menuitem" data-viewer-action="open">
+        <span class="station-context-action-icon font-icon" aria-hidden="true">&#xE890;</span>
+        <span class="station-context-action-copy">
+          <strong>Viewer</strong>
+          <small>Abrir series temporales</small>
+        </span>
+        <span class="station-context-chevron" aria-hidden="true">›</span>
+      </button>
+    </div>
+
+    <div class="station-viewer-modal" id="station-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="station-viewer-title" hidden>
+      <section class="station-viewer-window">
+        <header>
+          <strong id="station-viewer-title">Viewer</strong>
+          <div class="station-viewer-window-controls">
+            <button type="button" id="station-viewer-close" class="station-viewer-close" aria-label="Cerrar Viewer" title="Cerrar">
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1l10 10M11 1 1 11" /></svg>
+            </button>
+          </div>
+        </header>
+        <iframe id="station-viewer-frame" title="Viewer de series temporales" src="about:blank"></iframe>
+      </section>
+    </div>
+
+    <script src="js/features/viewer.js"></script>
+    <script src="js/features/hydromet-map.js"></script>
+    <script src="js/features/hydromet.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

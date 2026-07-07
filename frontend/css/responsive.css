@@ -1,0 +1,234 @@
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .app-shell.nav-expanded {
+    grid-template-columns: minmax(220px, 78vw) minmax(0, 1fr);
+  }
+
+  .nav-pane {
+    padding: 8px;
+  }
+
+  .workspace {
+    padding: 18px 14px;
+  }
+
+  .toolbar,
+  .agenda-toolbar,
+  .request-form header,
+  .request-form footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agenda-toolbar {
+    display: flex;
+  }
+
+  .agenda-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .agenda-side {
+    grid-template-columns: minmax(220px, 320px) minmax(220px, 1fr);
+  }
+
+  .agenda-month-controls {
+    justify-content: space-between;
+  }
+
+  .agenda-month-controls strong {
+    min-width: 0;
+    font-size: 1.15rem;
+  }
+
+  .agenda-shell {
+    overflow: auto;
+  }
+
+  .agenda-grid,
+  .agenda-weekdays {
+    min-width: 900px;
+  }
+
+  .agenda-grid {
+    min-height: 680px;
+  }
+
+  .mini-calendar-grid {
+    max-width: 300px;
+  }
+
+  .toolbar-actions {
+    justify-content: stretch;
+  }
+
+  .toolbar-actions .button,
+  .request-form footer .button {
+    width: 100%;
+  }
+
+  .hydromet-header {
+    display: flex;
+  }
+
+  .hydromet-title-group {
+    width: 100%;
+  }
+
+  .hydromet-title-group h1 {
+    width: 100%;
+  }
+
+  .hydromet-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .hydromet-summary > div {
+    justify-content: center;
+    padding: 0 6px;
+  }
+
+  .metrics,
+  .controls,
+  .diary-layout,
+  .diary-controls,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diary-task {
+    grid-template-columns: 1fr;
+  }
+
+  .diary-task-controls {
+    grid-template-columns: minmax(0, 1fr) 52px;
+  }
+
+  .diary-task-list {
+    max-height: none;
+  }
+
+  .table-wrap {
+    max-height: none;
+  }
+
+  .settings-view.active {
+    grid-template-columns: 1fr;
+    margin: -18px -14px;
+  }
+
+  .settings-pane {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .settings-content {
+    padding: 28px 18px;
+  }
+
+  .settings-card {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .segmented {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+
+  .segment {
+    flex: 1 1 140px;
+  }
+
+  .path-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-commandbar,
+  .hydromet-filter-panel,
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hydromet-filter-toggle,
+  .hydromet-search {
+    width: 100%;
+  }
+
+  .hydromet-filter-panel {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .multi-select-flyout {
+    position: static;
+    width: 100%;
+    margin-top: 5px;
+  }
+
+  .linked-filter-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1;
+  }
+
+  .hydromet-table-wrap,
+  .map-layout {
+    max-height: none;
+  }
+
+  .map-layout {
+    height: auto;
+    min-height: 0;
+  }
+
+  .basin-map {
+    height: auto;
+    min-height: 360px;
+  }
+
+  .map-legend {
+    bottom: 12px;
+    left: 12px;
+  }
+
+}
+
+@media (max-width: 620px) {
+  .map-legend {
+    width: min(250px, calc(100% - 24px));
+  }
+
+  .map-legend-items {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 0;
+  }
+
+  .hydromet-summary > div:nth-child(3) {
+    border-left: 0;
+  }
+
+  .agenda-side {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,246 @@
+.diary-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.diary-main {
+  min-width: 0;
+}
+
+.diary-controls {
+  grid-template-columns: 180px 180px minmax(220px, 1fr);
+}
+
+.diary-task-panel,
+.diary-side-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.diary-task-panel {
+  overflow: hidden;
+}
+
+.diary-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.diary-list-head strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.05rem;
+}
+
+.diary-list-head > span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.panel-eyebrow {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.diary-task-list {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 360px);
+  min-height: 170px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.diary-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 238px;
+  gap: 16px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px 14px 14px 17px;
+}
+
+.diary-task::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.diary-task.task-finalizada::before {
+  background: #107c10;
+}
+
+.diary-task.task-en-espera::before {
+  background: #ca5010;
+}
+
+.diary-task-main {
+  min-width: 0;
+}
+
+.diary-task-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.diary-task h2 {
+  margin-top: 8px;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.diary-task p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.diary-priority {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  background: var(--panel-soft);
+  color: var(--ink);
+}
+
+.priority-alta {
+  border-color: #f3b0ad;
+  background: #fde7e9;
+  color: #a4262c;
+}
+
+.priority-media {
+  border-color: #f7e4a8;
+  background: #fff4ce;
+  color: #8a5a00;
+}
+
+.priority-baja {
+  border-color: #bbe7b8;
+  background: #dff6dd;
+  color: #0f6c0f;
+}
+
+:root[data-theme="dark"] .priority-alta {
+  background: rgba(196, 43, 28, 0.18);
+  color: #ffb3b8;
+}
+
+:root[data-theme="dark"] .priority-media {
+  background: rgba(255, 185, 0, 0.18);
+  color: #ffd875;
+}
+
+:root[data-theme="dark"] .priority-baja {
+  background: rgba(16, 124, 16, 0.22);
+  color: #9be59b;
+}
+
+.diary-progress-track {
+  height: 7px;
+  margin-top: 13px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.diary-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.task-finalizada .diary-progress-track span {
+  background: #107c10;
+}
+
+.task-en-espera .diary-progress-track span {
+  background: #ca5010;
+}
+
+.diary-task-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 9px;
+  align-content: start;
+  align-items: center;
+}
+
+.diary-task-controls strong {
+  text-align: right;
+}
+
+.diary-task-controls .row-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.diary-side-panel {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.diary-focus,
+.diary-distribution {
+  padding: 16px;
+}
+
+.diary-focus {
+  border-bottom: 1px solid var(--line);
+}
+
+.diary-focus textarea {
+  min-height: 132px;
+  margin-top: 10px;
+}
+
+.diary-state-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  border-bottom: 1px solid var(--line);
+}
+
+.diary-state-row:last-child {
+  border-bottom: 0;
+}
+
+.diary-state-row span {
+  color: var(--muted);
+}
+
+.diary-state-row strong {
+  font-size: 1.05rem;
+}
