@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Compilaciones y artefactos generados
+build/
+dist/
+src-tauri/target/
+src-tauri/resources/backend/
+
+# Claves, licencias y certificados privados
+license-authority/
+license.json
+*.license.json
+updater-private.key
+updater-private.key.pub
+*_private_key.pem
+*.pfx
+*.p12
+
+# Variables de entorno y configuración local
+.env
+.env.*
+!.env.example
+settings.json
+*.local.json
+
+# Datos locales de ejecución
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.log
+
+# Editor y sistema operativo
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
