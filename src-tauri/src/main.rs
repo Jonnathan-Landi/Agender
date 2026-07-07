@@ -48,14 +48,24 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())?
         .ok_or_else(|| "No hay una actualización disponible.".to_string())?;
 
-    update
-        .download_and_install(|_, _| {}, || {})
+    let bytes = update
+        .download(|_, _| {}, || {})
         .await
         .map_err(|error| error.to_string())?;
+
+    stop_backend(&app);
+    update.install(bytes).map_err(|error| error.to_string())?;
     app.restart();
 }
 
 struct BackendProcess(Arc<Mutex<Option<Child>>>);
+
+fn stop_backend(app: &tauri::AppHandle) {
+    if let Some(mut child) = app.state::<BackendProcess>().0.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
 
 fn backend_port() -> Result<u16, Box<dyn std::error::Error>> {
     // Un origen HTTP estable conserva localStorage entre reinicios y actualizaciones.
@@ -77,15 +87,7 @@ fn main() {
                 let close_handle = app.handle().clone();
                 window.on_window_event(move |event| {
                     if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
-                        if let Some(mut child) = close_handle
-                            .state::<BackendProcess>()
-                            .0
-                            .lock()
-                            .unwrap()
-                            .take()
-                        {
-                            let _ = child.kill();
-                        }
+                        stop_backend(&close_handle);
                         close_handle.exit(0);
                     }
                 });
@@ -93,15 +95,28 @@ fn main() {
             let port = backend_port()?;
             #[cfg(debug_assertions)]
             let mut command = {
-                let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+                let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .unwrap();
                 let mut command = Command::new("python");
-                command.current_dir(project_root).args(["-m", "backend", "--host", "127.0.0.1", "--port", &port.to_string()]);
+                command.current_dir(project_root).args([
+                    "-m",
+                    "backend",
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    &port.to_string(),
+                ]);
                 command
             };
 
             #[cfg(not(debug_assertions))]
             let mut command = {
-                let executable = app.path().resource_dir()?.join("backend").join("agender-backend.exe");
+                let executable = app
+                    .path()
+                    .resource_dir()?
+                    .join("backend")
+                    .join("agender-backend.exe");
                 let mut command = Command::new(executable);
                 command.args(["--host", "127.0.0.1", "--port", &port.to_string()]);
                 command
@@ -119,7 +134,11 @@ fn main() {
             }
 
             let child = command.spawn()?;
-            app.state::<BackendProcess>().0.lock().unwrap().replace(child);
+            app.state::<BackendProcess>()
+                .0
+                .lock()
+                .unwrap()
+                .replace(child);
 
             let handle = app.handle().clone();
             thread::spawn(move || {
@@ -152,7 +171,10 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("No fue posible iniciar Agender")
         .run(move |_app, event| {
-            if matches!(event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+            if matches!(
+                event,
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+            ) {
                 if let Some(mut child) = backend_for_exit.lock().unwrap().take() {
                     let _ = child.kill();
                     let _ = child.wait();
