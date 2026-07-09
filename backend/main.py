@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -9,6 +11,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .backup import export_backup_bytes, import_backup_bytes
+from .cloud_backup import cloud_status, disconnect, finish_auth, restore_cloud_backup, save_client_id, start_auth, upload_cloud_backup
 from .config import read_settings, write_settings
 from .indexer import synchronize
 from .viewer.api import app as viewer_app
@@ -36,7 +40,11 @@ async def enforce_module_access(request: Request, call_next):
             return Response(content='{"detail":"Debes iniciar sesión"}', status_code=401, media_type="application/json")
         if required not in user["modules"]:
             return Response(content='{"detail":"Módulo no autorizado"}', status_code=403, media_type="application/json")
-    return await call_next(request)
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 class PathSettings(BaseModel):
@@ -61,6 +69,10 @@ class PasswordChangeRequest(BaseModel):
 
 class UserDataValue(BaseModel):
     value: object
+
+
+class CloudClientRequest(BaseModel):
+    clientId: str
 
 
 class LicenseGenerationRequest(BaseModel):
@@ -158,6 +170,92 @@ def get_user_data(request: Request) -> dict[str, object]:
     if not user:
         raise HTTPException(status_code=401, detail="Debes iniciar sesión")
     return {"data": read_user_data(user)}
+
+
+def _require_user(request: Request) -> dict[str, Any]:
+    user = current_user(request.cookies.get("agender_session"))
+    if not user:
+        raise HTTPException(status_code=401, detail="Debes iniciar sesión")
+    return user
+
+
+@app.get("/api/backups/export")
+def export_user_backup(request: Request) -> Response:
+    user = _require_user(request)
+    content = export_backup_bytes(user)
+    date = json.loads(content.decode("utf-8")).get("exportedAt", "")[:10] or "backup"
+    username = re.sub(r"[^A-Za-z0-9._-]+", "-", user["username"]).strip("-") or "usuario"
+    filename = f"agender-{username}-{date}.agender-backup.json"
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/backups/import")
+async def import_user_backup(request: Request, backup: UploadFile = File(...)) -> dict[str, object]:
+    user = _require_user(request)
+    try:
+        return import_backup_bytes(user, await backup.read())
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/cloud/status")
+def get_cloud_status(request: Request) -> dict[str, object]:
+    return cloud_status(_require_user(request), str(request.base_url))
+
+
+@app.put("/api/cloud/{provider}/client")
+def put_cloud_client(provider: str, payload: CloudClientRequest, request: Request) -> dict[str, bool]:
+    try:
+        return save_client_id(_require_user(request), provider, payload.clientId)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/cloud/{provider}/auth/start")
+def post_cloud_auth_start(provider: str, request: Request) -> dict[str, str]:
+    try:
+        return start_auth(_require_user(request), provider, str(request.base_url))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/cloud/auth/callback/{provider}")
+def cloud_auth_callback(provider: str, request: Request) -> Response:
+    try:
+        account = finish_auth(provider, dict(request.query_params), str(request.base_url))
+    except ValueError as error:
+        content = f"<html><body><h1>No fue posible conectar</h1><p>{error}</p></body></html>"
+        return Response(content=content, media_type="text/html", status_code=400)
+    content = f"<html><body><h1>Cuenta conectada</h1><p>{account}</p><p>Ya puedes volver a Agender.</p></body></html>"
+    return Response(content=content, media_type="text/html")
+
+
+@app.post("/api/cloud/{provider}/disconnect")
+def post_cloud_disconnect(provider: str, request: Request) -> dict[str, bool]:
+    try:
+        return disconnect(_require_user(request), provider)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/cloud/{provider}/backup")
+def post_cloud_backup(provider: str, request: Request) -> dict[str, object]:
+    try:
+        return upload_cloud_backup(_require_user(request), provider)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/cloud/{provider}/restore")
+def post_cloud_restore(provider: str, request: Request) -> dict[str, object]:
+    try:
+        return restore_cloud_backup(_require_user(request), provider)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.put("/api/user-data/{key}")

@@ -1,4 +1,6 @@
 fastapi==0.139.0
+pydantic==2.13.4
+pydantic-core==2.46.4
 argon2-cffi>=23.1.0
 cryptography>=44.0.0
 duckdb>=1.1.3

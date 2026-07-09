@@ -120,6 +120,10 @@
   background: #0078d4;
 }
 
+.settings-nav-icon.backup-icon-nav {
+  background: #0f7b0f;
+}
+
 .settings-nav-icon .font-icon,
 .settings-card-icon .font-icon {
   font-size: 18px;
@@ -327,11 +331,28 @@
   box-shadow: var(--shadow);
 }
 
+.backup-card {
+  width: 100%;
+  margin-top: 16px;
+  padding: 28px 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
 .update-hero {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr) auto;
   align-items: center;
   gap: 22px;
+}
+
+.backup-hero {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
 }
 
 .update-icon {
@@ -343,6 +364,17 @@
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 38px;
+}
+
+.backup-icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, #107c10 16%, var(--panel));
+  color: #107c10;
+  font-size: 28px;
 }
 
 .update-icon-wrap { position: relative; width: 64px; height: 64px; }
@@ -364,17 +396,116 @@
 
 .update-hero h2 { margin: 0 0 7px; }
 .update-hero p { margin: 0; color: var(--muted); }
+.backup-hero h2 { margin: 0 0 6px; }
+.backup-hero p { margin: 0; color: var(--muted); }
+.backup-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+
+.cloud-provider-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 18px 74px;
+}
+
+.cloud-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 6px 14px;
+  background: var(--control);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cloud-provider:hover {
+  background: var(--subtle-hover);
+}
+
+.cloud-provider.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.cloud-auth-panel,
+.cloud-actions-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  margin-left: 74px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+
+.cloud-auth-panel {
+  align-items: start;
+}
+
+.cloud-auth-panel label,
+.cloud-auth-panel label span {
+  display: block;
+}
+
+.cloud-auth-panel label span {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.cloud-account,
+.cloud-redirect {
+  grid-column: 1 / -1;
+  margin: -6px 0 0;
+  color: var(--muted);
+}
+
+.cloud-redirect {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+  font-size: .82rem;
+}
+
+.cloud-redirect code {
+  color: var(--ink);
+}
+
+.cloud-actions-panel h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.cloud-actions-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.local-backup-panel {
+  padding-bottom: 0;
+}
 .update-available { margin: 28px 0 0 86px; padding-top: 24px; border-top: 1px solid var(--line); }
 .update-available div { display: flex; align-items: baseline; gap: 12px; }
 .update-available span { color: var(--muted); font-size: .82rem; }
 .update-available p { max-width: 720px; white-space: pre-line; color: var(--muted); }
 .update-card .settings-message { margin-left: 86px; }
+.backup-card .settings-message { margin-left: 74px; }
 
 @media (max-width: 900px) {
   .update-hero { grid-template-columns: 54px 1fr; }
   .update-icon-wrap, .update-icon { width: 54px; height: 54px; }
   .update-hero .button { grid-column: 2; justify-self: start; }
   .update-available, .update-card .settings-message { margin-left: 76px; }
+  .backup-hero { grid-template-columns: 54px 1fr; }
+  .backup-actions { justify-content: flex-start; }
+  .cloud-provider-tabs,
+  .cloud-auth-panel,
+  .cloud-actions-panel,
+  .backup-card .settings-message { margin-left: 74px; }
+  .cloud-auth-panel,
+  .cloud-actions-panel { grid-template-columns: 1fr; }
 }
 
 .about-product {

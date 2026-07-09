@@ -7,6 +7,8 @@
     "raw-include-subfolders": "rawIncludeSubfolders",
     "quality-include-subfolders": "qualityIncludeSubfolders"
   };
+  let activeCloudProvider = "google";
+  let cloudStatus = {};
 
   function initSettings() {
     document.querySelectorAll("[data-settings-page]").forEach((button) => {
@@ -32,6 +34,21 @@
     loadAppInfo();
     document.querySelector("#check-updates-button").addEventListener("click", checkForUpdates);
     document.querySelector("#install-update-button").addEventListener("click", installUpdate);
+    document.querySelector("#export-backup-button").addEventListener("click", exportBackup);
+    document.querySelector("#import-backup-button").addEventListener("click", () => document.querySelector("#backup-file").click());
+    document.querySelector("#backup-file").addEventListener("change", importBackup);
+    document.querySelectorAll("[data-cloud-provider]").forEach((button) => {
+      button.addEventListener("click", () => selectCloudProvider(button.dataset.cloudProvider));
+    });
+    document.querySelector("#save-cloud-client-button").addEventListener("click", saveCloudClient);
+    document.querySelector("#cloud-login-button").addEventListener("click", startCloudLogin);
+    document.querySelector("#cloud-disconnect-button").addEventListener("click", disconnectCloud);
+    document.querySelector("#cloud-backup-button").addEventListener("click", createCloudBackup);
+    document.querySelector("#cloud-restore-button").addEventListener("click", restoreCloudBackup);
+    document.querySelector("#cloud-client-id").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); saveCloudClient(); }
+    });
+    loadCloudStatus();
   }
 
   async function loadAppInfo() {
@@ -104,6 +121,196 @@
 
   function setUpdateMessage(message, isError) {
     const element = document.querySelector("#update-message");
+    element.textContent = message;
+    element.classList.toggle("error", Boolean(isError));
+  }
+
+  async function loadCloudStatus() {
+    try {
+      const response = await fetch("/api/cloud/status", { cache: "no-store" });
+      const result = await readJsonResponse(response, "No fue posible leer el estado de nube.");
+      cloudStatus = result.providers || {};
+      renderCloudProvider();
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    }
+  }
+
+  function selectCloudProvider(provider) {
+    activeCloudProvider = provider;
+    document.querySelectorAll("[data-cloud-provider]").forEach((button) => {
+      const active = button.dataset.cloudProvider === provider;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    });
+    renderCloudProvider();
+  }
+
+  function renderCloudProvider() {
+    const provider = cloudStatus[activeCloudProvider] || {};
+    const account = document.querySelector("#cloud-account");
+    const login = document.querySelector("#cloud-login-button");
+    const disconnect = document.querySelector("#cloud-disconnect-button");
+    document.querySelector("#cloud-client-id").value = provider.configured ? "••••••••••••••••" : "";
+    document.querySelector("#cloud-redirect-uri").textContent = provider.redirectUri || "-";
+    account.textContent = provider.connected
+      ? `Conectado: ${(provider.account && (provider.account.displayName || provider.account.email)) || provider.label}`
+      : provider.configured ? "Client ID guardado. Inicia sesión para activar la nube." : "Sin conexión. Pega el Client ID OAuth para comenzar.";
+    if (provider.lastBackupAt) account.textContent += ` · Última copia: ${formatCloudDate(provider.lastBackupAt)}`;
+    login.hidden = Boolean(provider.connected);
+    disconnect.hidden = !provider.connected;
+    document.querySelector("#cloud-backup-button").disabled = !provider.connected;
+    document.querySelector("#cloud-restore-button").disabled = !provider.connected;
+  }
+
+  async function saveCloudClient() {
+    const input = document.querySelector("#cloud-client-id");
+    const clientId = input.value.trim();
+    if (!clientId || clientId.includes("•")) {
+      setBackupMessage("Pega un Client ID OAuth válido antes de guardar.", true);
+      return;
+    }
+    setBackupMessage("Guardando Client ID...");
+    try {
+      const response = await fetch(`/api/cloud/${activeCloudProvider}/client`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId })
+      });
+      await readJsonResponse(response, "No fue posible guardar el Client ID.");
+      setBackupMessage("Client ID guardado. Ahora puedes iniciar sesión.");
+      await loadCloudStatus();
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    }
+  }
+
+  async function startCloudLogin() {
+    setBackupMessage("Abriendo inicio de sesión en el navegador...");
+    try {
+      const response = await fetch(`/api/cloud/${activeCloudProvider}/auth/start`, { method: "POST" });
+      const result = await readJsonResponse(response, "No fue posible iniciar sesión en la nube.");
+      window.open(result.authUrl, "_blank", "noopener,noreferrer");
+      setBackupMessage("Completa el inicio de sesión en el navegador. Agender actualizará el estado en unos segundos.");
+      setTimeout(loadCloudStatus, 4000);
+      setTimeout(loadCloudStatus, 9000);
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    }
+  }
+
+  async function disconnectCloud() {
+    setBackupMessage("Cerrando sesión de nube...");
+    try {
+      const response = await fetch(`/api/cloud/${activeCloudProvider}/disconnect`, { method: "POST" });
+      await readJsonResponse(response, "No fue posible cerrar sesión.");
+      setBackupMessage("Sesión de nube cerrada.");
+      await loadCloudStatus();
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    }
+  }
+
+  async function createCloudBackup() {
+    const button = document.querySelector("#cloud-backup-button");
+    button.disabled = true;
+    setBackupMessage("Subiendo copia de seguridad a la nube...");
+    try {
+      const response = await fetch(`/api/cloud/${activeCloudProvider}/backup`, { method: "POST" });
+      const result = await readJsonResponse(response, "No fue posible crear la copia en la nube.");
+      setBackupMessage(`Copia guardada en la nube: ${formatCloudDate(result.modifiedAt)}`);
+      await loadCloudStatus();
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    } finally {
+      renderCloudProvider();
+    }
+  }
+
+  async function restoreCloudBackup() {
+    if (!confirm("Restaurar la copia en nube reemplazará los datos actuales del usuario conectado. ¿Continuar?")) return;
+    const button = document.querySelector("#cloud-restore-button");
+    button.disabled = true;
+    setBackupMessage("Restaurando copia desde la nube...");
+    try {
+      const response = await fetch(`/api/cloud/${activeCloudProvider}/restore`, { method: "POST" });
+      const result = await readJsonResponse(response, "No fue posible restaurar la copia en la nube.");
+      const restored = result.dataKeys ? result.dataKeys.length : 0;
+      setBackupMessage(`Copia restaurada: configuración ${result.settings ? "sí" : "no"}, ${restored} grupos de datos. Recargando...`);
+      setTimeout(() => location.reload(), 900);
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    } finally {
+      renderCloudProvider();
+    }
+  }
+
+  function formatCloudDate(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+  }
+
+  async function exportBackup() {
+    const button = document.querySelector("#export-backup-button");
+    button.disabled = true;
+    setBackupMessage("Preparando copia de seguridad...");
+    try {
+      const response = await fetch("/api/backups/export", { cache: "no-store" });
+      if (!response.ok) await readJsonResponse(response, "No fue posible crear la copia de seguridad.");
+      const blob = await response.blob();
+      const filename = filenameFromDisposition(response.headers.get("Content-Disposition")) || "agender-backup.agender-backup.json";
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setBackupMessage("Copia descargada. Puedes guardarla en Google Drive, OneDrive o una memoria externa.");
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function importBackup(event) {
+    const input = event.currentTarget;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!confirm("Restaurar esta copia reemplazará los datos actuales del usuario conectado. ¿Continuar?")) {
+      input.value = "";
+      return;
+    }
+    const button = document.querySelector("#import-backup-button");
+    button.disabled = true;
+    setBackupMessage("Restaurando copia de seguridad...");
+    try {
+      const form = new FormData();
+      form.append("backup", file);
+      const response = await fetch("/api/backups/import", { method: "POST", body: form });
+      const result = await readJsonResponse(response, "No fue posible restaurar la copia de seguridad.");
+      const restored = result.dataKeys ? result.dataKeys.length : 0;
+      setBackupMessage(`Copia restaurada: configuración ${result.settings ? "sí" : "no"}, ${restored} grupos de datos. Recargando...`);
+      setTimeout(() => location.reload(), 900);
+    } catch (error) {
+      setBackupMessage(friendlyServerError(error), true);
+    } finally {
+      button.disabled = false;
+      input.value = "";
+    }
+  }
+
+  function filenameFromDisposition(value) {
+    const match = /filename="([^"]+)"/i.exec(value || "");
+    return match ? match[1] : "";
+  }
+
+  function setBackupMessage(message, isError) {
+    const element = document.querySelector("#backup-message");
     element.textContent = message;
     element.classList.toggle("error", Boolean(isError));
   }

@@ -573,6 +573,10 @@
                 <span class="settings-nav-icon updates-icon"><span class="font-icon">&#xE895;</span></span>
                 <span>Actualizaciones</span>
               </button>
+              <button class="settings-nav-item" type="button" data-settings-page="backup">
+                <span class="settings-nav-icon backup-icon-nav"><span class="font-icon">&#xE8E5;</span></span>
+                <span>Backup</span>
+              </button>
             </nav>
           </aside>
 
@@ -670,6 +674,72 @@
                   <button class="button primary" id="install-update-button" type="button">Descargar e instalar</button>
                 </div>
                 <p class="settings-message" id="update-message" role="status"></p>
+              </section>
+
+            </section>
+
+            <section class="settings-page" data-settings-panel="backup">
+              <h1>Backup</h1>
+              <p class="settings-page-description">Crea o restaura una copia de seguridad de tus datos de Agender.</p>
+
+              <section class="backup-card" aria-live="polite">
+                <div class="backup-hero">
+                  <span class="backup-icon font-icon" aria-hidden="true">&#xE8E5;</span>
+                  <div>
+                    <h2>Copia de seguridad</h2>
+                    <p>Guarda y restaura tus rutas, solicitudes, diario y agenda.</p>
+                  </div>
+                </div>
+
+                <div class="cloud-provider-tabs" role="radiogroup" aria-label="Proveedor de nube">
+                  <button class="cloud-provider active" type="button" role="radio" aria-checked="true" data-cloud-provider="google">
+                    <span class="font-icon" aria-hidden="true">&#xE774;</span>
+                    <span>Google Drive</span>
+                  </button>
+                  <button class="cloud-provider" type="button" role="radio" aria-checked="false" data-cloud-provider="onedrive">
+                    <span class="font-icon" aria-hidden="true">&#xE753;</span>
+                    <span>OneDrive</span>
+                  </button>
+                </div>
+
+                <section class="cloud-auth-panel">
+                  <label>
+                    <span>Client ID OAuth</span>
+                    <input id="cloud-client-id" type="text" autocomplete="off" placeholder="Pega aqui el Client ID del proveedor seleccionado">
+                  </label>
+                  <div class="backup-actions">
+                    <button class="button secondary" id="save-cloud-client-button" type="button">Guardar Client ID</button>
+                    <button class="button primary" id="cloud-login-button" type="button">Iniciar sesión</button>
+                    <button class="button secondary" id="cloud-disconnect-button" type="button" hidden>Cerrar sesión</button>
+                  </div>
+                  <p class="cloud-account" id="cloud-account">Sin conexión</p>
+                  <p class="cloud-redirect">URL de redirección: <code id="cloud-redirect-uri">-</code></p>
+                </section>
+
+                <section class="cloud-actions-panel">
+                  <div>
+                    <h3>Nube</h3>
+                    <p>Sube o restaura la copia guardada en el proveedor conectado.</p>
+                  </div>
+                  <div class="backup-actions">
+                    <button class="button primary" id="cloud-backup-button" type="button">Realizar copia</button>
+                    <button class="button secondary" id="cloud-restore-button" type="button">Restaurar copia</button>
+                  </div>
+                </section>
+
+                <section class="cloud-actions-panel local-backup-panel">
+                  <div>
+                    <h3>Archivo local</h3>
+                    <p>Usa un archivo manual si necesitas mover la copia por USB o una carpeta sincronizada.</p>
+                  </div>
+                  <div class="backup-actions">
+                    <button class="button secondary" id="export-backup-button" type="button">Descargar copia</button>
+                    <button class="button secondary" id="import-backup-button" type="button">Restaurar archivo</button>
+                    <input class="visually-hidden" id="backup-file" type="file" accept=".json,.agender-backup.json,application/json">
+                  </div>
+                </section>
+
+                <p class="settings-message" id="backup-message" role="status"></p>
               </section>
             </section>
 

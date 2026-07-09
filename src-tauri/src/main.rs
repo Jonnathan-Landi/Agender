@@ -5,7 +5,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{Arc, Mutex},
     thread,
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
@@ -69,9 +69,11 @@ fn stop_backend(app: &tauri::AppHandle) {
 
 fn backend_port() -> Result<u16, Box<dyn std::error::Error>> {
     // Un origen HTTP estable conserva localStorage entre reinicios y actualizaciones.
-    let listener = TcpListener::bind(("127.0.0.1", BACKEND_PORT))?;
+    let listener = TcpListener::bind(("127.0.0.1", BACKEND_PORT))
+        .or_else(|_| TcpListener::bind(("127.0.0.1", 0)))?;
+    let port = listener.local_addr()?.port();
     drop(listener);
-    Ok(BACKEND_PORT)
+    Ok(port)
 }
 
 fn main() {
@@ -153,7 +155,11 @@ fn main() {
                 });
 
                 if ready {
-                    let url = format!("http://{address}").parse().unwrap();
+                    let cache_buster = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|duration| duration.as_millis())
+                        .unwrap_or_default();
+                    let url = format!("http://{address}/?t={cache_buster}").parse().unwrap();
                     let window_handle = handle.clone();
                     let _ = handle.run_on_main_thread(move || {
                         if let Some(window) = window_handle.get_webview_window("main") {
