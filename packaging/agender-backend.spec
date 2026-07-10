@@ -39,7 +39,7 @@ executable = EXE(
     [],
     exclude_binaries=True,
     name="agender-backend",
-    console=False,
+    console=True,
 )
 
 bundle = COLLECT(
