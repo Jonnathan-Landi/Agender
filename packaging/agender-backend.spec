@@ -1,12 +1,13 @@
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, copy_metadata
+from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 project_root = Path(SPECPATH).parent
 polars_data, polars_binaries, polars_hidden = collect_all("polars")
 duckdb_data, duckdb_binaries, duckdb_hidden = collect_all("duckdb")
 crypto_data, crypto_binaries, crypto_hidden = collect_all("cryptography")
 argon_data, argon_binaries, argon_hidden = collect_all("argon2")
+backend_hidden = collect_submodules("backend")
 
 analysis = Analysis(
     [str(project_root / "packaging" / "backend_entry.py")],
@@ -25,7 +26,7 @@ analysis = Analysis(
         *copy_metadata("pydantic"),
         *copy_metadata("uvicorn"),
     ],
-    hiddenimports=[*polars_hidden, *duckdb_hidden, *crypto_hidden, *argon_hidden, "backend.main", "backend.security", "backend.viewer.api", "fastexcel", "pyarrow", "tkinter", "tkinter.filedialog"],
+    hiddenimports=[*polars_hidden, *duckdb_hidden, *crypto_hidden, *argon_hidden, *backend_hidden, "fastexcel", "pyarrow", "tkinter", "tkinter.filedialog"],
     excludes=["pandas", "numpy", "tkinter.test"],
     noarchive=False,
 )

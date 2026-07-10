@@ -29,6 +29,33 @@ jobs:
         shell: powershell
         run: ./scripts/build-backend.ps1
 
+      - name: Verificar backend empaquetado
+        shell: powershell
+        run: |
+          $backend = Start-Process -FilePath "src-tauri/resources/backend/agender-backend.exe" -ArgumentList "--port", "18765" -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            foreach ($attempt in 1..30) {
+              if ($backend.HasExited) {
+                throw "El backend empaquetado terminó antes de iniciar (código $($backend.ExitCode))."
+              }
+              try {
+                Invoke-WebRequest -Uri "http://127.0.0.1:18765/api/health" -UseBasicParsing | Out-Null
+                $ready = $true
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $ready) {
+              throw "El backend empaquetado no respondió dentro del tiempo esperado."
+            }
+          } finally {
+            if (-not $backend.HasExited) {
+              Stop-Process -Id $backend.Id -Force
+            }
+          }
+
       - name: Preparar Rust
         uses: dtolnay/rust-toolchain@stable
 
