@@ -1,10 +1,12 @@
 (function () {
   const EVENTS_KEY = "agender.agenda.events";
+  const DIARY_TASKS_KEY = "agender.diary.tasks";
   const CATEGORIES = ["Reunion", "Entrega", "Revision", "Tramite", "Recordatorio", "Personal"];
   const { loadJson, saveJson } = window.NotasStorage;
   const { escapeHtml } = window.NotasUtils;
 
   let events = [];
+  let calendarItems = [];
   let viewDate;
   let selectedDate;
   let grid;
@@ -56,11 +58,13 @@
     fields.location.addEventListener("input", updateMapsButton);
     grid.addEventListener("click", handleAgendaClick);
     miniGrid.addEventListener("click", handleMiniCalendarClick);
+    window.addEventListener("agender:diary-changed", renderAgenda);
 
     renderAgenda();
   }
 
   function renderAgenda() {
+    calendarItems = buildCalendarItems();
     monthTitle.textContent = new Intl.DateTimeFormat("es-EC", {
       month: "long",
       year: "numeric"
@@ -73,7 +77,7 @@
   }
 
   function dayTemplate(day) {
-    const dayEvents = events
+    const dayEvents = calendarItems
       .filter((event) => event.date === day.date)
       .sort(compareEvents);
     const eventCountLabel = dayEvents.length ? `${dayEvents.length} evento${dayEvents.length === 1 ? "" : "s"}` : "";
@@ -95,7 +99,7 @@
   }
 
   function miniDayTemplate(day) {
-    const hasEvents = events.some((event) => event.date === day.date);
+    const hasEvents = calendarItems.some((event) => event.date === day.date);
     return `
       <button class="mini-day ${day.currentMonth ? "" : "outside-month"} ${day.today ? "today" : ""} ${hasEvents ? "has-events" : ""} ${day.date === selectedDate ? "selected" : ""}" type="button" data-date="${day.date}">
         ${day.number}
@@ -105,7 +109,7 @@
 
   function eventTemplate(event) {
     return `
-      <button class="agenda-event ${eventClass(event)}" type="button" data-action="edit" data-id="${event.id}">
+      <button class="agenda-event ${eventClass(event)}" type="button" data-action="${event.source === "diary" ? "open-diary-task" : "edit"}" data-id="${event.id}">
         <strong>${escapeHtml(event.title)}</strong>
         <span>${escapeHtml(eventMeta(event))}</span>
       </button>
@@ -178,6 +182,11 @@
       const record = events.find((item) => item.id === button.dataset.id);
       if (record) openEventForm(record);
     }
+
+    if (button.dataset.action === "open-diary-task") {
+      document.querySelector('[data-view="diary"]')?.click();
+      window.NotasDiary.openTaskById(button.dataset.id);
+    }
   }
 
   function moveMonth(offset) {
@@ -237,7 +246,8 @@
   function eventClass(event) {
     const category = normalizeClassName(event.category || "Reunion");
     const status = normalizeClassName(event.status || "");
-    return `${category} ${status}`;
+    const source = event.source === "diary" ? "linked-diary-task" : "";
+    return `${category} ${status} ${source}`;
   }
 
   function normalizeCategory(value) {
@@ -267,10 +277,25 @@
     saveJson(EVENTS_KEY, events);
   }
 
+  function buildCalendarItems() {
+    const diaryTasks = loadJson(DIARY_TASKS_KEY, [])
+      .filter((task) => task.dueDate)
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        date: task.dueDate,
+        category: "Entrega",
+        status: task.status === "Finalizada" ? "Finalizado" : "Programado",
+        notes: task.notes || "",
+        source: "diary"
+      }));
+    return [...events, ...diaryTasks];
+  }
+
   function updateMonthSummary() {
     const month = viewDate.getMonth();
     const year = viewDate.getFullYear();
-    const monthEvents = events.filter((event) => {
+    const monthEvents = calendarItems.filter((event) => {
       const date = parseLocalDate(event.date);
       return date.getMonth() === month && date.getFullYear() === year;
     });

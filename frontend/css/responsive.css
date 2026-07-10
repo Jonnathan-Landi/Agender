@@ -110,10 +110,7 @@
     padding: 0 6px;
   }
 
-  .metrics,
-  .controls,
   .diary-layout,
-  .diary-controls,
   .form-grid {
     grid-template-columns: 1fr;
   }

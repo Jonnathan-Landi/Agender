@@ -45,17 +45,6 @@
   color: var(--ink);
 }
 
-.controls {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) 170px 170px;
-  gap: 12px;
-  margin-bottom: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  padding: 12px;
-}
-
 label span {
   display: block;
   margin-bottom: 6px;

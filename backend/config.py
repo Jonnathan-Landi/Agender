@@ -30,7 +30,7 @@ def read_settings(username: str | None = None, is_admin: bool = False) -> dict[s
     path = user_settings_file(username, is_admin)
     try:
         values = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    except FileNotFoundError, json.JSONDecodeError, OSError:
         return DEFAULT_SETTINGS.copy()
     return validate_settings(values)
 
@@ -61,7 +61,7 @@ def validate_settings(values: Any) -> dict[str, Any]:
 def read_json(path: Path, fallback: Any) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    except FileNotFoundError, json.JSONDecodeError, OSError:
         return fallback
 
 

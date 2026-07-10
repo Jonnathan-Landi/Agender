@@ -26,7 +26,10 @@ PUBLIC_KEY_PATH = Path(__file__).resolve().parent / "security" / "license_public
 PROGRAM_DATA_ROOT = Path(os.environ.get("PROGRAMDATA", APP_DATA_DIR.parent))
 PROGRAM_DATA = PROGRAM_DATA_ROOT / "Agender"
 LICENSE_PATHS = (APP_DATA_DIR / "license.json", PROGRAM_DATA / "license.json", Path.cwd() / "license.json")
-PRIVATE_KEY_PATHS = (APP_DATA_DIR / "authority" / "license_private_key.pem", Path.cwd() / "license-authority" / "license_private_key.pem")
+PRIVATE_KEY_PATHS = (
+    APP_DATA_DIR / "authority" / "license_private_key.pem",
+    Path.cwd() / "license-authority" / "license_private_key.pem",
+)
 password_hasher = PasswordHasher()
 _sessions: dict[str, tuple[int, datetime]] = {}
 _lock = Lock()
@@ -122,10 +125,19 @@ def _provision_user(license_data: dict[str, Any], must_change: bool = False) -> 
         return
     role = "admin" if provision.get("role") == "admin" else "user"
     with database() as connection:
-        connection.execute("""INSERT INTO users(username,password_hash,role,created_at,must_change_password,license_id)
+        connection.execute(
+            """INSERT INTO users(username,password_hash,role,created_at,must_change_password,license_id)
             VALUES(?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash,
             role=excluded.role,must_change_password=excluded.must_change_password,license_id=excluded.license_id""",
-            (username, password_hash, role, datetime.now(UTC).isoformat(), int(must_change), license_data.get("licenseId")))
+            (
+                username,
+                password_hash,
+                role,
+                datetime.now(UTC).isoformat(),
+                int(must_change),
+                license_data.get("licenseId"),
+            ),
+        )
 
 
 def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
@@ -139,12 +151,14 @@ def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
         return None
     try:
         password_hasher.verify(row["password_hash"], password)
-    except (VerifyMismatchError, InvalidHashError):
+    except VerifyMismatchError, InvalidHashError:
         return None
     token = secrets.token_urlsafe(32)
     with database() as connection:
-        connection.execute("INSERT INTO sessions(token_hash,user_id,created_at) VALUES(?,?,?)",
-                           (_token_hash(token), row["id"], datetime.now(UTC).isoformat()))
+        connection.execute(
+            "INSERT INTO sessions(token_hash,user_id,created_at) VALUES(?,?,?)",
+            (_token_hash(token), row["id"], datetime.now(UTC).isoformat()),
+        )
     return token, user_payload(row, license_data)
 
 
@@ -152,8 +166,12 @@ def current_user(token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
     with database() as connection:
-        row = connection.execute("SELECT users.* FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token_hash=? AND users.enabled=1",
-                                 (_token_hash(token),)).fetchone()
+        row = connection.execute(
+            "SELECT users.* FROM sessions "
+            "JOIN users ON users.id=sessions.user_id "
+            "WHERE sessions.token_hash=? AND users.enabled=1",
+            (_token_hash(token),),
+        ).fetchone()
     return user_payload(row, read_license()) if row else None
 
 
@@ -174,21 +192,33 @@ def change_password(token: str | None, new_password: str) -> dict[str, Any]:
     if len(new_password) < 10:
         raise ValueError("La contraseña debe tener al menos 10 caracteres")
     with database() as connection:
-        connection.execute("UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?",
-                           (password_hasher.hash(new_password), user["id"]))
+        connection.execute(
+            "UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?",
+            (password_hasher.hash(new_password), user["id"]),
+        )
     return current_user(token) or user
 
 
 def user_payload(row: sqlite3.Row, license_data: dict[str, Any]) -> dict[str, Any]:
     admin = row["role"] == "admin"
-    return {"id": row["id"], "username": row["username"], "role": row["role"], "mustChangePassword": bool(row["must_change_password"]),
-            "modules": sorted(ALL_MODULES if admin else license_data.get("modules", []))}
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "role": row["role"],
+        "mustChangePassword": bool(row["must_change_password"]),
+        "modules": sorted(ALL_MODULES if admin else license_data.get("modules", [])),
+    }
 
 
 def auth_status(token: str | None) -> dict[str, Any]:
     license_data = read_license()
-    return {"license": {key: license_data.get(key) for key in ("valid", "reason", "licenseId", "customer", "expiresAt", "modules")},
-            "user": current_user(token), "authorityAvailable": any(path.is_file() for path in PRIVATE_KEY_PATHS)}
+    return {
+        "license": {
+            key: license_data.get(key) for key in ("valid", "reason", "licenseId", "customer", "expiresAt", "modules")
+        },
+        "user": current_user(token),
+        "authorityAvailable": any(path.is_file() for path in PRIVATE_KEY_PATHS),
+    }
 
 
 def generate_license(values: dict[str, Any]) -> bytes:
@@ -205,10 +235,20 @@ def generate_license(values: dict[str, Any]) -> bytes:
     modules = sorted(modules)
     if not modules:
         raise ValueError("Selecciona al menos un permiso")
-    payload = {"version": 1, "licenseId": values["licenseId"], "customer": values["fullName"],
-               "issuedAt": datetime.now(UTC).date().isoformat(), "expiresAt": values.get("expiresAt"), "modules": modules,
-               "provision": {"fullName": values["fullName"], "username": values["username"],
-                             "passwordHash": password_hasher.hash(values["temporaryPassword"]), "role": "user"}}
+    payload = {
+        "version": 1,
+        "licenseId": values["licenseId"],
+        "customer": values["fullName"],
+        "issuedAt": datetime.now(UTC).date().isoformat(),
+        "expiresAt": values.get("expiresAt"),
+        "modules": modules,
+        "provision": {
+            "fullName": values["fullName"],
+            "username": values["username"],
+            "passwordHash": password_hasher.hash(values["temporaryPassword"]),
+            "role": "user",
+        },
+    }
     payload["signature"] = base64.b64encode(key.sign(canonical_license(payload))).decode()
     return json.dumps(payload, ensure_ascii=False, indent=2).encode()
 

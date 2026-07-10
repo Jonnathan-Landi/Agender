@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "C4", "PERF", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/main.py" = ["B008"]
+"backend/user_data.py" = ["PERF203"]
+"backend/viewer/api.py" = ["E402", "PERF203"]

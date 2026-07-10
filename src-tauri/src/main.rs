@@ -100,7 +100,16 @@ fn main() {
                 let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                     .parent()
                     .unwrap();
-                let mut command = Command::new("python");
+                let virtualenv_python = project_root
+                    .join(".venv")
+                    .join("Scripts")
+                    .join("python.exe");
+                let python = if virtualenv_python.is_file() {
+                    virtualenv_python.into_os_string()
+                } else {
+                    "python".into()
+                };
+                let mut command = Command::new(python);
                 command.current_dir(project_root).args([
                     "-m",
                     "backend",
@@ -124,10 +133,13 @@ fn main() {
                 command
             };
 
-            command
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null());
+            command.stdin(Stdio::null());
+
+            #[cfg(debug_assertions)]
+            command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+            #[cfg(not(debug_assertions))]
+            command.stdout(Stdio::null()).stderr(Stdio::null());
 
             #[cfg(windows)]
             {
@@ -159,7 +171,9 @@ fn main() {
                         .duration_since(UNIX_EPOCH)
                         .map(|duration| duration.as_millis())
                         .unwrap_or_default();
-                    let url = format!("http://{address}/?t={cache_buster}").parse().unwrap();
+                    let url = format!("http://{address}/?t={cache_buster}")
+                        .parse()
+                        .unwrap();
                     let window_handle = handle.clone();
                     let _ = handle.run_on_main_thread(move || {
                         if let Some(window) = window_handle.get_webview_window("main") {

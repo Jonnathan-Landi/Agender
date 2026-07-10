@@ -80,64 +80,60 @@
 
       <main class="workspace">
         <section class="view" id="requests-view" aria-labelledby="requests-title">
-          <header class="toolbar">
-            <div>
-              <p class="eyebrow">Control y seguimiento</p>
-              <h1 id="requests-title">Solicitud de datos</h1>
-            </div>
-            <div class="toolbar-actions">
-              <button class="button secondary" type="button" id="export-csv">Exportar CSV</button>
-              <button class="button secondary" type="button" id="import-csv">Importar CSV</button>
-              <button class="button primary" type="button" id="new-request">Nueva solicitud</button>
-              <input class="visually-hidden" type="file" id="csv-file" accept=".csv,text/csv">
+          <header class="toolbar requests-toolbar">
+            <h1 id="requests-title">Solicitud de datos</h1>
+            <section class="requests-summary" aria-label="Resumen de solicitudes">
+              <div><span>Total</span><strong id="metric-total">0</strong></div>
+              <div><span>Pendientes</span><strong id="metric-pending">0</strong></div>
+              <div><span>Aceptadas</span><strong id="metric-accepted">0</strong></div>
+              <div><span>Entregadas</span><strong id="metric-delivered">0</strong></div>
+            </section>
+            <button class="button primary compact-button request-new-button" type="button" id="new-request">
+              <span class="font-icon" aria-hidden="true">&#xE710;</span>
+              <span>Nueva solicitud</span>
+            </button>
+            <div class="toolbar-actions requests-actions">
+              <label class="request-search">
+                <span class="visually-hidden">Buscar solicitudes</span>
+                <span class="request-search-box">
+                  <input type="search" id="search-input" placeholder="Buscar solicitud" autocomplete="off">
+                  <span class="font-icon request-search-icon" aria-hidden="true">&#xE721;</span>
+                </span>
+              </label>
+              <div class="request-filter-menu" id="request-filter-menu">
+                <button class="button secondary compact-button request-filter-toggle" type="button" id="request-filter-toggle" aria-expanded="false" aria-controls="request-filter-panel">
+                  <span class="font-icon" aria-hidden="true">&#xE71C;</span>
+                  <span>Filtro</span>
+                </button>
+                <div class="request-filter-panel" id="request-filter-panel">
+                  <label>
+                    <span>Solicitud</span>
+                    <select id="request-filter">
+                      <option value="">Todas</option>
+                      <option>Aceptado</option>
+                      <option>Rechazado</option>
+                      <option>Pendiente</option>
+                      <option>En revision</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Estado</span>
+                    <select id="status-filter">
+                      <option value="">Todos</option>
+                      <option>Recibido</option>
+                      <option>En proceso</option>
+                      <option>Entregado</option>
+                      <option>Archivado</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <button class="button secondary compact-button" type="button" id="export-csv">
+                <span class="font-icon" aria-hidden="true">&#xE74E;</span>
+                <span>Exportar</span>
+              </button>
             </div>
           </header>
-
-          <section class="metrics" aria-label="Resumen de solicitudes">
-            <div class="metric">
-              <span>Total</span>
-              <strong id="metric-total">0</strong>
-            </div>
-            <div class="metric">
-              <span>Pendientes</span>
-              <strong id="metric-pending">0</strong>
-            </div>
-            <div class="metric">
-              <span>Aceptadas</span>
-              <strong id="metric-accepted">0</strong>
-            </div>
-            <div class="metric">
-              <span>Entregadas</span>
-              <strong id="metric-delivered">0</strong>
-            </div>
-          </section>
-
-          <section class="controls" aria-label="Filtros de solicitudes">
-            <label>
-              <span>Buscar</span>
-              <input type="search" id="search-input" placeholder="Solicitante, referencia, datos u objetivo">
-            </label>
-            <label>
-              <span>Solicitud</span>
-              <select id="request-filter">
-                <option value="">Todas</option>
-                <option>Aceptado</option>
-                <option>Rechazado</option>
-                <option>Pendiente</option>
-                <option>En revision</option>
-              </select>
-            </label>
-            <label>
-              <span>Estado</span>
-              <select id="status-filter">
-                <option value="">Todos</option>
-                <option>Recibido</option>
-                <option>En proceso</option>
-                <option>Entregado</option>
-                <option>Archivado</option>
-              </select>
-            </label>
-          </section>
 
           <section class="table-panel" aria-label="Tabla de solicitudes">
             <div class="table-wrap">
@@ -166,59 +162,48 @@
         </section>
 
         <section class="view" id="diary-view" aria-labelledby="diary-title">
-          <header class="toolbar">
-            <div>
-              <p class="eyebrow">Planificador personal</p>
-              <h1 id="diary-title">Diario</h1>
-            </div>
-            <div class="toolbar-actions">
-              <button class="button secondary" type="button" id="diary-today">Hoy</button>
-              <button class="button primary" type="button" id="diary-new-task">Nueva tarea</button>
+          <header class="toolbar diary-toolbar">
+            <h1 id="diary-title">Diario</h1>
+            <button class="button primary diary-compact-button" type="button" id="diary-new-task">
+              <span class="font-icon" aria-hidden="true">&#xE710;</span>
+              <span>Nueva tarea</span>
+            </button>
+            <div class="toolbar-actions diary-toolbar-actions">
+              <label class="diary-search-field">
+                <span class="visually-hidden">Buscar tareas</span>
+                <span class="diary-search-box">
+                  <input type="search" id="diary-search" placeholder="Buscar tarea" autocomplete="off">
+                  <span class="font-icon diary-search-icon" aria-hidden="true">&#xE721;</span>
+                </span>
+              </label>
+              <div class="diary-filter-menu" id="diary-filter-menu">
+                <button class="button secondary diary-compact-button" type="button" id="diary-filter-toggle" aria-expanded="false" aria-controls="diary-filter-panel">
+                  <span class="font-icon" aria-hidden="true">&#xE71C;</span>
+                  <span>Filtro</span>
+                </button>
+                <div class="diary-filter-panel" id="diary-filter-panel">
+                  <label>
+                    <span>Día</span>
+                    <input type="date" id="diary-date">
+                  </label>
+                  <label>
+                    <span>Estado</span>
+                    <select id="diary-status-filter">
+                      <option value="">Todos</option>
+                      <option>Pendiente</option>
+                      <option>En proceso</option>
+                      <option>En espera</option>
+                      <option>Finalizada</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <button class="button secondary diary-compact-button" type="button" id="diary-today">Hoy</button>
             </div>
           </header>
 
-          <section class="metrics diary-metrics" aria-label="Resumen del diario">
-            <div class="metric">
-              <span>Tareas del dia</span>
-              <strong id="diary-total">0</strong>
-            </div>
-            <div class="metric">
-              <span>Finalizadas</span>
-              <strong id="diary-done">0</strong>
-            </div>
-            <div class="metric">
-              <span>En proceso</span>
-              <strong id="diary-active">0</strong>
-            </div>
-            <div class="metric">
-              <span>Avance</span>
-              <strong id="diary-progress">0%</strong>
-            </div>
-          </section>
-
           <section class="diary-layout">
             <div class="diary-main">
-              <section class="controls diary-controls" aria-label="Filtros del diario">
-                <label>
-                  <span>Dia</span>
-                  <input type="date" id="diary-date">
-                </label>
-                <label>
-                  <span>Estado</span>
-                  <select id="diary-status-filter">
-                    <option value="">Todos</option>
-                    <option>Pendiente</option>
-                    <option>En proceso</option>
-                    <option>En espera</option>
-                    <option>Finalizada</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Buscar</span>
-                  <input type="search" id="diary-search" placeholder="Tarea, categoria o nota">
-                </label>
-              </section>
-
               <section class="diary-task-panel" aria-label="Tareas del diario">
                 <div class="diary-list-head">
                   <div>
@@ -241,24 +226,12 @@
                 <textarea id="diary-focus-note" rows="5" placeholder="Define el resultado principal que quieres lograr hoy"></textarea>
               </section>
 
-              <section class="diary-distribution">
-                <span class="panel-eyebrow">Estado</span>
-                <div class="diary-state-row">
-                  <span>Pendiente</span>
-                  <strong id="diary-count-pending">0</strong>
-                </div>
-                <div class="diary-state-row">
-                  <span>En proceso</span>
-                  <strong id="diary-count-progress">0</strong>
-                </div>
-                <div class="diary-state-row">
-                  <span>En espera</span>
-                  <strong id="diary-count-waiting">0</strong>
-                </div>
-                <div class="diary-state-row">
-                  <span>Finalizada</span>
-                  <strong id="diary-count-done">0</strong>
-                </div>
+              <section class="diary-distribution" aria-label="Estado de todas las tareas">
+                <span class="panel-eyebrow">Todas las tareas</span>
+                <div class="diary-state-row"><span>Pendientes</span><strong id="diary-all-pending">0</strong></div>
+                <div class="diary-state-row"><span>En proceso</span><strong id="diary-all-progress">0</strong></div>
+                <div class="diary-state-row"><span>En espera</span><strong id="diary-all-waiting">0</strong></div>
+                <div class="diary-state-row"><span>Finalizadas</span><strong id="diary-all-done">0</strong></div>
               </section>
             </aside>
           </section>
@@ -1031,6 +1004,7 @@
 
     <script src="js/subcuencas-data.js"></script>
     <script src="js/core/utils.js"></script>
+    <script src="js/core/ui.js"></script>
     <script src="js/core/storage.js"></script>
     <script src="js/core/theme.js"></script>
     <script src="js/core/settings.js"></script>

@@ -1,4 +1,4 @@
 from .quality import QualityReader
 from .raw import RawReader
 
-__all__ = ["RawReader", "QualityReader"]
+__all__ = ["QualityReader", "RawReader"]

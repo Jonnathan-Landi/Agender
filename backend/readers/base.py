@@ -17,18 +17,20 @@ class DelimitedReader:
         columns, separator = self._header(file_path)
         timestamp = self._timestamp_column(columns)
         variables = self.select_variables(columns)
-        schema = {column: pl.String for column in columns}
+        schema = dict.fromkeys(columns, pl.String)
 
         expressions: list[pl.Expr] = [pl.len().alias("__rows")]
         if timestamp:
-            expressions.extend([
-                pl.col(timestamp).min().alias("__start"),
-                pl.col(timestamp).max().alias("__end"),
-            ])
-        for variable in variables:
-            expressions.append(
-                pl.col(variable).cast(pl.Float64, strict=False).is_not_null().sum().alias(variable)
+            expressions.extend(
+                [
+                    pl.col(timestamp).min().alias("__start"),
+                    pl.col(timestamp).max().alias("__end"),
+                ]
             )
+        expressions.extend(
+            pl.col(variable).cast(pl.Float64, strict=False).is_not_null().sum().alias(variable)
+            for variable in variables
+        )
 
         frame = (
             pl.scan_csv(
@@ -53,8 +55,7 @@ class DelimitedReader:
             "end": self._date_only(summary.get("__end")),
             "rows": row_count,
             "variables": {
-                variable: {"valid": int(summary.get(variable) or 0), "expected": row_count}
-                for variable in variables
+                variable: {"valid": int(summary.get(variable) or 0), "expected": row_count} for variable in variables
             },
         }
 
@@ -78,13 +79,19 @@ class DelimitedReader:
 
     @staticmethod
     def _header(file_path: Path) -> tuple[list[str], str]:
-        raw = file_path.read_bytes()[:64 * 1024]
+        raw = file_path.read_bytes()[: 64 * 1024]
         try:
             text = raw.decode("utf-8-sig")
         except UnicodeDecodeError:
             text = raw.decode("latin-1")
         first_line = text.splitlines()[0] if text.splitlines() else ""
-        separator = "\t" if first_line.count("\t") > first_line.count(",") else ";" if first_line.count(";") > first_line.count(",") else ","
+        separator = (
+            "\t"
+            if first_line.count("\t") > first_line.count(",")
+            else ";"
+            if first_line.count(";") > first_line.count(",")
+            else ","
+        )
         columns = next(csv.reader([first_line], delimiter=separator), [])
         columns = [column.strip().strip('"') for column in columns]
         if not columns or any(not column for column in columns):

@@ -239,14 +239,7 @@ def count_reasonable_datetimes(series: pl.Series) -> int:
         years = series.dt.year()
     except Exception:
         return 0
-    return int(
-        years.filter(
-            (years >= MIN_REASONABLE_YEAR)
-            & (years <= MAX_REASONABLE_YEAR)
-        )
-        .drop_nulls()
-        .len()
-    )
+    return int(years.filter((years >= MIN_REASONABLE_YEAR) & (years <= MAX_REASONABLE_YEAR)).drop_nulls().len())
 
 
 def parsed_datetime_score(sample: pl.DataFrame, column: str) -> tuple[int, int]:
@@ -270,7 +263,7 @@ def detect_timestamp_column(df: pl.DataFrame) -> str:
             return column
 
     datetime_cols = [
-        name for name, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Date, pl.Datetime, pl.Time)
+        name for name, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Date, pl.Datetime, pl.Time)
     ]
     for column in datetime_cols:
         if df.schema[column] == pl.Time:
@@ -318,12 +311,7 @@ def normalize_timestamp(df: pl.DataFrame, timestamp_column: str) -> pl.DataFrame
 
 
 def timestamp_parse_expr(column: str) -> pl.Expr:
-    text = (
-        pl.col(column)
-        .cast(pl.Utf8)
-        .str.strip_chars()
-        .str.replace(r"(Z|[+-]\d{2}:?\d{2})$", "", literal=False)
-    )
+    text = pl.col(column).cast(pl.Utf8).str.strip_chars().str.replace(r"(Z|[+-]\d{2}:?\d{2})$", "", literal=False)
     formats = [
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M:%S%.f",
@@ -414,7 +402,7 @@ def coerce_numeric_columns(df: pl.DataFrame, timestamp_column: str) -> pl.DataFr
 def detect_variables(df: pl.DataFrame, timestamp_column: str) -> list[str]:
     excluded = {clean_name(timestamp_column), *EXCLUDED_COLUMNS, "__fd_row_id", "__fd_timestamp"}
     variables: list[str] = []
-    for name, dtype in zip(df.columns, df.dtypes):
+    for name, dtype in zip(df.columns, df.dtypes, strict=False):
         if clean_name(name) in excluded:
             continue
         if dtype in NUMERIC_DTYPES:
@@ -425,13 +413,7 @@ def detect_variables(df: pl.DataFrame, timestamp_column: str) -> list[str]:
 def infer_interval_microseconds(df: pl.DataFrame) -> int | None:
     if df.height < 2:
         return None
-    delta = (
-        pl.col("__fd_timestamp")
-        .sort()
-        .cast(pl.Int64)
-        .diff()
-        .alias("delta")
-    )
+    delta = pl.col("__fd_timestamp").sort().cast(pl.Int64).diff().alias("delta")
     candidates = (
         df.select(delta)
         .filter(pl.col("delta") > 0)
@@ -556,7 +538,8 @@ def open_station(station_code: str, request: Request, source: str = "raw") -> Se
     normalized_code = normalize_station_code(station_code)
     candidates = root.rglob("*") if recursive else root.glob("*")
     matches = [
-        path for path in candidates
+        path
+        for path in candidates
         if path.is_file()
         and path.suffix.lower() in {".dat", ".csv", ".txt", ".xlsx", ".parquet"}
         and normalize_station_code(path.stem) == normalized_code
@@ -762,7 +745,7 @@ def get_stats(session_id: str, variable: str) -> dict[str, Any]:
     var = variable.replace('"', '""')
     total, records = duckdb_query(
         session_id,
-        f'SELECT COUNT(*), COUNT("{var}") FROM read_parquet(\'{path}\')',
+        f"SELECT COUNT(*), COUNT(\"{var}\") FROM read_parquet('{path}')",
     )[0]
     return stats_payload(int(total), int(records))
 

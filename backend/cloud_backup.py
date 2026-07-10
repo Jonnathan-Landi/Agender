@@ -9,7 +9,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from .backup import export_backup_bytes, import_backup_bytes
@@ -114,13 +113,16 @@ def finish_auth(provider: str, query: dict[str, str], base_url: str) -> str:
     if time.time() - float(pending.get("createdAt", 0)) > 900:
         raise ValueError("El inicio de sesión expiró. Intenta de nuevo.")
 
-    token = _post_form(PROVIDERS[provider]["token_url"], {
-        "client_id": entry["clientId"],
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": pending.get("redirectUri") or _redirect_uri(base_url, provider),
-        "code_verifier": pending["verifier"],
-    })
+    token = _post_form(
+        PROVIDERS[provider]["token_url"],
+        {
+            "client_id": entry["clientId"],
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": pending.get("redirectUri") or _redirect_uri(base_url, provider),
+            "code_verifier": pending["verifier"],
+        },
+    )
     token["expires_at"] = time.time() + int(token.get("expires_in", 3600))
     entry["token"] = token
     entry["account"] = _account_info(provider, token["access_token"])
@@ -172,36 +174,52 @@ def _google_upload(access_token: str, content: bytes) -> dict[str, Any]:
     metadata = {"name": CLOUD_FILE_NAME, "parents": ["appDataFolder"]} if not file_id else {"name": CLOUD_FILE_NAME}
     boundary = f"agender-{secrets.token_hex(12)}"
     body = (
-        f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"
-        f"{json.dumps(metadata, ensure_ascii=False)}\r\n"
-        f"--{boundary}\r\nContent-Type: application/json\r\n\r\n"
-    ).encode("utf-8") + content + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        (
+            f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"
+            f"{json.dumps(metadata, ensure_ascii=False)}\r\n"
+            f"--{boundary}\r\nContent-Type: application/json\r\n\r\n"
+        ).encode()
+        + content
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
     if file_id:
         url = f"https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=multipart&fields=id,name,modifiedTime"
         method = "PATCH"
     else:
         url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime"
         method = "POST"
-    return _json_request(url, method=method, headers={
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": f"multipart/related; boundary={boundary}",
-    }, body=body)
+    return _json_request(
+        url,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": f"multipart/related; boundary={boundary}",
+        },
+        body=body,
+    )
 
 
 def _google_download(access_token: str) -> bytes:
     file_id = _google_file_id(access_token)
     if not file_id:
         raise ValueError("No hay una copia de seguridad en Google Drive.")
-    return _bytes_request(f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media", headers={"Authorization": f"Bearer {access_token}"})
+    return _bytes_request(
+        f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
 
 def _google_file_id(access_token: str) -> str:
-    query = urllib.parse.urlencode({
-        "spaces": "appDataFolder",
-        "q": f"name='{CLOUD_FILE_NAME}' and trashed=false",
-        "fields": "files(id,name,modifiedTime)",
-    })
-    result = _json_request(f"https://www.googleapis.com/drive/v3/files?{query}", headers={"Authorization": f"Bearer {access_token}"})
+    query = urllib.parse.urlencode(
+        {
+            "spaces": "appDataFolder",
+            "q": f"name='{CLOUD_FILE_NAME}' and trashed=false",
+            "fields": "files(id,name,modifiedTime)",
+        }
+    )
+    result = _json_request(
+        f"https://www.googleapis.com/drive/v3/files?{query}", headers={"Authorization": f"Bearer {access_token}"}
+    )
     files = result.get("files") or []
     return files[0]["id"] if files else ""
 
@@ -236,11 +254,14 @@ def _access_token(user: dict[str, Any], provider: str) -> str:
         raise ValueError("Primero inicia sesión en la nube.")
     if float(token.get("expires_at", 0)) > time.time() + TOKEN_SKEW_SECONDS and token.get("access_token"):
         return token["access_token"]
-    refreshed = _post_form(PROVIDERS[provider]["token_url"], {
-        "client_id": entry["clientId"],
-        "grant_type": "refresh_token",
-        "refresh_token": token["refresh_token"],
-    })
+    refreshed = _post_form(
+        PROVIDERS[provider]["token_url"],
+        {
+            "client_id": entry["clientId"],
+            "grant_type": "refresh_token",
+            "refresh_token": token["refresh_token"],
+        },
+    )
     refreshed["refresh_token"] = refreshed.get("refresh_token") or token["refresh_token"]
     refreshed["expires_at"] = time.time() + int(refreshed.get("expires_in", 3600))
     entry["token"] = refreshed
@@ -250,10 +271,15 @@ def _access_token(user: dict[str, Any], provider: str) -> str:
 
 def _account_info(provider: str, access_token: str) -> dict[str, str]:
     if provider == "google":
-        data = _json_request("https://openidconnect.googleapis.com/v1/userinfo", headers={"Authorization": f"Bearer {access_token}"})
+        data = _json_request(
+            "https://openidconnect.googleapis.com/v1/userinfo", headers={"Authorization": f"Bearer {access_token}"}
+        )
         return {"email": data.get("email", ""), "displayName": data.get("name") or data.get("email", "")}
     data = _json_request("https://graph.microsoft.com/v1.0/me", headers={"Authorization": f"Bearer {access_token}"})
-    return {"email": data.get("mail") or data.get("userPrincipalName", ""), "displayName": data.get("displayName") or data.get("userPrincipalName", "")}
+    return {
+        "email": data.get("mail") or data.get("userPrincipalName", ""),
+        "displayName": data.get("displayName") or data.get("userPrincipalName", ""),
+    }
 
 
 def _post_form(url: str, values: dict[str, str]) -> dict[str, Any]:
@@ -261,7 +287,9 @@ def _post_form(url: str, values: dict[str, str]) -> dict[str, Any]:
     return _json_request(url, method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"}, body=body)
 
 
-def _json_request(url: str, method: str = "GET", headers: dict[str, str] | None = None, body: bytes | None = None) -> dict[str, Any]:
+def _json_request(
+    url: str, method: str = "GET", headers: dict[str, str] | None = None, body: bytes | None = None
+) -> dict[str, Any]:
     data = _bytes_request(url, method, headers, body)
     try:
         return json.loads(data.decode("utf-8")) if data else {}
@@ -269,7 +297,9 @@ def _json_request(url: str, method: str = "GET", headers: dict[str, str] | None 
         raise ValueError("La nube respondió con un formato no válido.") from error
 
 
-def _bytes_request(url: str, method: str = "GET", headers: dict[str, str] | None = None, body: bytes | None = None) -> bytes:
+def _bytes_request(
+    url: str, method: str = "GET", headers: dict[str, str] | None = None, body: bytes | None = None
+) -> bytes:
     request = urllib.request.Request(url, data=body, headers=headers or {}, method=method)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:

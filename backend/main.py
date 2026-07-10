@@ -12,11 +12,28 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .backup import export_backup_bytes, import_backup_bytes
-from .cloud_backup import cloud_status, disconnect, finish_auth, restore_cloud_backup, save_client_id, start_auth, upload_cloud_backup
+from .cloud_backup import (
+    cloud_status,
+    disconnect,
+    finish_auth,
+    restore_cloud_backup,
+    save_client_id,
+    start_auth,
+    upload_cloud_backup,
+)
 from .config import read_settings, write_settings
 from .indexer import synchronize
 from .viewer.api import app as viewer_app
-from .security import auth_status, change_password, current_user, generate_license, install_authority_key, install_license, login, logout
+from .security import (
+    auth_status,
+    change_password,
+    current_user,
+    generate_license,
+    install_authority_key,
+    install_license,
+    login,
+    logout,
+)
 from .user_data import read_user_data, write_user_data
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -100,7 +117,9 @@ def post_login(credentials: LoginRequest, response: Response) -> dict[str, objec
 
 
 @app.post("/api/auth/activate")
-async def activate_license(response: Response, username: str = Form(...), password: str = Form(...), license: UploadFile = File(...)) -> dict[str, object]:
+async def activate_license(
+    response: Response, username: str = Form(...), password: str = Form(...), license: UploadFile = File(...)
+) -> dict[str, object]:
     try:
         install_license(await license.read(), username, password)
     except ValueError as error:
@@ -131,7 +150,11 @@ def post_generate_license(request: Request, values: LicenseGenerationRequest) ->
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     filename = f"{values.licenseId}.license.json"
-    return Response(content=content, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.post("/api/licenses/import-authority")
@@ -294,7 +317,9 @@ async def select_directory(request: DirectoryRequest) -> dict[str, str]:
 
 
 @app.get("/api/local-data")
-async def local_data(request: Request, source: str = Query(default="raw", pattern="^(raw|quality)$")) -> dict[str, object]:
+async def local_data(
+    request: Request, source: str = Query(default="raw", pattern="^(raw|quality)$")
+) -> dict[str, object]:
     user = current_user(request.cookies.get("agender_session"))
     settings = read_settings(user["username"], user["role"] == "admin")
     root = settings["rawDataPath" if source == "raw" else "qualityDataPath"]
@@ -310,7 +335,10 @@ def _folder_dialog(initial_path: str) -> str:
     root.withdraw()
     root.attributes("-topmost", True)
     try:
-        return filedialog.askdirectory(initialdir=initial_path or None, title="Selecciona una carpeta", mustexist=True) or ""
+        return (
+            filedialog.askdirectory(initialdir=initial_path or None, title="Selecciona una carpeta", mustexist=True)
+            or ""
+        )
     finally:
         root.destroy()
 

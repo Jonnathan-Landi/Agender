@@ -54,6 +54,9 @@
 
     document.querySelector("#diary-new-task").addEventListener("click", () => openTaskForm());
     document.querySelector("#diary-today").addEventListener("click", goToday);
+    const filterMenu = document.querySelector("#diary-filter-menu");
+    const filterToggle = document.querySelector("#diary-filter-toggle");
+    window.NotasUI.initDismissibleMenu({ menu: filterMenu, toggle: filterToggle });
     selectedDate.addEventListener("change", handleDateChange);
     statusFilter.addEventListener("change", renderDiary);
     searchInput.addEventListener("input", renderDiary);
@@ -82,6 +85,11 @@
     fields.title.focus();
   }
 
+  function openTaskById(id) {
+    const task = tasks.find((item) => item.id === id);
+    if (task) openTaskForm(task);
+  }
+
   function saveTaskFromForm(event) {
     event.preventDefault();
     const task = readTaskForm();
@@ -94,6 +102,7 @@
     }
 
     saveTasks();
+    notifyDiaryChanged();
     selectedDate.value = task.date;
     renderDiary();
     dialog.close();
@@ -131,6 +140,7 @@
       if (!confirmed) return;
       tasks = tasks.filter((item) => item.id !== task.id);
       saveTasks();
+      notifyDiaryChanged();
       renderDiary();
     }
   }
@@ -146,6 +156,7 @@
     task.progress = statusProgress(select.value, task.progress);
     task.updatedAt = new Date().toISOString();
     saveTasks();
+    notifyDiaryChanged();
     renderDiary();
   }
 
@@ -158,7 +169,18 @@
     document.querySelector("#diary-list-count").textContent = `${visibleTasks.length} ${visibleTasks.length === 1 ? "tarea" : "tareas"}`;
     taskList.innerHTML = visibleTasks.map(taskTemplate).join("");
     emptyState.classList.toggle("visible", visibleTasks.length === 0);
-    updateDiaryMetrics(date);
+    updateAllTaskCounts();
+  }
+
+  function updateAllTaskCounts() {
+    const counts = tasks.reduce((result, task) => {
+      result[task.status] = (result[task.status] || 0) + 1;
+      return result;
+    }, {});
+    document.querySelector("#diary-all-pending").textContent = counts.Pendiente || 0;
+    document.querySelector("#diary-all-progress").textContent = counts["En proceso"] || 0;
+    document.querySelector("#diary-all-waiting").textContent = counts["En espera"] || 0;
+    document.querySelector("#diary-all-done").textContent = counts.Finalizada || 0;
   }
 
   function getVisibleTasks(date) {
@@ -175,12 +197,14 @@
   }
 
   function taskTemplate(task) {
+    const deadline = deadlineInfo(task);
     return `
-      <article class="diary-task ${statusClass(task.status)}">
+      <article class="diary-task ${statusClass(task.status)} ${deadline.className}">
         <div class="diary-task-main">
           <div class="diary-task-topline">
             <span class="diary-priority ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span>
             <span>${escapeHtml(dueDateLabel(task.dueDate))}</span>
+            ${deadline.label ? `<span class="diary-deadline-alert"><span class="font-icon" aria-hidden="true">&#xE7BA;</span>${escapeHtml(deadline.label)}</span>` : ""}
             <span>${escapeHtml(task.category || "General")}</span>
           </div>
           <h2>${escapeHtml(task.title)}</h2>
@@ -205,26 +229,6 @@
     `;
   }
 
-  function updateDiaryMetrics(date) {
-    const dayTasks = tasks.filter((task) => task.date === date);
-    const done = dayTasks.filter((task) => task.status === "Finalizada").length;
-    const active = dayTasks.filter((task) => task.status === "En proceso").length;
-    const pending = dayTasks.filter((task) => task.status === "Pendiente").length;
-    const waiting = dayTasks.filter((task) => task.status === "En espera").length;
-    const average = dayTasks.length
-      ? Math.round(dayTasks.reduce((total, task) => total + clampProgress(task.progress), 0) / dayTasks.length)
-      : 0;
-
-    document.querySelector("#diary-total").textContent = dayTasks.length;
-    document.querySelector("#diary-done").textContent = done;
-    document.querySelector("#diary-active").textContent = active;
-    document.querySelector("#diary-progress").textContent = `${average}%`;
-    document.querySelector("#diary-count-pending").textContent = pending;
-    document.querySelector("#diary-count-progress").textContent = active;
-    document.querySelector("#diary-count-waiting").textContent = waiting;
-    document.querySelector("#diary-count-done").textContent = done;
-  }
-
   function handleDateChange() {
     renderDiary();
   }
@@ -242,6 +246,26 @@
 
   function saveTasks() {
     saveJson(TASKS_KEY, tasks);
+  }
+
+  function notifyDiaryChanged() {
+    window.dispatchEvent(new CustomEvent("agender:diary-changed"));
+  }
+
+  function deadlineInfo(task) {
+    if (!task.dueDate || task.status === "Finalizada") return { label: "", className: "" };
+    const due = parseDateOnly(task.dueDate);
+    const current = parseDateOnly(today());
+    const days = Math.round((due - current) / 86400000);
+    if (days < 0) return { label: `Vencida hace ${Math.abs(days)} ${Math.abs(days) === 1 ? "día" : "días"}`, className: "deadline-overdue" };
+    if (days === 0) return { label: "Vence hoy", className: "deadline-today" };
+    if (days <= 3) return { label: `Vence en ${days} ${days === 1 ? "día" : "días"}`, className: "deadline-soon" };
+    return { label: "", className: "" };
+  }
+
+  function parseDateOnly(value) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
   }
 
   function syncProgressWithStatus() {
@@ -295,6 +319,7 @@
   }
 
   window.NotasDiary = {
-    initDiary
+    initDiary,
+    openTaskById
   };
 })();

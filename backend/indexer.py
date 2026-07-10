@@ -51,7 +51,11 @@ def synchronize(source: str, root_value: str, recursive: bool = True) -> dict[st
 
         for relative, file_path, fingerprint, metadata in eligible_files:
             cached_entry = old_entries.get(relative)
-            if cached_entry and cached_entry.get("size") == fingerprint["size"] and cached_entry.get("mtimeNs") == fingerprint["mtimeNs"]:
+            if (
+                cached_entry
+                and cached_entry.get("size") == fingerprint["size"]
+                and cached_entry.get("mtimeNs") == fingerprint["mtimeNs"]
+            ):
                 cached_entry["station"] = metadata["code"]
                 entries[relative] = cached_entry
                 reused += 1
@@ -91,18 +95,23 @@ def _discover(root: Path, recursive: bool) -> list[tuple[str, Path, dict[str, in
         if not file_path.is_file() or file_path.suffix.lower() not in DATA_EXTENSIONS:
             continue
         stat = file_path.stat()
-        result.append((file_path.relative_to(root).as_posix(), file_path, {"size": stat.st_size, "mtimeNs": stat.st_mtime_ns}))
+        result.append(
+            (file_path.relative_to(root).as_posix(), file_path, {"size": stat.st_size, "mtimeNs": stat.st_mtime_ns})
+        )
     return result
 
 
 def _save_checkpoint(cache_path: Path, source: str, root: Path, recursive: bool, entries: dict[str, Any]) -> None:
-    write_json_atomic(cache_path, {
-        "version": CACHE_VERSION,
-        "source": source,
-        "root": str(root),
-        "recursive": recursive,
-        "files": entries,
-    })
+    write_json_atomic(
+        cache_path,
+        {
+            "version": CACHE_VERSION,
+            "source": source,
+            "root": str(root),
+            "recursive": recursive,
+            "files": entries,
+        },
+    )
 
 
 def _aggregate_stations(entries: Any, catalog: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -132,16 +141,21 @@ def _aggregate_stations(entries: Any, catalog: dict[str, dict[str, Any]]) -> lis
             for variable, counts in values["variables"].items()
             if counts["expected"] > 0
         }
-        result.append({
-            "code": metadata["code"],
-            "type": metadata["type"],
-            "x": metadata["x"], "y": metadata["y"], "z": metadata["z"], "basin": metadata["basin"],
-            "start": dates[0] if dates else "",
-            "end": dates[-1] if dates else "",
-            "variables": sorted(values["variables"]),
-            "completeness": completeness,
-            "fileCount": values["files"],
-        })
+        result.append(
+            {
+                "code": metadata["code"],
+                "type": metadata["type"],
+                "x": metadata["x"],
+                "y": metadata["y"],
+                "z": metadata["z"],
+                "basin": metadata["basin"],
+                "start": dates[0] if dates else "",
+                "end": dates[-1] if dates else "",
+                "variables": sorted(values["variables"]),
+                "completeness": completeness,
+                "fileCount": values["files"],
+            }
+        )
     return sorted(result, key=lambda station: station["code"].casefold())
 
 
@@ -153,11 +167,17 @@ def _empty_result(source: str, warning: str, started: float, catalog: dict[str, 
         "ignoredFileCount": 0,
         "catalogStationCount": len(catalog),
         "generatedAt": _iso_now(),
-        "sync": {"processed": 0, "reused": 0, "deleted": 0, "durationMs": round((time.perf_counter() - started) * 1000)},
+        "sync": {
+            "processed": 0,
+            "reused": 0,
+            "deleted": 0,
+            "durationMs": round((time.perf_counter() - started) * 1000),
+        },
         "warnings": [warning],
     }
 
 
 def _iso_now() -> str:
     from datetime import UTC, datetime
+
     return datetime.now(UTC).isoformat()

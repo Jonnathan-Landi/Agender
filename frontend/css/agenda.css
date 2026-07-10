@@ -359,6 +359,12 @@
   color: #fff;
 }
 
+.agenda-event.linked-diary-task::after {
+  content: "Tarea de Diario";
+  opacity: 0.82;
+  font-size: 0.68rem;
+}
+
 .agenda-event.revision {
   background: #ca5010;
   color: #fff;

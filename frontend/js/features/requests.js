@@ -1,6 +1,6 @@
 (function () {
   const STORAGE_KEY = "agender.request.records";
-  const { csvEscape, escapeHtml, formatDate, normalizeDate, parseCsv } = window.NotasUtils;
+  const { csvEscape, escapeHtml, formatDate } = window.NotasUtils;
   const { loadJson, saveJson } = window.NotasStorage;
 
   let records = [];
@@ -13,7 +13,6 @@
   let searchInput;
   let resultFilter;
   let statusFilter;
-  let csvFile;
 
   function initRequests() {
     fields = {
@@ -36,13 +35,13 @@
     searchInput = document.querySelector("#search-input");
     resultFilter = document.querySelector("#request-filter");
     statusFilter = document.querySelector("#status-filter");
-    csvFile = document.querySelector("#csv-file");
     records = loadJson(STORAGE_KEY, []);
 
     document.querySelector("#new-request").addEventListener("click", () => openForm());
     document.querySelector("#export-csv").addEventListener("click", exportCsv);
-    document.querySelector("#import-csv").addEventListener("click", () => csvFile.click());
-    csvFile.addEventListener("change", importCsv);
+    const filterMenu = document.querySelector("#request-filter-menu");
+    const filterToggle = document.querySelector("#request-filter-toggle");
+    window.NotasUI.initDismissibleMenu({ menu: filterMenu, toggle: filterToggle });
     searchInput.addEventListener("input", render);
     resultFilter.addEventListener("change", render);
     statusFilter.addEventListener("change", render);
@@ -213,32 +212,6 @@
     link.download = `solicitud-datos-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-  }
-
-  function importCsv(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const rows = parseCsv(String(reader.result));
-      const imported = rows.slice(1).filter((row) => row.length >= 8).map((row) => ({
-        id: crypto.randomUUID(),
-        requester: row[0] || "",
-        reference: row[1] || "",
-        requestDate: normalizeDate(row[2]),
-        requestedData: row[3] || "",
-        objective: row[4] || "",
-        result: row[5] || "Pendiente",
-        status: row[6] || "Recibido",
-        deliveryDate: normalizeDate(row[7])
-      }));
-      records = [...imported, ...records];
-      saveRecords();
-      render();
-      csvFile.value = "";
-    };
-    reader.readAsText(file);
   }
 
   window.NotasRequests = {

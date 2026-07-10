@@ -19,15 +19,29 @@ tests/                   Pruebas y archivos pequeños de ejemplo
 ## Instalación
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r backend\requirements.txt
+powershell -ExecutionPolicy Bypass -File scripts\setup-dev.ps1
 ```
+
+El entorno queda aislado en `.venv` (ignorado por Git). Durante desarrollo,
+Tauri utiliza automáticamente `.venv\Scripts\python.exe`; no es necesario
+activar el entorno antes de ejecutar la aplicación.
 
 ## Ejecución
 
 ```powershell
-python -m backend
+.\.venv\Scripts\python.exe -m backend
+```
+
+Para iniciar la aplicación de escritorio en desarrollo:
+
+```powershell
+cargo tauri dev
+```
+
+Antes de confirmar cambios en el backend, ejecuta el análisis estático:
+
+```powershell
+.\.venv\Scripts\ruff.exe check backend
 ```
 
 Abre `http://localhost:3000`.
