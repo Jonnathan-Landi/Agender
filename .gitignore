@@ -16,6 +16,7 @@ tests/
 # Compilaciones y artefactos generados
 build/
 dist/
+release-artifacts/
 src-tauri/target/
 src-tauri/resources/backend/
 
