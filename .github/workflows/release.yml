@@ -33,6 +33,9 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Instalar Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
       - name: Construir y validar la actualización sin publicarla
         shell: powershell
         env:
