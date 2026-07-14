@@ -25,20 +25,6 @@ jobs:
       - name: Instalar dependencias del backend
         run: python -m pip install -r packaging/requirements-build.txt
 
-      - name: Empaquetar backend local
-        shell: powershell
-        run: ./scripts/build-backend.ps1
-
-      - name: Verificar módulos del backend empaquetado
-        shell: powershell
-        run: |
-          $modules = (python -m PyInstaller.utils.cliutils.archive_viewer -l "build/agender-backend/PYZ-00.pyz") -join "`n"
-          foreach ($required in "backend.main", "backend.backup", "backend.config") {
-            if ($modules -notmatch "'$([regex]::Escape($required))'") {
-              throw "El módulo requerido $required no está incluido en el backend empaquetado."
-            }
-          }
-
       - name: Preparar Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -47,14 +33,36 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Crear release, instalador y metadatos de actualización
-        uses: tauri-apps/tauri-action@v1
+      - name: Construir y validar la actualización sin publicarla
+        shell: powershell
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        with:
-          tagName: v__VERSION__
-          releaseName: "Agender v__VERSION__"
-          releaseBody: "Nueva versión de Agender. Consulta los cambios incluidos en esta actualización."
-          releaseDraft: false
-          prerelease: false
+        run: ./scripts/build-release.ps1 -ExpectedTag "${{ github.ref_name }}"
+
+      # La release permanece invisible para el updater mientras se cargan los archivos.
+      - name: Crear borrador y cargar únicamente los artefactos validados
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            release-artifacts/* `
+            --draft `
+            --verify-tag `
+            --title "Agender ${{ github.ref_name }}" `
+            --notes "Nueva versión de Agender. Consulta los cambios incluidos en esta actualización."
+
+      - name: Comprobar la carga y publicar la actualización
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $assets = gh release view "${{ github.ref_name }}" --json assets | ConvertFrom-Json
+          $expected = @(Get-ChildItem release-artifacts -File).Name
+          $uploaded = @($assets.assets.name)
+          foreach ($name in $expected) {
+            if ($name -notin $uploaded) {
+              throw "El artefacto $name no llegó a GitHub; la release seguirá en borrador."
+            }
+          }
+          gh release edit "${{ github.ref_name }}" --draft=false
