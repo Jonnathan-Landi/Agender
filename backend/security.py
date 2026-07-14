@@ -151,7 +151,7 @@ def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
         return None
     try:
         password_hasher.verify(row["password_hash"], password)
-    except VerifyMismatchError, InvalidHashError:
+    except (VerifyMismatchError, InvalidHashError):
         return None
     token = secrets.token_urlsafe(32)
     with database() as connection:
