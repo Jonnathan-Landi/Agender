@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
 import csv
+import hashlib
+import shutil
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -13,8 +16,7 @@ os.environ.setdefault("POLARS_MAX_THREADS", str(WORKER_THREADS))
 
 import duckdb
 import polars as pl
-from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 
@@ -25,10 +27,10 @@ from ..security import current_user
 
 APP_ROOT = APP_DATA_DIR / "viewer"
 CACHE_ROOT = APP_ROOT / "data" / "cache"
-EXPORT_ROOT = APP_ROOT / "data" / "exports"
-
-for directory in (CACHE_ROOT, EXPORT_ROOT):
-    directory.mkdir(parents=True, exist_ok=True)
+CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+CACHE_MAX_SESSIONS = 32
+_duckdb_state = threading.local()
 
 
 EXCLUDED_COLUMNS = {"record", "year", "id", "idx", "index", "row", "timestamp"}
@@ -99,6 +101,25 @@ def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
+
+
+def cleanup_cache(preserve: str | None = None) -> None:
+    """Retira sesiones regenerables antiguas para evitar crecimiento ilimitado."""
+    now = time.time()
+    candidates = [
+        path
+        for path in CACHE_ROOT.iterdir()
+        if path.is_dir() and path.name != preserve
+    ]
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    for index, path in enumerate(candidates):
+        try:
+            expired = now - path.stat().st_mtime > CACHE_MAX_AGE_SECONDS
+            exceeds_limit = index >= CACHE_MAX_SESSIONS
+            if expired or exceeds_limit:
+                shutil.rmtree(path)
+        except OSError:
+            continue
 
 
 def require_session(session_id: str) -> dict[str, Any]:
@@ -429,35 +450,40 @@ def infer_interval_microseconds(df: pl.DataFrame) -> int | None:
 
 
 def complete_time_series(df: pl.DataFrame) -> tuple[pl.DataFrame, int | None]:
+    """Ordena y deduplica la serie sin materializar timestamps ausentes.
+
+    Los huecos se describen al consultar la serie. Crear una fila nula por cada
+    timestamp esperado hace que un archivo pequeño con un hueco grande pueda
+    convertirse en un Parquet enorme.
+    """
     interval_us = infer_interval_microseconds(df)
     base = df.drop("__fd_row_id") if "__fd_row_id" in df.columns else df
     base = base.sort("__fd_timestamp")
     if not interval_us:
         return base.with_row_index("__fd_row_id"), None
 
-    start, end = base.select(
-        pl.col("__fd_timestamp").min().alias("start"),
-        pl.col("__fd_timestamp").max().alias("end"),
-    ).row(0)
-    if start is None or end is None or start == end:
-        return base.with_row_index("__fd_row_id"), interval_us
-
     value_columns = [column for column in base.columns if column != "__fd_timestamp"]
     deduplicated = base.group_by("__fd_timestamp", maintain_order=True).agg(
         [pl.col(column).first().alias(column) for column in value_columns]
     )
-    timeline = pl.DataFrame(
-        {
-            "__fd_timestamp": pl.datetime_range(
-                start,
-                end,
-                interval=f"{interval_us}us",
-                eager=True,
-            )
-        }
-    )
-    completed = timeline.join(deduplicated, on="__fd_timestamp", how="left")
-    return completed.with_row_index("__fd_row_id"), interval_us
+    return deduplicated.with_row_index("__fd_row_id"), interval_us
+
+
+def source_fingerprint(path: Path) -> str:
+    stat = path.stat()
+    identity = f"{path.resolve()}\0{stat.st_size}\0{stat.st_mtime_ns}".encode()
+    return hashlib.sha256(identity).hexdigest()
+
+
+def cached_session(path: Path) -> dict[str, Any] | None:
+    fingerprint = source_fingerprint(path)
+    candidate = session_dir(fingerprint[:32])
+    meta_path = candidate / "metadata.json"
+    data_path = candidate / "dataset.parquet"
+    if not meta_path.is_file() or not data_path.is_file():
+        return None
+    meta = read_json(meta_path, {})
+    return meta if meta.get("source_fingerprint") == fingerprint else None
 
 
 def read_input_file(path: Path) -> pl.DataFrame:
@@ -471,13 +497,13 @@ def read_input_file(path: Path) -> pl.DataFrame:
     raise HTTPException(status_code=415, detail=f"Unsupported file format: {suffix}")
 
 
-def duckdb_query(session_id: str, sql: str, params: list[Any] | None = None) -> list[tuple[Any, ...]]:
-    con = duckdb.connect(database=":memory:")
-    try:
-        con.execute(f"PRAGMA threads={WORKER_THREADS}")
-        return con.execute(sql, params or []).fetchall()
-    finally:
-        con.close()
+def duckdb_query(sql: str, params: list[Any] | None = None) -> list[tuple[Any, ...]]:
+    connection = getattr(_duckdb_state, "connection", None)
+    if connection is None:
+        connection = duckdb.connect(database=":memory:")
+        connection.execute(f"PRAGMA threads={WORKER_THREADS}")
+        _duckdb_state.connection = connection
+    return connection.execute(sql, params or []).fetchall()
 
 
 def stats_payload(total: int, records: int) -> dict[str, Any]:
@@ -555,7 +581,13 @@ def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
     suffix = source_path.suffix.lower()
     if suffix not in {".dat", ".csv", ".txt", ".xlsx", ".parquet"}:
         raise HTTPException(status_code=415, detail="Formato no soportado")
-    session_id = uuid.uuid4().hex
+    existing = cached_session(source_path)
+    if existing:
+        return SessionInfo(**existing)
+
+    fingerprint = source_fingerprint(source_path)
+    session_id = fingerprint[:32]
+    cleanup_cache(preserve=session_id)
     session_dir(session_id).mkdir(parents=True, exist_ok=True)
 
     try:
@@ -619,6 +651,7 @@ def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
         "sampling_interval_us": interval_us,
         "worker_threads": WORKER_THREADS,
         "source_path": str(source_path),
+        "source_fingerprint": fingerprint,
     }
     write_json(metadata_path(session_id), meta)
     return SessionInfo(**meta)
@@ -672,7 +705,7 @@ def get_data(
         FROM read_parquet('{path}')
         WHERE {period_where_clause}
     """
-    total_expected, total_records = duckdb_query(session_id, stats_sql, params)[0]
+    total_expected, total_records = duckdb_query(stats_sql, params)[0]
     aggregate, aggregation_label = aggregation_function(variable)
     expected_sql = (
         f"GREATEST(1, ROUND((epoch(bucket + INTERVAL '{interval_label}') - epoch(bucket))"
@@ -707,8 +740,44 @@ def get_data(
         FROM evaluated
         ORDER BY bucket
     """
-    rows = duckdb_query(session_id, data_sql, [*params, min_coverage])
+    rows = duckdb_query(data_sql, [*params, min_coverage])
+    missing_ranges: list[dict[str, Any]] = []
+    if source_interval_us:
+        gaps_sql = f"""
+            WITH ordered AS (
+                SELECT
+                    __fd_timestamp,
+                    LAG(__fd_timestamp) OVER (ORDER BY __fd_timestamp) AS previous_timestamp
+                FROM read_parquet('{path}')
+                WHERE {period_where_clause}
+            )
+            SELECT
+                previous_timestamp + INTERVAL '{int(source_interval_us)} microseconds' AS gap_start,
+                __fd_timestamp - INTERVAL '{int(source_interval_us)} microseconds' AS gap_end,
+                CAST(ROUND(
+                    (epoch(__fd_timestamp) - epoch(previous_timestamp)) * 1000000
+                    / {int(source_interval_us)}
+                ) - 1 AS BIGINT) AS missing_count
+            FROM ordered
+            WHERE previous_timestamp IS NOT NULL
+              AND epoch(__fd_timestamp) - epoch(previous_timestamp) > {int(source_interval_us)} / 1000000.0
+            ORDER BY gap_start
+        """
+        gap_rows = duckdb_query(gaps_sql, params)
+        missing_ranges = [
+            {
+                "start": row[0].isoformat(),
+                "end": row[1].isoformat(),
+                "count": int(row[2]),
+            }
+            for row in gap_rows
+        ]
     stats = stats_payload(int(total_expected), int(total_records))
+    missing_points = sum(gap["count"] for gap in missing_ranges)
+    if missing_points:
+        stats["total"] += missing_points
+        stats["missing"] += missing_points
+        stats["completeness"] = round(stats["records"] / stats["total"] * 100, 2)
     accepted_periods = sum(row[2] is not None for row in rows)
     return {
         "session_id": session_id,
@@ -732,6 +801,8 @@ def get_data(
         "coverage": [float(row[3]) for row in rows],
         "available": [int(row[4]) for row in rows],
         "expected": [int(row[5]) for row in rows],
+        "missing_ranges": missing_ranges,
+        "missing_points": missing_points,
         "stats": stats,
     }
 
@@ -744,31 +815,6 @@ def get_stats(session_id: str, variable: str) -> dict[str, Any]:
     path = str(parquet_path(session_id)).replace("'", "''")
     var = variable.replace('"', '""')
     total, records = duckdb_query(
-        session_id,
         f"SELECT COUNT(*), COUNT(\"{var}\") FROM read_parquet('{path}')",
     )[0]
     return stats_payload(int(total), int(records))
-
-
-@app.post("/api/export")
-def export_file(
-    session_id: str = Form(...),
-    format: str = Form("csv"),
-) -> FileResponse:
-    meta = require_session(session_id)
-    fmt = format.lower()
-    if fmt not in {"csv", "parquet"}:
-        raise HTTPException(status_code=415, detail="Export format must be csv or parquet")
-
-    df = pl.read_parquet(parquet_path(session_id))
-    export_df = df.drop(["__fd_row_id", "__fd_timestamp"])
-    stem = Path(meta["filename"]).stem
-    output = EXPORT_ROOT / f"{stem}_QC.{fmt}"
-    if fmt == "csv":
-        export_df.write_csv(output, null_value="NA")
-        media_type = "text/csv"
-    else:
-        export_df.write_parquet(output, compression="zstd")
-        media_type = "application/octet-stream"
-
-    return FileResponse(output, media_type=media_type, filename=output.name)

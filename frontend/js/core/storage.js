@@ -3,7 +3,8 @@
     "agender.agenda.events",
     "agender.diary.tasks",
     "agender.diary.focus",
-    "agender.request.records"
+    "agender.request.records",
+    "agender.hydromet.qc-methods"
   ];
   const pending = new Map();
 

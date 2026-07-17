@@ -11,6 +11,7 @@ DATA_MODULES = {
     "agender.diary.tasks": "diary",
     "agender.diary.focus": "diary",
     "agender.request.records": "requests",
+    "agender.hydromet.qc-methods": "hydromet",
 }
 MAX_VALUE_BYTES = 5 * 1024 * 1024
 

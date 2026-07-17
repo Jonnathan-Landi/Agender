@@ -110,18 +110,14 @@ Agender verifica licencias Ed25519 desde `C:\ProgramData\Agender\license.json`
 o `%APPDATA%\Agender\license.json`. Los usuarios se provisionan desde la
 licencia firmada y sus contraseñas se validan localmente mediante Argon2id.
 
-El generador y su clave privada no forman parte del instalador. Para crear una
-licencia desde el repositorio de autoridad:
+La clave privada de la autoridad no forma parte del instalador. Un administrador
+puede importarla desde **Generar licencia** y emitir allí licencias versión 2
+con permisos granulares y una revisión creciente. Para actualizar permisos se
+conservan el identificador y el usuario de la licencia anterior y se incrementa
+su revisión.
 
-```powershell
-python scripts\license-generator.py cliente.license.json `
-  --id CLIENTE-001 --customer "Cliente" `
-  --modules hydromet viewer requests `
-  --username usuario --password "una-clave-segura"
-```
-
-Para una licencia administrativa usa `--admin`. La primera ejecución crea la
-clave privada en `license-authority/` (ignorada por Git) y publica únicamente
-la clave verificadora en `backend/security/license_public_key.pem`. Conserva
-una copia de seguridad segura de la clave privada: sin ella no se pueden emitir
-nuevas licencias compatibles.
+La autoridad debe corresponder a
+`backend/security/license_public_key.pem`. Conserva una copia de seguridad
+segura de la clave privada: sin ella no se pueden emitir nuevas licencias
+compatibles. No se debe distribuir la clave privada junto con Agender ni crear
+una autoridad nueva para una instalación existente.

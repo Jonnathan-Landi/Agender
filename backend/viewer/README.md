@@ -15,6 +15,12 @@ archivos cuyo nombre corresponde a la estación, se utiliza el más reciente.
 El archivo original nunca se modifica: el Viewer trabaja con una sesión
 Parquet guardada en `%APPDATA%/Agender/viewer`.
 
+Desde la versión 1.8, el Parquet conserva solamente las observaciones reales.
+Los timestamps ausentes se calculan como rangos exactos durante la consulta y
+se muestran como bandas en la gráfica. Esto conserva cada faltante sin crear
+millones de filas nulas. La sesión se reutiliza mientras no cambien la ruta,
+el tamaño ni la fecha de modificación del archivo original.
+
 La interfaz encapsulada vive en `frontend/viewer`; la aplicación principal
 solo abre esa interfaz dentro de un `iframe` y puede reemplazarla sin cambiar
 la tabla o el mapa.

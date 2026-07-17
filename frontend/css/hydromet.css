@@ -129,6 +129,225 @@
   font-weight: 700;
 }
 
+.hydromet-export-menu {
+  position: relative;
+}
+
+.hydromet-export-toggle {
+  width: 38px;
+  height: 38px;
+}
+
+.hydromet-export-toggle .font-icon {
+  font-size: 21px;
+}
+
+.hydromet-export-panel {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  width: min(370px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 120px));
+  gap: 10px;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: 0 14px 38px rgb(0 0 0 / 32%);
+}
+
+.hydromet-export-panel[hidden] {
+  display: none;
+}
+
+.hydromet-export-panel header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hydromet-export-panel header strong {
+  font-size: 16px;
+}
+
+.hydromet-export-panel header span,
+.export-message {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.export-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-panel-close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  place-items: center;
+}
+
+.export-panel-close .font-icon {
+  font-size: 13px;
+}
+
+.export-panel-close:hover {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.export-panel-close:active {
+  border-color: color-mix(in srgb, var(--danger) 80%, #000000);
+  background: color-mix(in srgb, var(--danger) 80%, #000000);
+  color: #ffffff;
+}
+
+.export-panel-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.export-select-all,
+.export-column-list label,
+.export-completeness-options > label,
+.export-variable-list label {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+
+.hydromet-export-panel label span {
+  display: inline;
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.hydromet-export-panel input[type="checkbox"],
+.hydromet-export-panel input[type="radio"] {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  box-shadow: none;
+  accent-color: var(--accent);
+}
+
+.hydromet-export-panel input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+.export-select-all {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.export-select-all span {
+  font-weight: 600 !important;
+}
+
+.export-select-all:hover,
+.export-column-list label:hover,
+.export-completeness-options > label:hover,
+.export-variable-list label:hover {
+  background: var(--subtle-hover);
+}
+
+.export-column-list,
+.export-variable-list {
+  display: grid;
+  gap: 1px;
+}
+
+.export-column-list {
+  max-height: 210px;
+  overflow: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.export-column-list label {
+  min-width: 0;
+}
+
+.export-column-list label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-completeness-options {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.export-completeness-options[hidden] {
+  display: none;
+}
+
+.export-completeness-options legend {
+  padding: 0 5px;
+  font-weight: 600;
+}
+
+.export-completeness-options > label {
+  display: flex;
+  width: auto;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.export-completeness-options > label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.export-variable-list {
+  max-height: 150px;
+  margin: 4px 0 0;
+  overflow: auto;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.export-variable-list[hidden] {
+  display: none;
+}
+
+.export-message {
+  min-height: 15px;
+  margin: 0;
+}
+
 .map-type-summary {
   display: none;
 }
@@ -537,10 +756,64 @@
 
 .hydromet-table th {
   background: color-mix(in srgb, var(--accent) 18%, var(--panel-soft));
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.hydromet-view.quality-source .hydromet-table td:nth-child(10) {
+  text-align: center;
+}
+
+.hydromet-table .transmission-column {
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
+  padding-right: 8px;
+  padding-left: 8px;
+  text-align: center;
+}
+
+.transmission-icon {
+  position: relative;
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  background: var(--subtle-pressed);
+  color: var(--ink);
+  place-items: center;
+}
+
+.transmission-icon .font-icon {
+  font-size: 20px;
+}
+
+.transmission-icon.active {
+  color: var(--accent);
+}
+
+.transmission-icon.inactive {
+  color: var(--muted);
+}
+
+.transmission-icon.inactive::after {
+  content: "";
+  position: absolute;
+  width: 25px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--danger);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--panel) 55%, transparent);
+  transform: rotate(-45deg);
 }
 
 .hydromet-table td {
   white-space: nowrap;
+}
+
+.hydromet-table td:not(:first-child) {
+  text-align: center;
 }
 
 .hydromet-table tbody tr {
@@ -559,8 +832,8 @@
   display: inline-flex;
   justify-content: center;
   min-width: 54px;
-  border-radius: 4px;
   padding: 3px 10px;
+  border-radius: 4px;
   font-weight: 700;
 }
 
@@ -577,6 +850,56 @@
 .status-cell.empty {
   background: var(--subtle-pressed);
   color: var(--muted);
+}
+
+.qc-method-editor {
+  display: inline-grid;
+  min-width: 58px;
+  place-items: center;
+}
+
+.qc-method-value {
+  min-width: 46px;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--subtle-pressed);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.qc-method-value:hover {
+  border-color: var(--line-strong);
+  background: var(--control);
+}
+
+.qc-method-value:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.qc-method-select {
+  width: 58px;
+  min-height: 28px;
+  padding: 2px 20px 2px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.qc-method-select:hover {
+  border-color: var(--accent);
+}
+
+.qc-method-select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 1px;
 }
 
 .completion-pill {
@@ -1373,58 +1696,101 @@
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 24px 70px rgb(0 0 0 / 35%);
-  grid-template-rows: 42px 1fr;
+  grid-template-rows: 52px 1fr;
 }
 
 .station-viewer-window > header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-left: 16px;
-  background: #17202a;
-  color: #fff;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent-soft));
+  color: var(--ink);
 }
 
-.station-viewer-window-controls {
+.station-viewer-heading {
   display: flex;
-  align-self: stretch;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
 }
 
-.station-viewer-window > header button {
-  display: grid;
-  width: 46px;
-  height: 32px;
-  align-self: start;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  place-items: center;
+.station-viewer-heading strong {
+  overflow: hidden;
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.station-viewer-window > header button svg {
-  width: 10px;
-  height: 10px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: square;
-  stroke-width: 1.15;
-}
-
-.station-viewer-window > header button:hover {
-  background: rgb(255 255 255 / 12%);
+.station-viewer-window > header .station-viewer-close {
+  min-height: 30px;
+  padding: 4px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .station-viewer-window > header .station-viewer-close:hover {
-  background: #c42b1c;
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line-strong));
+  background: var(--accent-soft);
+}
+
+.station-viewer-window > header .station-viewer-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .station-viewer-window iframe {
+  z-index: 1;
+  grid-row: 2;
+  grid-column: 1;
   width: 100%;
   height: 100%;
   border: 0;
-  background: #f5f6f8;
+  background: var(--surface);
+  opacity: 1;
+  transition: opacity 120ms ease-out;
+}
+
+.station-viewer-modal.is-loading iframe {
+  opacity: 0;
+}
+
+.station-viewer-loading {
+  z-index: 0;
+  display: none;
+  grid-row: 2;
+  grid-column: 1;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.station-viewer-modal.is-loading .station-viewer-loading {
+  display: grid;
+}
+
+.station-viewer-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: station-viewer-spin 700ms linear infinite;
+}
+
+@keyframes station-viewer-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 body.viewer-open {

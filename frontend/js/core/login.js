@@ -1,5 +1,5 @@
 (function () {
-  const viewModules = { hydromet: "hydromet", requests: "requests", diary: "diary", agenda: "agenda", settings: "settings" };
+  const viewModules = { hydromet: "hydromet", requests: "requests", diary: "diary", agenda: "agenda", reports: "reports", settings: "settings" };
 
   async function initLogin() {
     let currentUser = null;
@@ -13,6 +13,11 @@
     const licenseInput = document.querySelector("#login-license");
     const changeDialog = document.querySelector("#password-change-dialog");
     const accountPopover = document.querySelector("#account-popover");
+    const licenseChangeDialog = document.querySelector("#license-change-dialog");
+    const licenseChangeForm = document.querySelector("#license-change-form");
+    const licenseChangeInput = document.querySelector("#license-change-file");
+    const licenseChangeMessage = document.querySelector("#license-change-message");
+    const licenseChangeLabel = licenseChangeInput.closest("label").querySelector("span:last-of-type");
 
     document.querySelector("#login-open").addEventListener("click", () => {
       if (currentUser) {
@@ -28,6 +33,48 @@
       await fetch("/api/auth/logout", { method: "POST" });
       localStorage.removeItem("agender.auth.user");
       location.reload();
+    });
+    document.querySelector("#account-license-change").addEventListener("click", () => {
+      accountPopover.hidden = true;
+      licenseChangeForm.reset();
+      licenseChangeLabel.textContent = "Seleccionar nueva licencia";
+      licenseChangeMessage.textContent = "";
+      licenseChangeMessage.classList.remove("error");
+      licenseChangeDialog.showModal();
+    });
+    const closeLicenseChange = () => licenseChangeDialog.close();
+    document.querySelector("#license-change-close").addEventListener("click", closeLicenseChange);
+    document.querySelector("#license-change-cancel").addEventListener("click", closeLicenseChange);
+    licenseChangeDialog.addEventListener("click", (event) => {
+      if (event.target === licenseChangeDialog) closeLicenseChange();
+    });
+    licenseChangeInput.addEventListener("change", () => {
+      licenseChangeLabel.textContent = licenseChangeInput.files?.[0]?.name || "Seleccionar nueva licencia";
+      licenseChangeMessage.textContent = "";
+      licenseChangeMessage.classList.remove("error");
+    });
+    licenseChangeForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const file = licenseChangeInput.files?.[0];
+      if (!file) {
+        licenseChangeMessage.textContent = "Selecciona el archivo de la nueva licencia.";
+        licenseChangeMessage.classList.add("error");
+        return;
+      }
+      licenseChangeMessage.textContent = "Validando y aplicando licencia…";
+      licenseChangeMessage.classList.remove("error");
+      const body = new FormData();
+      body.append("license", file);
+      try {
+        const response = await fetch("/api/auth/license", { method: "PUT", body });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || "No fue posible cambiar la licencia");
+        licenseChangeMessage.textContent = "Licencia actualizada. Aplicando nuevos permisos…";
+        window.setTimeout(() => location.reload(), 500);
+      } catch (error) {
+        licenseChangeMessage.textContent = error.message;
+        licenseChangeMessage.classList.add("error");
+      }
     });
     document.addEventListener("pointerdown", (event) => {
       if (!accountPopover.hidden && !event.target.closest("#account-popover, #login-open")) accountPopover.hidden = true;
@@ -127,6 +174,10 @@
       document.querySelectorAll(`.nav-item[data-view="${view}"], #${view}-view`).forEach((element) => {
         element.hidden = !modules.has(module);
       });
+    });
+    document.querySelectorAll("[data-nav-group]").forEach((group) => {
+      const children = [...group.querySelectorAll(".nav-subitem[data-view]")];
+      group.hidden = children.length > 0 && children.every((item) => item.hidden);
     });
     const loginLabel = document.querySelector("#login-open .nav-label");
     loginLabel.textContent = user ? `${user.username} · Cerrar sesión` : "Iniciar sesión";

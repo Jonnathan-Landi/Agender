@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import base64
+import copy
+import ctypes
 import hashlib
 import json
+import os
 import secrets
 import time
 import urllib.error
@@ -339,11 +342,63 @@ def _provider_entry(state: dict[str, Any], user: dict[str, Any], provider: str, 
 
 def _read_state() -> dict[str, Any]:
     data = read_json(CLOUD_STATE_FILE, {"users": {}})
-    return data if isinstance(data, dict) else {"users": {}}
+    if not isinstance(data, dict):
+        return {"users": {}}
+    for providers in data.get("users", {}).values():
+        if not isinstance(providers, dict):
+            continue
+        for entry in providers.values():
+            if not isinstance(entry, dict) or "protectedToken" not in entry:
+                continue
+            try:
+                token_json = _unprotect_data(base64.b64decode(entry.pop("protectedToken"))).decode("utf-8")
+                entry["token"] = json.loads(token_json)
+            except (ValueError, OSError, json.JSONDecodeError):
+                entry.pop("token", None)
+    return data
 
 
 def _write_state(state: dict[str, Any]) -> None:
-    write_json_atomic(CLOUD_STATE_FILE, state)
+    protected = copy.deepcopy(state)
+    for providers in protected.get("users", {}).values():
+        if not isinstance(providers, dict):
+            continue
+        for entry in providers.values():
+            if not isinstance(entry, dict) or not isinstance(entry.get("token"), dict):
+                continue
+            token = json.dumps(entry.pop("token"), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            entry["protectedToken"] = base64.b64encode(_protect_data(token)).decode("ascii")
+    write_json_atomic(CLOUD_STATE_FILE, protected)
+
+
+class _DataBlob(ctypes.Structure):
+    _fields_ = [("size", ctypes.c_ulong), ("data", ctypes.POINTER(ctypes.c_ubyte))]
+
+
+def _protect_data(content: bytes) -> bytes:
+    if os.name != "nt":
+        return content
+    return _crypt_protect(content, decrypt=False)
+
+
+def _unprotect_data(content: bytes) -> bytes:
+    if os.name != "nt":
+        return content
+    return _crypt_protect(content, decrypt=True)
+
+
+def _crypt_protect(content: bytes, decrypt: bool) -> bytes:
+    buffer = ctypes.create_string_buffer(content)
+    source = _DataBlob(len(content), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)))
+    output = _DataBlob()
+    crypt32 = ctypes.windll.crypt32
+    function = crypt32.CryptUnprotectData if decrypt else crypt32.CryptProtectData
+    if not function(ctypes.byref(source), None, None, None, None, 0, ctypes.byref(output)):
+        raise OSError(ctypes.get_last_error(), "Windows no pudo proteger las credenciales")
+    try:
+        return ctypes.string_at(output.data, output.size)
+    finally:
+        ctypes.windll.kernel32.LocalFree(output.data)
 
 
 def _user_hash(user: dict[str, Any]) -> str:

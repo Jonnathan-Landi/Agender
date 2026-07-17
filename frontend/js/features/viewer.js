@@ -9,6 +9,10 @@
     frame = document.querySelector("#station-viewer-frame");
     title = document.querySelector("#station-viewer-title");
     contextMenu = document.querySelector("#station-context-menu");
+    frame.addEventListener("load", () => {
+      if (frame.src === "about:blank") return;
+      modal.classList.remove("is-loading");
+    });
     document.querySelector("#station-viewer-close").addEventListener("click", closeViewer);
     modal.addEventListener("click", (event) => {
       if (event.target === modal) closeViewer();
@@ -51,14 +55,16 @@
     if (!code) return;
     hideContextMenu();
     title.textContent = `Viewer · ${code}`;
-    frame.src = `/viewer/?station=${encodeURIComponent(code)}&source=${encodeURIComponent(source || "raw")}`;
+    modal.classList.add("is-loading");
     modal.hidden = false;
+    frame.src = `/viewer/?station=${encodeURIComponent(code)}&source=${encodeURIComponent(source || "raw")}`;
     document.body.classList.add("viewer-open");
     document.querySelector("#station-viewer-close").focus();
   }
 
   function closeViewer() {
     modal.hidden = true;
+    modal.classList.remove("is-loading");
     frame.src = "about:blank";
     document.body.classList.remove("viewer-open");
   }

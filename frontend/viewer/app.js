@@ -18,7 +18,10 @@ const state = {
   progressTimer: null,
   progressValue: 0,
   webgl: null,
-  themeMode: localStorage.getItem("agender.viewer.theme") || "system",
+  seriesController: null,
+  themeMode: localStorage.getItem("agender.system.theme") || "system",
+  lastPayload: null,
+  panelCollapsed: localStorage.getItem("agender.viewer.panel-collapsed") === "true",
 };
 
 const el = {
@@ -33,7 +36,9 @@ const el = {
   variableTabs: document.getElementById("variableTabs"),
   tabScrollLeftBtn: document.getElementById("tabScrollLeftBtn"),
   tabScrollRightBtn: document.getElementById("tabScrollRightBtn"),
-  plotModeInputs: Array.from(document.querySelectorAll('input[name="plotMode"]')),
+  workspace: document.getElementById("viewerWorkspace"),
+  panelToggleBtn: document.getElementById("panelToggleBtn"),
+  plotModeSelect: document.getElementById("plotModeSelect"),
   yearControl: document.getElementById("yearControl"),
   yearSelect: document.getElementById("yearSelect"),
   monthSelect: document.getElementById("monthSelect"),
@@ -48,8 +53,6 @@ const el = {
   loadProgress: document.getElementById("loadProgress"),
   loadProgressBar: document.getElementById("loadProgressBar"),
   statSummary: document.getElementById("statSummary"),
-  exportCsvBtn: document.getElementById("exportCsvBtn"),
-  exportParquetBtn: document.getElementById("exportParquetBtn"),
   statTotal: document.getElementById("statTotal"),
   statRecords: document.getElementById("statRecords"),
   statMissing: document.getElementById("statMissing"),
@@ -131,11 +134,14 @@ function applyTheme() {
   el.themeModeInputs.forEach((input) => {
     input.checked = input.value === state.themeMode;
   });
+  if (state.lastPayload && window.Plotly) {
+    Plotly.relayout(el.chart, chartThemeLayout());
+  }
 }
 
 function setThemeMode(mode) {
   state.themeMode = mode;
-  localStorage.setItem("agender.viewer.theme", mode);
+  localStorage.setItem("agender.system.theme", mode);
   applyTheme();
 }
 
@@ -160,12 +166,8 @@ function setControlsEnabled(enabled) {
     el.daySelect,
     el.resolutionSelect,
     el.coverageInput,
-    el.exportCsvBtn,
-    el.exportParquetBtn,
+    el.plotModeSelect,
   ].forEach((node) => {
-    node.disabled = !enabled;
-  });
-  el.plotModeInputs.forEach((node) => {
     node.disabled = !enabled;
   });
   updatePeriodControls();
@@ -234,6 +236,7 @@ async function api(path, options = {}) {
   try {
     response = await fetch(`${API_BASE}${path}`, options);
   } catch (error) {
+    if (error.name === "AbortError") throw error;
     throw new Error("No se pudo conectar con el módulo Viewer.");
   }
   if (!response.ok) {
@@ -342,15 +345,24 @@ function updatePeriodControls() {
   const annual = state.resolution === "year";
   const monthlyOrAnnual = state.resolution === "month" || annual;
 
-  el.yearControl.classList.toggle("is-hidden", !needsYear);
   el.yearSelect.disabled = !hasData || !needsYear;
   el.monthSelect.disabled = !hasData || annual;
   el.daySelect.disabled = !hasData || state.month === "all" || monthlyOrAnnual;
 
-  el.plotModeInputs.forEach((input) => {
-    input.checked = input.value === state.plotMode;
-    input.disabled = !hasData;
-  });
+  el.plotModeSelect.value = state.plotMode;
+  el.plotModeSelect.disabled = !hasData;
+}
+
+function setPanelCollapsed(collapsed, persist = true) {
+  state.panelCollapsed = collapsed;
+  el.workspace.classList.toggle("panel-collapsed", collapsed);
+  el.panelToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  el.panelToggleBtn.setAttribute("aria-label", collapsed ? "Desplegar panel de controles" : "Contraer panel de controles");
+  el.panelToggleBtn.title = collapsed ? "Desplegar panel" : "Contraer panel";
+  if (persist) localStorage.setItem("agender.viewer.panel-collapsed", String(collapsed));
+  setTimeout(() => {
+    if (el.chart.data) Plotly.Plots.resize(el.chart);
+  }, 220);
 }
 
 function supportsWebGL() {
@@ -394,23 +406,52 @@ async function openStation(station, source) {
   await applyMetadata(metadata);
 }
 
+function chartThemeLayout() {
+  return {
+    paper_bgcolor: "#ffffff",
+    plot_bgcolor: "#ffffff",
+    font: { color: "#424242" },
+    "xaxis.gridcolor": "#edf1f5",
+    "xaxis.linecolor": "#d1d1d1",
+    "yaxis.gridcolor": "#edf1f5",
+    "yaxis.linecolor": "#d1d1d1",
+    "yaxis.zerolinecolor": "#d9e0e7",
+  };
+}
+
 function chartLayout(payload) {
+  const missingShapes = (payload.missing_ranges || []).map((gap) => ({
+    type: "rect",
+    xref: "x",
+    yref: "paper",
+    x0: gap.start,
+    x1: gap.end,
+    y0: 0,
+    y1: 1,
+    fillcolor: "rgba(196, 43, 28, 0.10)",
+    line: { width: 0 },
+    layer: "below",
+  }));
   return {
     margin: { l: 64, r: 28, t: 18, b: 54 },
     paper_bgcolor: "#ffffff",
     plot_bgcolor: "#ffffff",
+    font: { color: "#424242" },
     hovermode: "closest",
     dragmode: "zoom",
     showlegend: true,
+    shapes: missingShapes,
     legend: { orientation: "h", x: 0, y: 1.02 },
     xaxis: {
       title: "Fecha y hora",
       gridcolor: "#edf1f5",
+      linecolor: "#d1d1d1",
       rangeslider: { visible: false },
     },
     yaxis: {
       title: payload.variable,
       gridcolor: "#edf1f5",
+      linecolor: "#d1d1d1",
       zerolinecolor: "#d9e0e7",
     },
   };
@@ -495,8 +536,19 @@ async function loadSeries() {
   if (state.month !== "all") params.set("month", state.month);
   if (state.day !== "all") params.set("day", state.day);
 
-  const response = await api(`/api/data?${params.toString()}`);
+  state.seriesController?.abort();
+  const controller = new AbortController();
+  state.seriesController = controller;
+  let response;
+  try {
+    response = await api(`/api/data?${params.toString()}`, { signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    throw error;
+  }
   const payload = await response.json();
+  if (state.seriesController !== controller) return;
+  state.lastPayload = payload;
   const traces = tracesForPayload(payload);
 
   const config = {
@@ -520,28 +572,9 @@ async function loadSeries() {
   await Plotly.react(el.chart, traces, chartLayout(payload), config);
   setStats(payload.stats);
 
-  const sampleText = ` ${formatNumber(payload.grouped_periods)} períodos: ${formatNumber(payload.accepted_periods)} válidos y ${formatNumber(payload.na_periods)} NA; resolución ${resolutionLabel().toLowerCase()}, cobertura mínima ${state.minCoverage}%, ${payload.aggregation}.`;
+  const sampleText = ` ${formatNumber(payload.grouped_periods)} períodos: ${formatNumber(payload.accepted_periods)} válidos, ${formatNumber(payload.na_periods)} NA y ${formatNumber(payload.missing_points)} timestamps ausentes; resolución ${resolutionLabel().toLowerCase()}, cobertura mínima ${state.minCoverage}%, ${payload.aggregation}.`;
   const renderText = supportsWebGL() ? "" : " Renderizado en modo compatible sin WebGL.";
   setStatus(`Variable ${payload.variable}, ${statusPeriodText(payload)}.${sampleText}${renderText}`);
-}
-
-async function exportData(format) {
-  setStatus(`Exportando ${format.toUpperCase()}...`);
-  const form = new FormData();
-  form.append("session_id", state.sessionId);
-  form.append("format", format);
-  const response = await api("/api/export", { method: "POST", body: form });
-  const blob = await response.blob();
-  const disposition = response.headers.get("content-disposition") || "";
-  const match = disposition.match(/filename="?([^"]+)"?/i);
-  const filename = match?.[1] || `Agender_QC.${format}`;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-  setStatus(`Exportación completada: ${filename}`);
 }
 
 el.yearSelect.addEventListener("change", async () => {
@@ -577,11 +610,9 @@ el.coverageInput.addEventListener("change", async () => {
   await loadSeries();
 });
 
-el.plotModeInputs.forEach((input) => {
-  input.addEventListener("change", async () => {
-    state.plotMode = input.value;
-    await loadSeries();
-  });
+el.plotModeSelect.addEventListener("change", async () => {
+  state.plotMode = el.plotModeSelect.value;
+  await loadSeries();
 });
 
 el.themeModeInputs.forEach((input) => {
@@ -592,6 +623,12 @@ window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", (
   if (state.themeMode === "system") applyTheme();
 });
 
+window.addEventListener("storage", (event) => {
+  if (event.key !== "agender.system.theme") return;
+  state.themeMode = event.newValue || "system";
+  applyTheme();
+});
+
 el.variableTabs.addEventListener("scroll", () => {
   requestAnimationFrame(updateTabScroller);
 });
@@ -599,10 +636,10 @@ el.tabScrollLeftBtn.addEventListener("click", () => scrollVariableTabs(-1));
 el.tabScrollRightBtn.addEventListener("click", () => scrollVariableTabs(1));
 window.addEventListener("resize", () => requestAnimationFrame(updateTabScroller));
 
-el.exportCsvBtn.addEventListener("click", () => exportData("csv"));
-el.exportParquetBtn.addEventListener("click", () => exportData("parquet"));
+el.panelToggleBtn.addEventListener("click", () => setPanelCollapsed(!state.panelCollapsed));
 
 applyTheme();
+setPanelCollapsed(state.panelCollapsed, false);
 setControlsEnabled(false);
 setStats({ total: 0, records: 0, missing: 0, completeness: 0 });
 renderVariableTabs([]);

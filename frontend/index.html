@@ -29,23 +29,30 @@
             </span>
             <span class="nav-label">Registro hidrometeorológico</span>
           </button>
-          <button class="nav-item" type="button" data-view="requests">
-            <span class="nav-icon" aria-hidden="true">
-              <span class="font-icon">&#xE82E;</span>
-            </span>
-            <span class="nav-label">Solicitud de datos</span>
-          </button>
-          <button class="nav-item" type="button" data-view="diary">
-            <span class="nav-icon" aria-hidden="true">
-              <span class="font-icon">&#xE70B;</span>
-            </span>
-            <span class="nav-label">Diario</span>
-          </button>
-          <button class="nav-item" type="button" data-view="agenda">
-            <span class="nav-icon" aria-hidden="true">
-              <span class="font-icon">&#xE787;</span>
-            </span>
-            <span class="nav-label">Agenda</span>
+          <div class="nav-group expanded" data-nav-group="personal">
+            <button class="nav-item nav-group-toggle" type="button" aria-expanded="true" aria-controls="personal-nav-items">
+              <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE77B;</span></span>
+              <span class="nav-label">Gestión personal</span>
+              <span class="nav-group-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+            </button>
+            <div class="nav-submenu" id="personal-nav-items">
+              <button class="nav-item nav-subitem" type="button" data-view="requests">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE82E;</span></span>
+                <span class="nav-label">Solicitud de datos</span>
+              </button>
+              <button class="nav-item nav-subitem" type="button" data-view="diary">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE70B;</span></span>
+                <span class="nav-label">Diario</span>
+              </button>
+              <button class="nav-item nav-subitem" type="button" data-view="agenda">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE787;</span></span>
+                <span class="nav-label">Agenda</span>
+              </button>
+            </div>
+          </div>
+          <button class="nav-item" type="button" data-view="reports">
+            <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE9D2;</span></span>
+            <span class="nav-label">Reportes</span>
           </button>
         </nav>
 
@@ -64,6 +71,10 @@
               <span class="account-popover-avatar font-icon" aria-hidden="true">&#xE77B;</span>
               <span><strong id="account-popover-name"></strong><small id="account-popover-role"></small></span>
             </div>
+            <button class="account-action account-license-change" type="button" id="account-license-change">
+              <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+              <span>Cambiar licencia</span>
+            </button>
             <button class="account-logout" type="button" id="account-logout">
               <span class="font-icon" aria-hidden="true">&#xE8AC;</span>
               <span>Cerrar sesión</span>
@@ -79,6 +90,11 @@
       </aside>
 
       <main class="workspace">
+        <section class="view reports-view" id="reports-view" aria-labelledby="reports-title">
+          <header class="toolbar"><h1 id="reports-title">Reportes</h1></header>
+          <div class="reports-placeholder" aria-hidden="true"></div>
+        </section>
+
         <section class="view" id="requests-view" aria-labelledby="requests-title">
           <header class="toolbar requests-toolbar">
             <h1 id="requests-title">Solicitud de datos</h1>
@@ -336,8 +352,8 @@
                 <strong id="hydromet-basins">0</strong>
               </div>
               <div>
-                <span>Actualizadas</span>
-                <strong id="hydromet-updated">0</strong>
+                <span id="hydromet-status-label">Actualizadas</span>
+                <strong id="hydromet-status-count">0</strong>
               </div>
             </section>
             <section class="hydromet-summary map-type-summary" aria-label="Estaciones por tipo">
@@ -367,7 +383,32 @@
               </div>
             </section>
             <div class="toolbar-actions">
-              <button class="button secondary" type="button" id="hydromet-export">Exportar CSV</button>
+              <div class="hydromet-export-menu" id="hydromet-export-menu">
+                <button class="icon-button hydromet-export-toggle" type="button" id="hydromet-export" aria-label="Exportar tabla a Excel" title="Exportar" aria-expanded="false" aria-controls="hydromet-export-panel">
+                  <span class="font-icon" aria-hidden="true">&#xEDE1;</span>
+                </button>
+                <section class="hydromet-export-panel" id="hydromet-export-panel" aria-labelledby="hydromet-export-title" hidden>
+                  <header>
+                    <strong id="hydromet-export-title">Tabla</strong>
+                    <div class="export-panel-header-actions">
+                      <span>Exportar a Excel</span>
+                      <button class="export-panel-close" type="button" id="hydromet-export-close" aria-label="Cerrar exportación" title="Cerrar">
+                        <span class="font-icon" aria-hidden="true">&#xE711;</span>
+                      </button>
+                    </div>
+                  </header>
+                  <label class="export-select-all"><input type="checkbox" id="hydromet-export-all" checked><span>Seleccionar todo</span></label>
+                  <div class="export-column-list" id="hydromet-export-columns"></div>
+                  <fieldset class="export-completeness-options" id="hydromet-export-completeness-options">
+                    <legend>Completitud</legend>
+                    <label><input type="radio" name="exportCompletenessMode" value="average" checked><span>Promedio</span></label>
+                    <label><input type="radio" name="exportCompletenessMode" value="variables"><span>Por variables</span></label>
+                    <div class="export-variable-list" id="hydromet-export-variables" hidden></div>
+                  </fieldset>
+                  <p class="export-message" id="hydromet-export-message" role="status"></p>
+                  <button class="button primary" type="button" id="hydromet-export-confirm">Exportar Excel</button>
+                </section>
+              </div>
             </div>
           </header>
 
@@ -440,6 +481,7 @@
                   <thead>
                     <tr>
                       <th>Codigo</th>
+                      <th class="transmission-column">Transmisión</th>
                       <th>Tipo</th>
                       <th>X_UTM</th>
                       <th>Y_UTM</th>
@@ -447,7 +489,7 @@
                         <th>Subcuenca</th>
                       <th>Primer registro</th>
                       <th>Último registro</th>
-                      <th>Actualizada</th>
+                      <th id="hydromet-status-header">Actualizada</th>
                       <th>Completitud</th>
                     </tr>
                   </thead>
@@ -964,6 +1006,28 @@
       </form>
     </dialog>
 
+    <dialog id="license-change-dialog" class="login-dialog license-change-dialog" aria-labelledby="license-change-title">
+      <form class="login-form" id="license-change-form">
+        <header class="login-header">
+          <span class="login-avatar font-icon" aria-hidden="true">&#xE8E5;</span>
+          <div><h2 id="license-change-title">Cambiar licencia</h2><p>Importa una revisión más reciente para actualizar los permisos de esta cuenta.</p></div>
+          <button class="login-close" type="button" id="license-change-close" aria-label="Cerrar"><span class="font-icon" aria-hidden="true">&#xE711;</span></button>
+        </header>
+        <div class="login-fields">
+          <label class="license-picker">
+            <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+            <span>Seleccionar nueva licencia</span>
+            <input id="license-change-file" type="file" accept=".json,.license.json,application/json" hidden>
+          </label>
+          <p class="login-message" id="license-change-message" role="status" aria-live="polite"></p>
+        </div>
+        <footer>
+          <button class="button secondary" type="button" id="license-change-cancel">Cancelar</button>
+          <button class="button primary" type="submit">Aplicar licencia</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog id="license-admin-dialog" class="login-dialog license-admin-dialog" aria-labelledby="license-admin-title">
       <form class="login-form" id="license-admin-form">
         <header class="login-header"><span class="login-avatar font-icon" aria-hidden="true">&#xE8F9;</span><div><h2 id="license-admin-title">Generar licencia</h2><p>Define el propietario, acceso temporal y módulos habilitados.</p></div><button class="login-close" type="button" id="license-admin-close" aria-label="Cerrar"><svg viewBox="0 0 12 12"><path d="M1 1l10 10M11 1 1 11"/></svg></button></header>
@@ -972,6 +1036,7 @@
           <label><span>Usuario</span><input name="username" required></label>
           <label><span>Clave temporal</span><input name="temporaryPassword" type="password" minlength="10" required></label>
           <label><span>Identificador</span><input name="licenseId" placeholder="CLIENTE-001" required></label>
+          <label><span>Revisión</span><input name="revision" type="number" min="1" value="1" required></label>
           <fieldset class="license-permissions"><legend>Permisos</legend>
             <label class="license-permission-row">
               <input type="checkbox" name="modules" value="hydromet">
@@ -979,23 +1044,35 @@
               <span class="license-permission-icon font-icon" aria-hidden="true">&#xEC4A;</span>
               <span><strong>Registro hidrometeorológico</strong><small>Incluye Viewer, datos crudos, control de calidad y configuración de rutas.</small></span>
             </label>
-            <label class="license-permission-row">
+            <label class="license-permission-row license-permission-group">
+              <input type="checkbox" id="license-personal-all">
+              <span class="license-permission-check" aria-hidden="true">✓</span>
+              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE77B;</span>
+              <span><strong>Gestión personal</strong><small>Selecciona todo el grupo o únicamente las funciones necesarias.</small></span>
+            </label>
+            <label class="license-permission-row license-permission-child">
               <input type="checkbox" name="modules" value="requests">
               <span class="license-permission-check" aria-hidden="true">✓</span>
               <span class="license-permission-icon font-icon" aria-hidden="true">&#xE82E;</span>
               <span><strong>Solicitud de datos</strong><small>Registro, seguimiento e importación de solicitudes.</small></span>
             </label>
-            <label class="license-permission-row">
+            <label class="license-permission-row license-permission-child">
               <input type="checkbox" name="modules" value="diary">
               <span class="license-permission-check" aria-hidden="true">✓</span>
               <span class="license-permission-icon font-icon" aria-hidden="true">&#xE70B;</span>
               <span><strong>Diario</strong><small>Tareas, notas de enfoque y planificación diaria.</small></span>
             </label>
-            <label class="license-permission-row">
+            <label class="license-permission-row license-permission-child">
               <input type="checkbox" name="modules" value="agenda">
               <span class="license-permission-check" aria-hidden="true">✓</span>
               <span class="license-permission-icon font-icon" aria-hidden="true">&#xE787;</span>
               <span><strong>Agenda</strong><small>Calendario y administración de eventos.</small></span>
+            </label>
+            <label class="license-permission-row">
+              <input type="checkbox" name="modules" value="reports">
+              <span class="license-permission-check" aria-hidden="true">✓</span>
+              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE9D2;</span>
+              <span><strong>Reportes</strong><small>Acceso al módulo de reportes y sus futuras funciones.</small></span>
             </label>
           </fieldset><p class="login-message" id="license-admin-message"></p>
         </div><footer><button class="button secondary" type="button" id="license-admin-cancel">Cancelar</button><button class="button primary" type="submit">Generar archivo</button></footer>
@@ -1036,13 +1113,17 @@
     <div class="station-viewer-modal" id="station-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="station-viewer-title" hidden>
       <section class="station-viewer-window">
         <header>
-          <strong id="station-viewer-title">Viewer</strong>
-          <div class="station-viewer-window-controls">
-            <button type="button" id="station-viewer-close" class="station-viewer-close" aria-label="Cerrar Viewer" title="Cerrar">
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1l10 10M11 1 1 11" /></svg>
+          <div class="station-viewer-heading">
+            <strong id="station-viewer-title">Viewer</strong>
+            <button type="button" id="station-viewer-close" class="station-viewer-close" aria-label="Cerrar Viewer">
+              Cerrar
             </button>
           </div>
         </header>
+        <div class="station-viewer-loading" role="status" aria-live="polite">
+          <span class="station-viewer-spinner" aria-hidden="true"></span>
+          <span>Cargando Viewer…</span>
+        </div>
         <iframe id="station-viewer-frame" title="Viewer de series temporales" src="about:blank"></iframe>
       </section>
     </div>

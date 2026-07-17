@@ -26,8 +26,8 @@ analysis = Analysis(
         *copy_metadata("pydantic"),
         *copy_metadata("uvicorn"),
     ],
-    hiddenimports=[*polars_hidden, *duckdb_hidden, *crypto_hidden, *argon_hidden, *backend_hidden, "fastexcel", "pyarrow", "tkinter", "tkinter.filedialog"],
-    excludes=["pandas", "numpy", "tkinter.test"],
+    hiddenimports=[*polars_hidden, *duckdb_hidden, *crypto_hidden, *argon_hidden, *backend_hidden, "fastexcel", "tkinter", "tkinter.filedialog"],
+    excludes=["pandas", "numpy", "pyarrow", "tkinter.test"],
     noarchive=False,
 )
 

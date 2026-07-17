@@ -30,6 +30,9 @@ def load_station_catalog() -> dict[str, dict[str, Any]]:
                 missing = ", ".join(sorted(REQUIRED_COLUMNS - set(headers)))
                 raise ValueError(f"Faltan columnas en stations.xlsx: {missing}.")
             positions = {header: headers.index(header) for header in REQUIRED_COLUMNS}
+            transmission_position = _find_header(headers, {"transmision", "transmison"})
+            if transmission_position is None:
+                raise ValueError("Falta la columna Transmisión en stations.xlsx.")
             catalog: dict[str, dict[str, Any]] = {}
             for row in rows:
                 code_value = row[positions["Código"]]
@@ -46,6 +49,7 @@ def load_station_catalog() -> dict[str, dict[str, Any]]:
                     "y": _number(row[positions["Y_UTM"]]),
                     "z": _number(row[positions["Z"]]),
                     "basin": _text(row[positions["Cuenca"]]),
+                    "transmission": _boolean_flag(row[transmission_position]),
                 }
         finally:
             workbook.close()
@@ -67,3 +71,22 @@ def _number(value: Any) -> int | float | str:
         return ""
     number = float(value)
     return int(number) if number.is_integer() else number
+
+
+def _find_header(headers: list[str], candidates: set[str]) -> int | None:
+    normalized = {_canonical_header(header): index for index, header in enumerate(headers)}
+    return next((normalized[candidate] for candidate in candidates if candidate in normalized), None)
+
+
+def _canonical_header(value: str) -> str:
+    text = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode().casefold()
+    return "".join(character for character in text if character.isalnum())
+
+
+def _boolean_flag(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    try:
+        return int(value) == 1
+    except (TypeError, ValueError):
+        return False

@@ -135,10 +135,10 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 78% 18%, rgba(79, 84, 120, 0.14), transparent 30%),
-    linear-gradient(135deg, var(--app-bg), var(--app-bg));
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 34%),
+    var(--app-bg);
   color: var(--text);
-  font-family: "Segoe UI Variable", "Segoe UI", Arial, Helvetica, sans-serif;
+  font-family: "Segoe UI", Arial, sans-serif;
 }
 
 .app-shell {
@@ -375,13 +375,13 @@ html[data-theme="dark"] .command-button.file-command:hover:not(:disabled) {
   display: grid;
   grid-template-columns: 0 minmax(0, 1fr) 0;
   align-items: end;
-  background: rgba(248, 248, 248, 0.84);
+  background: var(--titlebar-bg);
   border-bottom: 1px solid var(--stroke);
   transition: grid-template-columns 120ms ease;
 }
 
 html[data-theme="dark"] .variable-tabs-shell {
-  background: rgba(29, 32, 41, 0.94);
+  background: var(--titlebar-bg);
 }
 
 .variable-tabs-shell.can-scroll-left,
@@ -450,7 +450,7 @@ html[data-theme="dark"] .variable-tabs-shell {
   border: 0;
   border-radius: 6px 6px 0 0;
   background: transparent;
-  color: #424242;
+  color: var(--text);
   font-size: 14px;
   cursor: pointer;
   position: relative;
@@ -460,15 +460,15 @@ html[data-theme="dark"] .variable-tabs-shell {
 }
 
 html[data-theme="dark"] .variable-tab {
-  color: #d6d6d6;
+  color: var(--text);
 }
 
 .variable-tab:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--titlebar-hover);
 }
 
 html[data-theme="dark"] .variable-tab:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--titlebar-hover);
 }
 
 .variable-tab.active {
@@ -478,8 +478,8 @@ html[data-theme="dark"] .variable-tab:hover {
 }
 
 html[data-theme="dark"] .variable-tab.active {
-  background: #242833;
-  box-shadow: 0 -1px 0 #343948, 1px 0 0 #343948, -1px 0 0 #343948;
+  background: var(--surface);
+  box-shadow: 0 -1px 0 var(--stroke), 1px 0 0 var(--stroke), -1px 0 0 var(--stroke);
 }
 
 .variable-tab.active::after {
@@ -512,7 +512,7 @@ html[data-theme="dark"] .variable-tab.active {
 }
 
 html[data-theme="dark"] .control-panel {
-  background: rgba(35, 38, 49, 0.88);
+  background: var(--mica);
 }
 
 .panel-section {
@@ -685,7 +685,7 @@ html[data-theme="dark"] .form-control {
 }
 
 .mode-picker input:checked + span {
-  border-color: #8d5be8;
+  border-color: var(--accent);
   background: var(--selected-bg);
   color: var(--selected-text);
   font-weight: 600;
@@ -712,7 +712,7 @@ html[data-theme="dark"] .form-control {
 }
 
 html[data-theme="dark"] .info-card {
-  background: #292d39;
+  background: var(--control-bg);
 }
 
 .info-card-header {
@@ -765,8 +765,8 @@ html[data-theme="dark"] .info-card {
   min-height: 0;
   display: grid;
   grid-template-rows: 38px minmax(0, 1fr) 40px;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
   border-radius: 8px;
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -777,19 +777,21 @@ html[data-theme="dark"] .info-card {
   align-items: center;
   justify-content: center;
   padding: 0 16px;
-  color: #424242;
+  color: var(--text);
   font-size: 18px;
   font-weight: 400;
 }
 
 .chart-panel,
 .chart-panel * {
-  color-scheme: light;
+  color-scheme: inherit;
 }
 
 #chart {
   min-width: 0;
   min-height: 390px;
+  background: #ffffff;
+  color-scheme: light;
 }
 
 .statusbar {
@@ -798,9 +800,9 @@ html[data-theme="dark"] .info-card {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  border-top: 1px solid #e5e5e5;
-  background: #f9f9f9;
-  color: #111111;
+  border-top: 1px solid var(--stroke);
+  background: var(--surface-alt);
+  color: var(--text);
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 12px;
   overflow: hidden;
@@ -1257,6 +1259,73 @@ html[data-theme="dark"] .settings-card {
   padding: 12px;
 }
 
+.control-panel-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-toggle-button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  align-self: flex-end;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 6px;
+  background: var(--control-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.panel-toggle-button:hover {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+
+.panel-toggle-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.viewer-control-section {
+  display: grid;
+  gap: 7px;
+}
+
+.viewer-control-section h2 {
+  margin: 0;
+  padding: 0 3px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.workspace {
+  transition: grid-template-columns 180ms ease;
+}
+
+.workspace.panel-collapsed {
+  grid-template-columns: 54px minmax(0, 1fr);
+}
+
+.workspace.panel-collapsed .control-panel {
+  padding: 8px;
+  overflow: hidden;
+}
+
+.workspace.panel-collapsed .panel-toggle-button {
+  align-self: center;
+}
+
+.workspace.panel-collapsed .control-panel-content {
+  display: none;
+}
+
 .viewer-file-row,
 .viewer-list-card {
   border: 1px solid var(--stroke);
@@ -1407,11 +1476,4 @@ html[data-theme="dark"] .settings-card {
 
 .viewer-summary-card .info-grid strong {
   font-size: 18px;
-}
-
-.viewer-export-card {
-  display: grid;
-  gap: 7px;
-  padding: 9px;
-  grid-template-columns: 1fr 1fr;
 }

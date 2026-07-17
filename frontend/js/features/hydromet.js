@@ -1,5 +1,6 @@
 (function () {
-  const { csvEscape, escapeHtml } = window.NotasUtils;
+  const { escapeHtml } = window.NotasUtils;
+  const { loadJson, saveJson } = window.NotasStorage;
   const { initHydrometMap, renderStationPoints, setVisibleBasins } = window.NotasHydrometMap;
 
   let hydrometStations = [];
@@ -19,9 +20,12 @@
   let mapPopupVariables;
   let completenessRecords = {};
   let localSyncPending = false;
+  let qcMethods = {};
   let selectedSource = localStorage.getItem("agender.hydromet.source") === "quality" ? "quality" : "raw";
 
   const averageExcludedVariables = new Set(["TIMESTAMP", "RECORD"]);
+  const qcOptions = ["None", "V1", "V2", "V3"];
+  const qcStorageKey = "agender.hydromet.qc-methods";
   const completionFilterOptions = [
     { value: "under50", label: "Menor a 50 %" },
     { value: "from51to70", label: "51 a 70 %" },
@@ -36,6 +40,7 @@
   };
 
   function initHydromet() {
+    qcMethods = normalizeQcMethods(loadJson(qcStorageKey, {}));
     hydrometBody = document.querySelector("#hydromet-body");
     hydrometSearch = document.querySelector("#hydromet-search");
     hydrometFilterMenu = document.querySelector("#hydromet-filter-menu");
@@ -63,7 +68,12 @@
     document.querySelector("#hydromet-filter-panel").addEventListener("change", handleMultiSelectChange);
     hydrometFilterToggle.addEventListener("click", toggleHydrometFilterMenu);
     document.querySelector("#hydromet-connection-status").addEventListener("click", syncLocalStations);
-    document.querySelector("#hydromet-export").addEventListener("click", exportHydrometCsv);
+    document.querySelector("#hydromet-export").addEventListener("click", toggleExportPanel);
+    document.querySelector("#hydromet-export-close").addEventListener("click", closeExportPanel);
+    document.querySelector("#hydromet-export-all").addEventListener("change", handleExportSelectAll);
+    document.querySelector("#hydromet-export-columns").addEventListener("change", syncExportOptions);
+    document.querySelector("#hydromet-export-completeness-options").addEventListener("change", handleCompletenessModeChange);
+    document.querySelector("#hydromet-export-confirm").addEventListener("click", exportHydrometExcel);
     document.querySelectorAll("[data-hydromet-source]").forEach((button) => {
       button.addEventListener("click", () => selectSource(button.dataset.hydrometSource));
     });
@@ -72,6 +82,7 @@
       if (event.key === "Escape") {
         closeAllMultiSelects();
         closeHydrometFilterMenu();
+        closeExportPanel();
       }
     });
     document.addEventListener("visibilitychange", () => {
@@ -83,6 +94,9 @@
     });
 
     hydrometBody.addEventListener("click", handleTableClick);
+    hydrometBody.addEventListener("click", handleQcEditClick);
+    hydrometBody.addEventListener("change", handleQcMethodChange);
+    hydrometBody.addEventListener("focusout", handleQcMethodBlur);
     hydrometBody.addEventListener("contextmenu", (event) => {
       const row = event.target.closest("tr[data-code]");
       if (!row) return;
@@ -131,9 +145,14 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-checked", String(active));
     });
+    const quality = selectedSource === "quality";
+    document.querySelector("#hydromet-view").classList.toggle("quality-source", quality);
+    document.querySelector("#hydromet-status-label").textContent = quality ? "QC asignado" : "Actualizadas";
+    document.querySelector("#hydromet-status-header").textContent = quality ? "QC" : "Actualizada";
   }
 
   function handleTableClick(event) {
+    if (event.target.closest("select, button, a, input")) return;
     const row = event.target.closest("tr[data-code]");
     if (!row) return;
     selectedHydrometCode = row.dataset.code;
@@ -155,6 +174,7 @@
   function handleDocumentClick(event) {
     if (!event.target.closest(".multi-select")) closeAllMultiSelects();
     if (!hydrometFilterMenu.contains(event.target)) closeHydrometFilterMenu();
+    if (!event.target.closest("#hydromet-export-menu")) closeExportPanel();
   }
 
   function handleMultiSelectClick(event) {
@@ -355,6 +375,7 @@
     return {
       ...station,
       code: station.code ?? station.codigo ?? "",
+      transmission: station.transmission === true || station.transmission === 1 || station.transmission === "1",
       type: station.type ?? station.tipo ?? station.tipo_estacion ?? "",
       x: Number(station.x ?? station.x_utm ?? 0),
       y: Number(station.y ?? station.y_utm ?? 0),
@@ -382,10 +403,10 @@
 
   function hydrometRowTemplate(station) {
     const selected = selectedHydrometCode === station.code ? " selected" : "";
-    const updated = getUpdatedStatus(station);
     return `
       <tr class="${selected}" data-code="${escapeHtml(station.code)}">
         <td><strong>${escapeHtml(station.code)}</strong></td>
+        <td class="transmission-column">${transmissionIconTemplate(station.transmission)}</td>
         <td>${escapeHtml(station.type)}</td>
         <td>${station.x}</td>
         <td>${station.y}</td>
@@ -393,10 +414,18 @@
         <td>${escapeHtml(station.basin)}</td>
         <td class="date-cell">${escapeHtml(station.start || "Sin registro")}</td>
         <td class="date-cell">${escapeHtml(station.end || "Sin registro")}</td>
-        <td>${statusCellTemplate(updated)}</td>
+        <td>${selectedSource === "quality" ? qcMethodSelectTemplate(station) : statusCellTemplate(getUpdatedStatus(station))}</td>
         <td><span class="completion-pill ${completionClass(getCompletenessAverage(station.code))}">${formatCompletenessAverage(station.code)}</span></td>
       </tr>
     `;
+  }
+
+  function transmissionIconTemplate(hasTransmission) {
+    const state = hasTransmission ? "active" : "inactive";
+    const label = hasTransmission ? "Con transmisión" : "Sin transmisión";
+    return `<span class="transmission-icon ${state}" role="img" aria-label="${label}" title="${label}">
+      <span class="font-icon" aria-hidden="true">&#xE704;</span>
+    </span>`;
   }
 
   function renderHydrometMap(stations) {
@@ -406,9 +435,63 @@
     renderMapStationPopup(station);
   }
 
+  function qcMethodSelectTemplate(station) {
+    const method = getQcMethod(station.code);
+    const options = qcOptions.map((option) =>
+      `<option value="${option}"${option === method ? " selected" : ""}>${option}</option>`).join("");
+    return `<span class="qc-method-editor">
+      <button class="qc-method-value" type="button" data-qc-edit="${escapeHtml(station.code)}" aria-label="Editar método QC para ${escapeHtml(station.code)}">${method}</button>
+      <select class="qc-method-select" data-qc-station="${escapeHtml(station.code)}" aria-label="Método QC para ${escapeHtml(station.code)}" hidden>${options}</select>
+    </span>`;
+  }
+
   function statusCellTemplate(value) {
     if (value !== "SI" && value !== "NO") return `<span class="status-cell empty">Sin registro</span>`;
     return `<span class="status-cell ${value === "SI" ? "yes" : "no"}">${value}</span>`;
+  }
+
+  function handleQcEditClick(event) {
+    const button = event.target.closest("[data-qc-edit]");
+    if (!button || selectedSource !== "quality") return;
+    const editor = button.closest(".qc-method-editor");
+    const select = editor.querySelector(".qc-method-select");
+    button.hidden = true;
+    select.hidden = false;
+    select.focus();
+  }
+
+  function closeQcEditor(select) {
+    const editor = select.closest(".qc-method-editor");
+    const button = editor.querySelector(".qc-method-value");
+    button.textContent = select.value;
+    select.hidden = true;
+    button.hidden = false;
+  }
+
+  function handleQcMethodBlur(event) {
+    const select = event.target.closest("[data-qc-station]");
+    if (select) closeQcEditor(select);
+  }
+
+  function handleQcMethodChange(event) {
+    const select = event.target.closest("[data-qc-station]");
+    if (!select) return;
+    const code = select.dataset.qcStation;
+    const method = qcOptions.includes(select.value) ? select.value : "None";
+    if (method === "None") delete qcMethods[code];
+    else qcMethods[code] = method;
+    saveJson(qcStorageKey, qcMethods);
+    renderHydrometMetrics(getFilteredHydrometStations());
+    closeQcEditor(select);
+  }
+
+  function normalizeQcMethods(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).filter(([code, method]) => code && qcOptions.includes(method) && method !== "None"));
+  }
+
+  function getQcMethod(stationCode) {
+    return qcOptions.includes(qcMethods[stationCode]) ? qcMethods[stationCode] : "None";
   }
 
   function renderMapStationPopup(station) {
@@ -471,7 +554,9 @@
   function renderHydrometMetrics(stations) {
     document.querySelector("#hydromet-total").textContent = stations.length;
     document.querySelector("#hydromet-basins").textContent = new Set(stations.map((station) => station.basin)).size;
-    document.querySelector("#hydromet-updated").textContent = stations.filter((station) => getUpdatedStatus(station) === "SI").length;
+    document.querySelector("#hydromet-status-count").textContent = selectedSource === "quality"
+      ? stations.filter((station) => getQcMethod(station.code) !== "None").length
+      : stations.filter((station) => getUpdatedStatus(station) === "SI").length;
     const typeCounts = stations.reduce((counts, station) => {
       const prefix = String(station.code || "").split("_")[0].toLowerCase();
       if (counts[prefix] !== undefined) counts[prefix] += 1;
@@ -483,28 +568,121 @@
     });
   }
 
-  function exportHydrometCsv() {
-    const headers = ["Codigo", "Tipo", "X_UTM", "Y_UTM", "Z", "Subcuenca", "Primer registro", "Último registro", "Actualizada", "Completitud"];
-    const rows = getFilteredHydrometStations().map((station) => [
-      station.code,
-      station.type,
-      station.x,
-      station.y,
-      station.z,
-      station.basin,
-      station.start || "Sin registro",
-      station.end || "Sin registro",
-      getUpdatedStatus(station) || "Sin registro",
-      formatCompletenessAverage(station.code)
-    ]);
-    const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `registro-hidromet-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  function exportColumnDefinitions() {
+    return [
+      { key: "code", label: "Código", value: (station) => station.code },
+      { key: "transmission", label: "Transmisión", value: (station) => station.transmission ? "Sí" : "No" },
+      { key: "type", label: "Tipo", value: (station) => station.type },
+      { key: "x", label: "X_UTM", value: (station) => station.x },
+      { key: "y", label: "Y_UTM", value: (station) => station.y },
+      { key: "z", label: "Z", value: (station) => station.z },
+      { key: "basin", label: "Subcuenca", value: (station) => station.basin },
+      { key: "start", label: "Primer registro", value: (station) => station.start || "Sin registro" },
+      { key: "end", label: "Último registro", value: (station) => station.end || "Sin registro" },
+      {
+        key: "status",
+        label: selectedSource === "quality" ? "QC" : "Actualizada",
+        value: (station) => selectedSource === "quality" ? getQcMethod(station.code) : getUpdatedStatus(station) || "Sin registro"
+      },
+      { key: "completeness", label: "Completitud", value: (station) => getCompletenessAverage(station.code) }
+    ];
+  }
+
+  function toggleExportPanel(event) {
+    event.stopPropagation();
+    const panel = document.querySelector("#hydromet-export-panel");
+    const opening = panel.hidden;
+    if (opening) renderExportOptions();
+    panel.hidden = !opening;
+    document.querySelector("#hydromet-export").setAttribute("aria-expanded", String(opening));
+  }
+
+  function closeExportPanel() {
+    document.querySelector("#hydromet-export-panel").hidden = true;
+    document.querySelector("#hydromet-export").setAttribute("aria-expanded", "false");
+  }
+
+  function renderExportOptions() {
+    const columns = exportColumnDefinitions();
+    document.querySelector("#hydromet-export-columns").innerHTML = columns.map((column) => `
+      <label><input type="checkbox" value="${column.key}" checked><span>${column.label}</span></label>
+    `).join("");
+    const variables = [...new Set(getFilteredHydrometStations().flatMap(getVariablesForStation))]
+      .filter(isAverageVariable).sort((a, b) => a.localeCompare(b, "es"));
+    document.querySelector("#hydromet-export-variables").innerHTML = variables.map((variable) => `
+      <label><input type="checkbox" value="${escapeHtml(variable)}" checked><span>${escapeHtml(variable)}</span></label>
+    `).join("") || "<span>Sin variables disponibles</span>";
+    document.querySelector("#hydromet-export-all").checked = true;
+    document.querySelector("#hydromet-export-message").textContent = "";
+    syncExportOptions();
+  }
+
+  function handleExportSelectAll(event) {
+    document.querySelectorAll("#hydromet-export-columns input").forEach((input) => { input.checked = event.target.checked; });
+    syncExportOptions();
+  }
+
+  function syncExportOptions() {
+    const inputs = [...document.querySelectorAll("#hydromet-export-columns input")];
+    document.querySelector("#hydromet-export-all").checked = inputs.every((input) => input.checked);
+    document.querySelector("#hydromet-export-all").indeterminate = inputs.some((input) => input.checked) && inputs.some((input) => !input.checked);
+    document.querySelector("#hydromet-export-completeness-options").hidden = !inputs.find((input) => input.value === "completeness")?.checked;
+  }
+
+  function handleCompletenessModeChange(event) {
+    if (event.target.name !== "exportCompletenessMode") return;
+    document.querySelector("#hydromet-export-variables").hidden = event.target.value !== "variables";
+  }
+
+  async function exportHydrometExcel() {
+    const message = document.querySelector("#hydromet-export-message");
+    const selectedKeys = [...document.querySelectorAll("#hydromet-export-columns input:checked")].map((input) => input.value);
+    if (!selectedKeys.length) {
+      message.textContent = "Selecciona al menos una columna.";
+      return;
+    }
+    const definitions = new Map(exportColumnDefinitions().map((column) => [column.key, column]));
+    const mode = document.querySelector('input[name="exportCompletenessMode"]:checked').value;
+    const variables = mode === "variables"
+      ? [...document.querySelectorAll("#hydromet-export-variables input:checked")].map((input) => input.value) : [];
+    if (selectedKeys.includes("completeness") && mode === "variables" && !variables.length) {
+      message.textContent = "Selecciona al menos una variable de completitud.";
+      return;
+    }
+
+    const headers = [];
+    selectedKeys.forEach((key) => {
+      if (key === "completeness" && mode === "variables") variables.forEach((variable) => headers.push(`Completitud ${variable}`));
+      else headers.push(definitions.get(key).label);
+    });
+    const rows = getFilteredHydrometStations().map((station) => selectedKeys.flatMap((key) => {
+      if (key === "completeness" && mode === "variables") {
+        return variables.map((variable) => getVariableCompleteness(station.code, variable));
+      }
+      return [definitions.get(key).value(station)];
+    }));
+
+    const button = document.querySelector("#hydromet-export-confirm");
+    button.disabled = true;
+    message.textContent = "Generando Excel…";
+    try {
+      const response = await fetch("/api/hydromet/export-excel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: `registro-hidromet-${new Date().toISOString().slice(0, 10)}`, headers, rows })
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "No fue posible generar el Excel");
+      const result = await response.json();
+      if (result.cancelled) {
+        message.textContent = "Guardado cancelado.";
+        return;
+      }
+      message.textContent = `Excel guardado: ${result.filename}`;
+    } catch (error) {
+      message.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function getUpdatedStatus(station) {

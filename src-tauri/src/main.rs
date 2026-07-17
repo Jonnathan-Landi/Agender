@@ -69,11 +69,11 @@ fn stop_backend(app: &tauri::AppHandle) {
 
 fn backend_port() -> Result<u16, Box<dyn std::error::Error>> {
     // Un origen HTTP estable conserva localStorage entre reinicios y actualizaciones.
-    let listener = TcpListener::bind(("127.0.0.1", BACKEND_PORT))
-        .or_else(|_| TcpListener::bind(("127.0.0.1", 0)))?;
-    let port = listener.local_addr()?.port();
+    // No se usa un puerto aleatorio: las capacidades Tauri autorizan únicamente
+    // este origen y cambiarlo rompería los comandos nativos del actualizador.
+    let listener = TcpListener::bind(("127.0.0.1", BACKEND_PORT))?;
     drop(listener);
-    Ok(port)
+    Ok(BACKEND_PORT)
 }
 
 fn main() {

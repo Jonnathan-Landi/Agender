@@ -4,6 +4,18 @@
     const dialog = document.querySelector("#license-admin-dialog");
     const form = document.querySelector("#license-admin-form");
     const authorityInput = document.querySelector("#license-authority-key");
+    const personalAll = document.querySelector("#license-personal-all");
+    const personalModules = [...form.querySelectorAll('input[name="modules"][value="requests"], input[name="modules"][value="diary"], input[name="modules"][value="agenda"]')];
+    const syncPersonalGroup = () => {
+      const selected = personalModules.filter((input) => input.checked).length;
+      personalAll.checked = selected === personalModules.length;
+      personalAll.indeterminate = selected > 0 && selected < personalModules.length;
+    };
+    personalAll.addEventListener("change", () => {
+      personalModules.forEach((input) => { input.checked = personalAll.checked; });
+      syncPersonalGroup();
+    });
+    personalModules.forEach((input) => input.addEventListener("change", syncPersonalGroup));
     open.addEventListener("click", () => {
       if (document.body.dataset.authorityAvailable !== "true") authorityInput.click();
       else dialog.showModal();
@@ -23,7 +35,7 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault(); const data = new FormData(form);
       const payload = { licenseId: data.get("licenseId"), fullName: data.get("fullName"), username: data.get("username"),
-        temporaryPassword: data.get("temporaryPassword"), modules: data.getAll("modules") };
+        temporaryPassword: data.get("temporaryPassword"), revision: Number(data.get("revision")), modules: data.getAll("modules") };
       const output = document.querySelector("#license-admin-message");
       const response = await fetch("/api/licenses/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!response.ok) { output.textContent = (await response.json()).detail; return; }
@@ -38,7 +50,9 @@
         output.textContent = "Licencia guardada en la carpeta Descargas.";
       }
       form.reset();
+      syncPersonalGroup();
     });
+    syncPersonalGroup();
   }
   window.NotasLicenseAdmin = { init };
 })();

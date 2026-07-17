@@ -149,6 +149,7 @@ def _aggregate_stations(entries: Any, catalog: dict[str, dict[str, Any]]) -> lis
                 "y": metadata["y"],
                 "z": metadata["z"],
                 "basin": metadata["basin"],
+                "transmission": metadata["transmission"],
                 "start": dates[0] if dates else "",
                 "end": dates[-1] if dates else "",
                 "variables": sorted(values["variables"]),

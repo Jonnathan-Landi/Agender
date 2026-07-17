@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .config import APP_DATA_DIR
 
-ALL_MODULES = {"hydromet", "viewer", "requests", "diary", "agenda", "settings", "licenses"}
+ALL_MODULES = {"hydromet", "viewer", "requests", "diary", "agenda", "reports", "settings", "licenses"}
 DB_PATH = APP_DATA_DIR / "users.db"
 PUBLIC_KEY_PATH = Path(__file__).resolve().parent / "security" / "license_public_key.pem"
 PROGRAM_DATA_ROOT = Path(os.environ.get("PROGRAMDATA", APP_DATA_DIR.parent))
@@ -50,6 +50,8 @@ def _connect() -> sqlite3.Connection:
         connection.execute("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0")
     if "license_id" not in columns:
         connection.execute("ALTER TABLE users ADD COLUMN license_id TEXT")
+    if "license_revision" not in columns:
+        connection.execute("ALTER TABLE users ADD COLUMN license_revision INTEGER NOT NULL DEFAULT 1")
     connection.execute("""CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -78,15 +80,27 @@ def canonical_license(payload: dict[str, Any]) -> bytes:
 
 
 def validate_license_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    signature = base64.b64decode(payload["signature"], validate=True)
-    public_key = serialization.load_pem_public_key(PUBLIC_KEY_PATH.read_bytes())
-    if not isinstance(public_key, Ed25519PublicKey):
-        raise ValueError("Clave pública no válida")
-    public_key.verify(signature, canonical_license(payload))
+    try:
+        signature = base64.b64decode(payload["signature"], validate=True)
+        public_key = serialization.load_pem_public_key(PUBLIC_KEY_PATH.read_bytes())
+        if not isinstance(public_key, Ed25519PublicKey):
+            raise ValueError("Clave pública no válida")
+        public_key.verify(signature, canonical_license(payload))
+    except (KeyError, ValueError, TypeError) as error:
+        raise ValueError("Firma de licencia no válida") from error
+    except Exception as error:
+        raise ValueError("La firma de la licencia no coincide") from error
     expiry = payload.get("expiresAt")
     if expiry and datetime.fromisoformat(expiry).date() < datetime.now(UTC).date():
         raise ValueError("La licencia ha expirado")
+    try:
+        revision = int(payload.get("revision") or 1)
+    except (TypeError, ValueError) as error:
+        raise ValueError("La revisión de la licencia no es válida") from error
+    if revision < 1:
+        raise ValueError("La revisión de la licencia debe ser mayor o igual a 1")
     payload = dict(payload)
+    payload["revision"] = revision
     payload["modules"] = sorted(set(payload.get("modules", [])) & ALL_MODULES)
     payload["valid"] = True
     return payload
@@ -106,16 +120,68 @@ def read_license() -> dict[str, Any]:
 def install_license(content: bytes, username: str, temporary_password: str) -> dict[str, Any]:
     payload = validate_license_payload(json.loads(content.decode("utf-8")))
     provision = payload.get("provision") or {}
-    if provision.get("username", "").casefold() != username.strip().casefold():
+    normalized_username = username.strip()
+    if provision.get("username", "").casefold() != normalized_username.casefold():
         raise ValueError("La licencia no corresponde a este usuario")
     try:
         password_hasher.verify(provision["passwordHash"], temporary_password)
     except (KeyError, VerifyMismatchError, InvalidHashError) as error:
         raise ValueError("Usuario o clave temporal incorrectos") from error
-    APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    (APP_DATA_DIR / "license.json").write_bytes(content)
+
+    with database() as connection:
+        existing = connection.execute(
+            "SELECT license_id,license_revision FROM users WHERE username=?",
+            (normalized_username,),
+        ).fetchone()
+    if existing:
+        if payload.get("licenseId") != existing["license_id"]:
+            raise ValueError("La licencia pertenece a otra instalación")
+        current_revision = int(existing["license_revision"] or 1)
+        if payload["revision"] <= current_revision:
+            raise ValueError(f"La revisión debe ser superior a {current_revision}")
+
+    _write_license_atomic(content)
     _provision_user(payload, must_change=True)
     return payload
+
+
+def replace_license(content: bytes, token: str | None) -> dict[str, Any]:
+    user = current_user(token)
+    if not user:
+        raise ValueError("Debes iniciar sesión")
+    payload = validate_license_payload(json.loads(content.decode("utf-8")))
+    provision = payload.get("provision") or {}
+    if provision.get("username", "").casefold() != user["username"].casefold():
+        raise ValueError("La licencia no corresponde al usuario actual")
+
+    with database() as connection:
+        row = connection.execute(
+            "SELECT license_id,license_revision FROM users WHERE id=?",
+            (user["id"],),
+        ).fetchone()
+    current_license_id = row["license_id"] if row else None
+    if payload.get("licenseId") != current_license_id:
+        raise ValueError("La licencia pertenece a otra instalación")
+    current_revision = int(row["license_revision"] or 1) if row else 1
+    new_revision = int(payload.get("revision") or 1)
+    if new_revision <= current_revision:
+        raise ValueError(f"La revisión debe ser superior a {current_revision}")
+
+    _write_license_atomic(content)
+    with database() as connection:
+        connection.execute(
+            "UPDATE users SET license_revision=? WHERE id=?",
+            (new_revision, user["id"]),
+        )
+    return current_user(token) or user
+
+
+def _write_license_atomic(content: bytes) -> None:
+    target = APP_DATA_DIR / "license.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_bytes(content)
+    temporary.replace(target)
 
 
 def _provision_user(license_data: dict[str, Any], must_change: bool = False) -> None:
@@ -126,9 +192,12 @@ def _provision_user(license_data: dict[str, Any], must_change: bool = False) -> 
     role = "admin" if provision.get("role") == "admin" else "user"
     with database() as connection:
         connection.execute(
-            """INSERT INTO users(username,password_hash,role,created_at,must_change_password,license_id)
-            VALUES(?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash,
-            role=excluded.role,must_change_password=excluded.must_change_password,license_id=excluded.license_id""",
+            """INSERT INTO users(
+                username,password_hash,role,created_at,must_change_password,license_id,license_revision
+            ) VALUES(?,?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET
+            password_hash=excluded.password_hash,role=excluded.role,
+            must_change_password=excluded.must_change_password,license_id=excluded.license_id,
+            license_revision=excluded.license_revision""",
             (
                 username,
                 password_hash,
@@ -136,6 +205,7 @@ def _provision_user(license_data: dict[str, Any], must_change: bool = False) -> 
                 datetime.now(UTC).isoformat(),
                 int(must_change),
                 license_data.get("licenseId"),
+                int(license_data.get("revision") or 1),
             ),
         )
 
@@ -165,6 +235,9 @@ def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
 def current_user(token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
+    license_data = read_license()
+    if not license_data.get("valid"):
+        return None
     with database() as connection:
         row = connection.execute(
             "SELECT users.* FROM sessions "
@@ -172,7 +245,7 @@ def current_user(token: str | None) -> dict[str, Any] | None:
             "WHERE sessions.token_hash=? AND users.enabled=1",
             (_token_hash(token),),
         ).fetchone()
-    return user_payload(row, read_license()) if row else None
+    return user_payload(row, license_data) if row else None
 
 
 def logout(token: str | None) -> None:
@@ -214,7 +287,8 @@ def auth_status(token: str | None) -> dict[str, Any]:
     license_data = read_license()
     return {
         "license": {
-            key: license_data.get(key) for key in ("valid", "reason", "licenseId", "customer", "expiresAt", "modules")
+            key: license_data.get(key)
+            for key in ("valid", "reason", "licenseId", "revision", "customer", "expiresAt", "modules")
         },
         "user": current_user(token),
         "authorityAvailable": any(path.is_file() for path in PRIVATE_KEY_PATHS),
@@ -228,15 +302,19 @@ def generate_license(values: dict[str, Any]) -> bytes:
     key = serialization.load_pem_private_key(path.read_bytes(), password=None)
     if not isinstance(key, Ed25519PrivateKey):
         raise ValueError("Clave privada no válida")
-    requested = set(values.get("modules", [])) & {"hydromet", "requests", "diary", "agenda"}
+    requested = set(values.get("modules", [])) & {"hydromet", "requests", "diary", "agenda", "reports"}
     modules = set(requested)
     if "hydromet" in requested:
         modules.update({"viewer", "settings"})
     modules = sorted(modules)
     if not modules:
         raise ValueError("Selecciona al menos un permiso")
+    revision = int(values.get("revision") or 1)
+    if revision < 1:
+        raise ValueError("La revisión debe ser mayor o igual a 1")
     payload = {
-        "version": 1,
+        "version": 2,
+        "revision": revision,
         "licenseId": values["licenseId"],
         "customer": values["fullName"],
         "issuedAt": datetime.now(UTC).date().isoformat(),

@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Agender Viewer</title>
+    <script>
+      (function () {
+        var theme = localStorage.getItem("agender.system.theme") || "system";
+        var dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="embedded-viewer">
@@ -108,104 +115,84 @@
           </button>
         </div>
 
-        <section class="workspace">
+        <section id="viewerWorkspace" class="workspace">
           <aside class="control-panel">
-            <div class="viewer-file-row" title="Archivo cargado">
-              <span class="viewer-file-icon" aria-hidden="true">▤</span>
-              <span><small>Archivo</small><strong id="fileName">Sin archivo</strong></span>
-              <div id="fileProgress" class="file-progress" hidden>
-                <span id="fileProgressLabel">Cargando archivo</span>
-                <strong id="fileProgressPercent">0%</strong>
-                <div class="file-progress-track"><div id="fileProgressBar" class="file-progress-bar"></div></div>
+            <button id="panelToggleBtn" class="panel-toggle-button" type="button" aria-label="Contraer panel de controles" aria-expanded="true" title="Contraer panel">
+              <span aria-hidden="true">☰</span>
+            </button>
+
+            <div class="control-panel-content">
+              <div class="viewer-file-row" title="Archivo cargado">
+                <span class="viewer-file-icon" aria-hidden="true">▤</span>
+                <span><small>Archivo</small><strong id="fileName">Sin archivo</strong></span>
+                <div id="fileProgress" class="file-progress" hidden>
+                  <span id="fileProgressLabel">Cargando archivo</span>
+                  <strong id="fileProgressPercent">0%</strong>
+                  <div class="file-progress-track"><div id="fileProgressBar" class="file-progress-bar"></div></div>
+                </div>
               </div>
+
+              <section class="viewer-control-section" aria-labelledby="periodControlsTitle">
+                <h2 id="periodControlsTitle">Vista y período</h2>
+                <div class="viewer-list-card">
+                  <label class="viewer-list-row" for="plotModeSelect">
+                    <span class="viewer-row-label">Modo de gráfico</span>
+                    <select id="plotModeSelect" class="form-select" disabled>
+                      <option value="all">Todos los años</option>
+                      <option value="year" selected>Por año</option>
+                    </select>
+                  </label>
+
+                  <label id="yearControl" class="viewer-list-row" for="yearSelect">
+                    <span class="viewer-row-label">Año</span>
+                    <select id="yearSelect" class="form-select" disabled></select>
+                  </label>
+
+                  <label class="viewer-list-row" for="monthSelect">
+                    <span class="viewer-row-label">Mes</span>
+                    <select id="monthSelect" class="form-select" disabled></select>
+                  </label>
+
+                  <label class="viewer-list-row" for="daySelect">
+                    <span class="viewer-row-label">Día</span>
+                    <select id="daySelect" class="form-select" disabled></select>
+                  </label>
+                </div>
+              </section>
+
+              <section class="viewer-control-section" aria-labelledby="qualityControlsTitle">
+                <h2 id="qualityControlsTitle">Resolución y calidad</h2>
+                <div class="viewer-list-card">
+                  <label class="viewer-list-row" for="resolutionSelect">
+                    <span class="viewer-row-label">Resolución</span>
+                    <select id="resolutionSelect" class="form-select" disabled>
+                      <option value="5min">5 minutos</option>
+                      <option value="hour">Horaria</option>
+                      <option value="day">Diaria</option>
+                      <option value="month">Mensual</option>
+                      <option value="year">Anual</option>
+                    </select>
+                  </label>
+
+                  <label class="viewer-list-row viewer-list-row-help" for="coverageInput">
+                    <span><span class="viewer-row-label">Cobertura mínima</span><small>Períodos insuficientes se muestran como NA</small></span>
+                    <input id="coverageInput" class="form-select" type="number" min="1" max="100" step="1" value="80" disabled />
+                  </label>
+                </div>
+              </section>
+
+              <section class="viewer-control-section" aria-labelledby="dataSummaryTitle">
+                <h2 id="dataSummaryTitle">Resumen de datos</h2>
+                <div class="viewer-list-card viewer-summary-card" aria-label="Información de completitud">
+                  <div class="info-grid">
+                    <div><span>Total de datos</span><strong id="statTotal">0</strong></div>
+                    <div><span>Registros</span><strong id="statRecords">0</strong></div>
+                    <div><span>Valores vacíos</span><strong id="statMissing">0</strong></div>
+                    <div><span>Completitud</span><strong id="statCompleteness">0%</strong></div>
+                  </div>
+                </div>
+              </section>
             </div>
-
-            <details class="viewer-list-section" open>
-              <summary>Visualización</summary>
-              <div class="viewer-list-card">
-                <div class="viewer-list-row viewer-list-row-stack">
-                  <span class="viewer-row-label">Modo de gráfico</span>
-                <div class="mode-picker" role="radiogroup" aria-label="Modo de gráfico">
-                  <label>
-                    <input type="radio" name="plotMode" value="all" disabled />
-                    <span>Todos</span>
-                  </label>
-                  <label>
-                    <input type="radio" name="plotMode" value="year" checked disabled />
-                    <span>Por año</span>
-                  </label>
-                </div>
-              </div>
-
-              <label id="yearControl" class="viewer-list-row" for="yearSelect">
-                <span class="viewer-row-label">Año</span>
-                <select id="yearSelect" class="form-select" disabled></select>
-              </label>
-
-              <label class="viewer-list-row" for="resolutionSelect">
-                <span class="viewer-row-label">Resolución</span>
-                <select id="resolutionSelect" class="form-select" disabled>
-                  <option value="5min">5 minutos</option>
-                  <option value="hour">Horaria</option>
-                  <option value="day">Diaria</option>
-                  <option value="month">Mensual</option>
-                  <option value="year">Anual</option>
-                </select>
-              </label>
-
-              <label class="viewer-list-row viewer-list-row-help" for="coverageInput">
-                <span><span class="viewer-row-label">Cobertura mínima</span><small>Períodos insuficientes se muestran como NA</small></span>
-                <input id="coverageInput" class="form-select" type="number" min="1" max="100" step="1" value="80" disabled />
-              </label>
-              </div>
-            </details>
-
-            <details class="viewer-list-section" open>
-              <summary>Período</summary>
-              <div class="viewer-list-card">
-              <label class="viewer-list-row" for="monthSelect">
-                <span class="viewer-row-label">Mes</span>
-                <select id="monthSelect" class="form-select" disabled></select>
-              </label>
-
-              <label class="viewer-list-row" for="daySelect">
-                <span class="viewer-row-label">Día</span>
-                <select id="daySelect" class="form-select" disabled></select>
-              </label>
-              </div>
-            </details>
-
-            <details class="viewer-list-section">
-              <summary>Resumen de datos</summary>
-              <div class="viewer-list-card viewer-summary-card" aria-label="Información de completitud">
-                <div class="info-grid">
-                  <div>
-                    <span>Total de datos</span>
-                    <strong id="statTotal">0</strong>
-                  </div>
-                  <div>
-                    <span>Registros</span>
-                    <strong id="statRecords">0</strong>
-                  </div>
-                  <div>
-                    <span>Valores vacíos</span>
-                    <strong id="statMissing">0</strong>
-                  </div>
-                  <div>
-                    <span>Completitud</span>
-                    <strong id="statCompleteness">0%</strong>
-                  </div>
-                </div>
-              </div>
-            </details>
-
-            <details class="viewer-list-section">
-              <summary>Exportar</summary>
-              <div class="viewer-list-card viewer-export-card">
-                <button id="exportCsvBtn" class="command-button success-command" disabled>Exportar CSV</button>
-                <button id="exportParquetBtn" class="command-button" disabled>Parquet</button>
-              </div>
-            </details>
           </aside>
 
           <section class="chart-panel">

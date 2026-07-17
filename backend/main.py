@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 
 from .backup import export_backup_bytes, import_backup_bytes
 from .cloud_backup import (
@@ -31,6 +34,7 @@ from .security import (
     generate_license,
     install_authority_key,
     install_license,
+    replace_license,
     login,
     logout,
 )
@@ -61,6 +65,14 @@ async def enforce_module_access(request: Request, call_next):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; font-src 'self' data:; "
+        "connect-src 'self' ipc: http://ipc.localhost; "
+        "frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
@@ -92,12 +104,19 @@ class CloudClientRequest(BaseModel):
     clientId: str
 
 
+class ExcelTableExport(BaseModel):
+    filename: str
+    headers: list[str]
+    rows: list[list[Any]]
+
+
 class LicenseGenerationRequest(BaseModel):
     licenseId: str
     fullName: str
     username: str
     temporaryPassword: str
     expiresAt: str | None = None
+    revision: int = 1
     modules: list[str]
 
 
@@ -138,6 +157,15 @@ def post_change_password(request: Request, values: PasswordChangeRequest) -> dic
         return {"user": change_password(request.cookies.get("agender_session"), values.password)}
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.put("/api/auth/license")
+async def put_current_license(request: Request, license: UploadFile = File(...)) -> dict[str, object]:
+    try:
+        user = replace_license(await license.read(), request.cookies.get("agender_session"))
+    except (ValueError, KeyError, json.JSONDecodeError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"user": user}
 
 
 @app.post("/api/licenses/generate")
@@ -325,6 +353,76 @@ async def local_data(
     root = settings["rawDataPath" if source == "raw" else "qualityDataPath"]
     recursive = settings["rawIncludeSubfolders" if source == "raw" else "qualityIncludeSubfolders"]
     return await run_in_threadpool(synchronize, source, root, recursive)
+
+
+@app.post("/api/hydromet/export-excel")
+def export_hydromet_excel(payload: ExcelTableExport, request: Request) -> dict[str, object]:
+    user = _require_user(request)
+    if "hydromet" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    if not payload.headers or len(payload.headers) > 100:
+        raise HTTPException(status_code=422, detail="Selecciona al menos una columna válida")
+    if len(payload.rows) > 100_000 or any(len(row) != len(payload.headers) for row in payload.rows):
+        raise HTTPException(status_code=422, detail="La tabla no tiene una estructura válida")
+
+    workbook = Workbook(write_only=False)
+    sheet = workbook.active
+    sheet.title = "Tabla"
+    sheet.append(payload.headers)
+    for row in payload.rows:
+        sheet.append([_safe_excel_value(value) for value in row])
+
+    header_fill = PatternFill("solid", fgColor="405965")
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+    for index, header in enumerate(payload.headers, start=1):
+        sample_lengths = [
+            len(str(sheet.cell(row=row, column=index).value or ""))
+            for row in range(1, min(sheet.max_row, 300) + 1)
+        ]
+        column_letter = sheet.cell(row=1, column=index).column_letter
+        sheet.column_dimensions[column_letter].width = min(
+            42,
+            max(10, max(sample_lengths, default=len(header)) + 2),
+        )
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+
+    stream = BytesIO()
+    workbook.save(stream)
+    filename = re.sub(r"[^A-Za-z0-9._-]+", "-", payload.filename).strip("-.") or "registro-hidromet"
+    output = _save_excel_dialog(f"{filename}.xlsx")
+    if not output:
+        return {"saved": False, "cancelled": True}
+    output.write_bytes(stream.getvalue())
+    return {"saved": True, "cancelled": False, "filename": output.name, "path": str(output)}
+
+
+def _safe_excel_value(value: Any) -> Any:
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+        return f"'{value}"
+    return value
+
+
+def _save_excel_dialog(suggested_name: str) -> Path | None:
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        selected = filedialog.asksaveasfilename(
+            title="Guardar tabla en Excel",
+            defaultextension=".xlsx",
+            initialfile=suggested_name,
+            filetypes=[("Libro de Excel", "*.xlsx")],
+        )
+        return Path(selected).resolve() if selected else None
+    finally:
+        root.destroy()
 
 
 def _folder_dialog(initial_path: str) -> str:
