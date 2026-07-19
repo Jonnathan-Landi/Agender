@@ -61,6 +61,25 @@ def _connect() -> sqlite3.Connection:
         updated_at TEXT NOT NULL, PRIMARY KEY(user_id, data_key),
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS sync_tombstones (
+        user_id INTEGER NOT NULL, data_key TEXT NOT NULL, record_id TEXT NOT NULL,
+        deleted_at TEXT NOT NULL, device_id TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY(user_id, data_key, record_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS sync_record_meta (
+        user_id INTEGER NOT NULL, data_key TEXT NOT NULL, record_id TEXT NOT NULL,
+        updated_at TEXT NOT NULL, device_id TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY(user_id, data_key, record_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS sync_conflicts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        data_key TEXT NOT NULL, record_id TEXT NOT NULL,
+        local_json TEXT NOT NULL, remote_json TEXT NOT NULL,
+        detected_at TEXT NOT NULL, resolved_at TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""")
     return connection
 
 

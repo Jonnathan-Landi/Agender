@@ -75,7 +75,7 @@
               <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
               <span>Cambiar licencia</span>
             </button>
-            <button class="account-logout" type="button" id="account-logout">
+            <button class="account-action account-logout" type="button" id="account-logout">
               <span class="font-icon" aria-hidden="true">&#xE8AC;</span>
               <span>Cerrar sesión</span>
             </button>
@@ -383,6 +383,9 @@
               </div>
             </section>
             <div class="toolbar-actions">
+              <button class="icon-button hydromet-batch-download" type="button" id="hydromet-batch-download" aria-label="Descargar varias estaciones" title="Descargar varias estaciones">
+                <span class="font-icon" aria-hidden="true">&#xE896;</span>
+              </button>
               <div class="hydromet-export-menu" id="hydromet-export-menu">
                 <button class="icon-button hydromet-export-toggle" type="button" id="hydromet-export" aria-label="Exportar tabla a Excel" title="Exportar" aria-expanded="false" aria-controls="hydromet-export-panel">
                   <span class="font-icon" aria-hidden="true">&#xEDE1;</span>
@@ -580,7 +583,7 @@
                 <span class="settings-nav-icon paths-icon"><span class="font-icon">&#xED25;</span></span>
                 <span>Rutas</span>
               </button>
-              <button class="settings-nav-item" type="button" data-settings-page="about">
+              <button class="settings-nav-item" type="button" data-settings-page="information">
                 <span class="settings-nav-icon about-icon"><span class="font-icon">&#xE946;</span></span>
                 <span>Información</span>
               </button>
@@ -590,7 +593,7 @@
               </button>
               <button class="settings-nav-item" type="button" data-settings-page="backup">
                 <span class="settings-nav-icon backup-icon-nav"><span class="font-icon">&#xE8E5;</span></span>
-                <span>Backup</span>
+                <span>OneDrive</span>
               </button>
             </nav>
           </aside>
@@ -624,9 +627,20 @@
                 <div>
                   <h2>Datos crudos</h2>
                   <p>Carpeta con los archivos originales, antes del procesamiento.</p>
-                  <div class="path-picker">
+                  <label class="data-source-field">
+                    <span>Origen de los archivos</span>
+                    <select id="raw-data-source">
+                      <option value="local">Carpeta local</option>
+                      <option value="onedrive">Enlace OneDrive o SharePoint</option>
+                    </select>
+                  </label>
+                  <div class="path-picker" data-local-source="raw">
                     <input id="raw-data-path" type="text" placeholder="Selecciona o escribe la ruta de la carpeta">
                     <button class="button secondary" type="button" data-browse-path="raw-data-path">Examinar</button>
+                  </div>
+                  <div class="onedrive-path-picker" data-onedrive-source="raw" hidden>
+                    <input id="raw-onedrive-url" type="url" placeholder="Pega el enlace compartido de OneDrive o SharePoint">
+                    <small>La cuenta conectada debe tener permiso para abrir esta carpeta.</small>
                   </div>
                   <label class="subfolder-option">
                     <input id="raw-include-subfolders" type="checkbox" checked>
@@ -641,9 +655,20 @@
                 <div>
                   <h2>Datos con control de calidad</h2>
                   <p>Carpeta con los archivos revisados y aprobados.</p>
-                  <div class="path-picker">
+                  <label class="data-source-field">
+                    <span>Origen de los archivos</span>
+                    <select id="quality-data-source">
+                      <option value="local">Carpeta local</option>
+                      <option value="onedrive">Enlace OneDrive o SharePoint</option>
+                    </select>
+                  </label>
+                  <div class="path-picker" data-local-source="quality">
                     <input id="quality-data-path" type="text" placeholder="Selecciona o escribe la ruta de la carpeta">
                     <button class="button secondary" type="button" data-browse-path="quality-data-path">Examinar</button>
+                  </div>
+                  <div class="onedrive-path-picker" data-onedrive-source="quality" hidden>
+                    <input id="quality-onedrive-url" type="url" placeholder="Pega el enlace compartido de OneDrive o SharePoint">
+                    <small>Los cambios remotos se detectan automáticamente al actualizar el registro.</small>
                   </div>
                   <label class="subfolder-option">
                     <input id="quality-include-subfolders" type="checkbox" checked>
@@ -655,8 +680,36 @@
               <p class="settings-message" id="paths-settings-message" role="status" aria-live="polite"></p>
             </section>
 
+            <section class="settings-page" data-settings-panel="information">
+              <h1>Información</h1>
+              <p class="settings-page-description">Consulta la información de Agender y las novedades de la versión instalada.</p>
+              <div class="information-links">
+                <button class="information-link" type="button" data-settings-page="about">
+                  <span class="information-link-icon about font-icon" aria-hidden="true">&#xE946;</span>
+                  <span>
+                    <strong>Acerca de</strong>
+                    <small>Versión instalada, producto y responsable de Agender.</small>
+                  </span>
+                  <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
+                </button>
+                <button class="information-link" type="button" data-settings-page="news">
+                  <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
+                  <span>
+                    <strong>News</strong>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.9.1.</small>
+                  </span>
+                  <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
+                </button>
+              </div>
+            </section>
+
             <section class="settings-page" data-settings-panel="about">
-              <h1>Acerca de</h1>
+              <div class="settings-subpage-heading">
+                <button type="button" data-settings-page="information" aria-label="Volver a Información">
+                  <span class="font-icon" aria-hidden="true">&#xE72B;</span>
+                </button>
+                <div><h1>Acerca de</h1><p>Información del producto</p></div>
+              </div>
               <section class="about-card">
                 <div class="about-product">
                   <span class="about-logo" aria-hidden="true">A</span>
@@ -667,6 +720,51 @@
                   <div><dt>Developer</dt><dd>Jonnathan Landi</dd></div>
                 </dl>
               </section>
+            </section>
+
+            <section class="settings-page" data-settings-panel="news">
+              <div class="settings-subpage-heading">
+                <button type="button" data-settings-page="information" aria-label="Volver a Información">
+                  <span class="font-icon" aria-hidden="true">&#xE72B;</span>
+                </button>
+                <div><h1>News</h1><p>Novedades de Agender 1.9.1</p></div>
+              </div>
+              <section class="news-hero">
+                <span class="news-eyebrow">VERSIÓN ACTUAL</span>
+                <strong class="news-version-number">1.9.1</strong>
+              </section>
+              <div class="news-release-notes">
+                <section class="news-note-section">
+                  <h2>Nuevas funcionalidades</h2>
+                  <ul>
+                    <li>Se agregó la descarga de datos por estación en formatos DAT, CSV y Excel.</li>
+                    <li>Se agregó la selección de variables, rango de fechas, cobertura mínima y escala temporal.</li>
+                    <li>Se incorporaron resoluciones personalizadas en minutos, horas y días.</li>
+                    <li>Se agregó la descarga múltiple de estaciones, generando un archivo independiente por cada estación seleccionada.</li>
+                    <li>Se integró la descarga múltiple con los filtros activos del registro hidrometeorológico.</li>
+                    <li>Se migró el acceso a datos de OneDrive hacia una caché local sincronizada para reutilizar los archivos en el Viewer y las exportaciones.</li>
+                    <li>Se incorporó la sincronización automática en segundo plano para carpetas locales y fuentes de OneDrive.</li>
+                    <li>Se agregó un inventario inmediato basado en stations.xlsx y en la última información disponible mientras los archivos se actualizan.</li>
+                    <li>Se agregó el progreso de descarga de actualizaciones con porcentaje, tamaño y tiempo transcurrido.</li>
+                    <li>Se incorporó la instalación silenciosa de actualizaciones y la reapertura automática de Agender.</li>
+                  </ul>
+                </section>
+                <section class="news-note-section">
+                  <h2>Correcciones</h2>
+                  <ul>
+                    <li>Se corrigió la aparición temporal de variables y fechas pertenecientes a una estación abierta anteriormente.</li>
+                    <li>Se corrigió la validación de fechas que permitía solicitar periodos fuera del rango disponible del archivo.</li>
+                    <li>Se corrigió la exportación de columnas de cobertura que no debían formar parte del archivo final.</li>
+                    <li>Se corrigieron los encabezados temporales para utilizar TIMESTAMP en minutos y horas, y Fecha desde la escala diaria.</li>
+                    <li>Se evitó la sobrescritura accidental de archivos durante las descargas múltiples.</li>
+                    <li>Se corrigió la tabla vacía que aparecía mientras OneDrive terminaba de sincronizar los archivos hidrometeorológicos.</li>
+                    <li>Se eliminó el bloqueo de la interfaz durante el escaneo de carpetas locales y la descarga desde OneDrive.</li>
+                    <li>Se redujeron los parpadeos y el tiempo de respuesta al cambiar entre módulos.</li>
+                    <li>Se optimizó el arranque evitando cargar el Viewer, Polars, DuckDB y Excel antes de necesitarlos.</li>
+                    <li>Se corrigió el actualizador que mostraba el asistente de instalación antes de reemplazar la versión anterior.</li>
+                  </ul>
+                </section>
+              </div>
             </section>
 
             <section class="settings-page" data-settings-panel="updates">
@@ -686,7 +784,18 @@
                 <div class="update-available" id="update-available" hidden>
                   <div><strong id="update-version"></strong><span id="update-date"></span></div>
                   <p id="update-notes"></p>
-                  <button class="button primary" id="install-update-button" type="button">Descargar e instalar</button>
+                  <div class="update-download-progress" id="update-download-progress" hidden>
+                    <div class="update-progress-summary">
+                      <strong id="update-progress-label">Descargando actualización…</strong>
+                      <span id="update-progress-detail">0 %</span>
+                    </div>
+                    <div class="update-progress-track" role="progressbar" aria-label="Progreso de descarga"
+                      aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                      <span id="update-progress-bar"></span>
+                    </div>
+                    <small id="update-elapsed-time">Tiempo transcurrido: 00:00</small>
+                  </div>
+                  <button class="button primary" id="install-update-button" type="button">Descargar actualización</button>
                 </div>
                 <p class="settings-message" id="update-message" role="status"></p>
               </section>
@@ -694,64 +803,34 @@
             </section>
 
             <section class="settings-page" data-settings-panel="backup">
-              <h1>Backup</h1>
-              <p class="settings-page-description">Crea o restaura una copia de seguridad de tus datos de Agender.</p>
+              <h1>OneDrive</h1>
+              <p class="settings-page-description">Mantén tus datos de Agender sincronizados automáticamente entre tus equipos.</p>
 
-              <section class="backup-card" aria-live="polite">
+              <section class="backup-card onedrive-settings-card" aria-live="polite">
                 <div class="backup-hero">
-                  <span class="backup-icon font-icon" aria-hidden="true">&#xE8E5;</span>
+                  <span class="backup-icon font-icon" aria-hidden="true">&#xE753;</span>
                   <div>
-                    <h2>Copia de seguridad</h2>
-                    <p>Guarda y restaura tus rutas, solicitudes, diario y agenda.</p>
+                    <h2>Cuenta OneDrive</h2>
+                    <p>Sincroniza rutas, solicitudes, diario y agenda sin intervención manual.</p>
                   </div>
                 </div>
 
-                <div class="cloud-provider-tabs" role="radiogroup" aria-label="Proveedor de nube">
-                  <button class="cloud-provider active" type="button" role="radio" aria-checked="true" data-cloud-provider="google">
-                    <span class="font-icon" aria-hidden="true">&#xE774;</span>
-                    <span>Google Drive</span>
-                  </button>
-                  <button class="cloud-provider" type="button" role="radio" aria-checked="false" data-cloud-provider="onedrive">
-                    <span class="font-icon" aria-hidden="true">&#xE753;</span>
-                    <span>OneDrive</span>
-                  </button>
-                </div>
-
-                <section class="cloud-auth-panel">
-                  <label>
-                    <span>Client ID OAuth</span>
-                    <input id="cloud-client-id" type="text" autocomplete="off" placeholder="Pega aqui el Client ID del proveedor seleccionado">
-                  </label>
-                  <div class="backup-actions">
-                    <button class="button secondary" id="save-cloud-client-button" type="button">Guardar Client ID</button>
-                    <button class="button primary" id="cloud-login-button" type="button">Iniciar sesión</button>
-                    <button class="button secondary" id="cloud-disconnect-button" type="button" hidden>Cerrar sesión</button>
+                <section class="onedrive-account-state" id="onedrive-disconnected">
+                  <div>
+                    <h3>Conecta tu cuenta Microsoft</h3>
+                    <p>Agender solo accederá a su propia carpeta dentro de OneDrive.</p>
                   </div>
-                  <p class="cloud-account" id="cloud-account">Sin conexión</p>
-                  <p class="cloud-redirect">URL de redirección: <code id="cloud-redirect-uri">-</code></p>
+                  <button class="button primary" id="cloud-login-button" type="button">Iniciar sesión con Microsoft</button>
                 </section>
 
-                <section class="cloud-actions-panel">
-                  <div>
-                    <h3>Nube</h3>
-                    <p>Sube o restaura la copia guardada en el proveedor conectado.</p>
+                <section class="onedrive-account-card" id="onedrive-connected" hidden>
+                  <span class="onedrive-account-avatar font-icon" aria-hidden="true">&#xE77B;</span>
+                  <div class="onedrive-account-details">
+                    <strong id="onedrive-account-name">Cuenta Microsoft</strong>
+                    <span id="onedrive-account-email"></span>
+                    <small id="onedrive-sync-status">Sincronización automática activa</small>
                   </div>
-                  <div class="backup-actions">
-                    <button class="button primary" id="cloud-backup-button" type="button">Realizar copia</button>
-                    <button class="button secondary" id="cloud-restore-button" type="button">Restaurar copia</button>
-                  </div>
-                </section>
-
-                <section class="cloud-actions-panel local-backup-panel">
-                  <div>
-                    <h3>Archivo local</h3>
-                    <p>Usa un archivo manual si necesitas mover la copia por USB o una carpeta sincronizada.</p>
-                  </div>
-                  <div class="backup-actions">
-                    <button class="button secondary" id="export-backup-button" type="button">Descargar copia</button>
-                    <button class="button secondary" id="import-backup-button" type="button">Restaurar archivo</button>
-                    <input class="visually-hidden" id="backup-file" type="file" accept=".json,.agender-backup.json,application/json">
-                  </div>
+                  <button class="button secondary" id="cloud-disconnect-button" type="button">Desvincular cuenta</button>
                 </section>
 
                 <p class="settings-message" id="backup-message" role="status"></p>
@@ -1083,6 +1162,7 @@
     <script src="js/core/utils.js"></script>
     <script src="js/core/ui.js"></script>
     <script src="js/core/storage.js"></script>
+    <script src="js/core/sync.js"></script>
     <script src="js/core/theme.js"></script>
     <script src="js/core/settings.js"></script>
     <script src="js/core/navigation.js"></script>
@@ -1108,6 +1188,172 @@
         </span>
         <span class="station-context-chevron" aria-hidden="true">›</span>
       </button>
+      <button type="button" role="menuitem" data-viewer-action="download">
+        <span class="station-context-action-icon font-icon" aria-hidden="true">&#xE896;</span>
+        <span class="station-context-action-copy">
+          <strong>Descargar datos</strong>
+          <small>Variables, periodo y escala</small>
+        </span>
+        <span class="station-context-chevron" aria-hidden="true">›</span>
+      </button>
+    </div>
+
+    <div class="station-batch-modal" id="station-batch-modal" role="dialog" aria-modal="true" aria-labelledby="station-batch-title" hidden>
+      <form class="station-batch-window" id="station-batch-form">
+        <header>
+          <div>
+            <strong id="station-batch-title">Descargar varias estaciones</strong>
+            <small id="station-batch-subtitle">Se creará un archivo independiente por estación.</small>
+          </div>
+          <button type="button" class="station-batch-close" aria-label="Cerrar">×</button>
+        </header>
+        <div class="station-batch-body">
+          <fieldset>
+            <legend>Estaciones disponibles</legend>
+            <label class="station-batch-all">
+              <input type="checkbox" id="station-batch-all">
+              <span>Seleccionar todas</span>
+              <small id="station-batch-count">0 seleccionadas</small>
+            </label>
+            <label class="station-batch-search">
+              <span class="font-icon" aria-hidden="true">&#xE721;</span>
+              <input type="search" id="station-batch-search" placeholder="Buscar estación, tipo o subcuenca">
+            </label>
+            <div class="station-batch-list" id="station-batch-list"></div>
+          </fieldset>
+          <div class="station-batch-options">
+            <label>
+              <span>Escala temporal</span>
+              <select id="station-batch-resolution">
+                <option value="5min">Cada 5 minutos</option>
+                <option value="hour">Horaria</option>
+                <option value="day">Diaria</option>
+                <option value="month">Mensual</option>
+                <option value="year">Anual</option>
+                <option value="custom">Otra resolución…</option>
+              </select>
+            </label>
+            <label>
+              <span>Formato de salida</span>
+              <select id="station-batch-format">
+                <option value="dat">DAT (.dat)</option>
+                <option value="csv" selected>CSV (.csv)</option>
+                <option value="xlsx">Excel (.xlsx)</option>
+              </select>
+            </label>
+            <div class="station-batch-custom" id="station-batch-custom" hidden>
+              <label>
+                <span>Cada</span>
+                <input type="number" id="station-batch-custom-value" min="1" max="10000" value="10">
+              </label>
+              <label>
+                <span>Unidad</span>
+                <select id="station-batch-custom-unit">
+                  <option value="minute">Minutos</option>
+                  <option value="hour">Horas</option>
+                  <option value="day">Días</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Cobertura mínima</span>
+              <div class="station-download-percent-input">
+                <input type="number" id="station-batch-coverage" min="1" max="100" step="1" value="80">
+                <span aria-hidden="true">%</span>
+              </div>
+            </label>
+          </div>
+          <p class="station-batch-note">Se descargarán todas las variables disponibles y el rango completo de cada estación.</p>
+          <p class="station-batch-message" id="station-batch-message" role="status" aria-live="polite"></p>
+        </div>
+        <footer>
+          <button type="button" class="button station-batch-cancel">Cancelar</button>
+          <button type="submit" class="button primary" id="station-batch-submit" disabled>Elegir carpeta y descargar</button>
+        </footer>
+      </form>
+    </div>
+
+    <div class="station-download-modal" id="station-download-modal" role="dialog" aria-modal="true" aria-labelledby="station-download-title" hidden>
+      <form class="station-download-window" id="station-download-form">
+        <header>
+          <div>
+            <strong id="station-download-title">Descargar datos</strong>
+            <small id="station-download-subtitle"></small>
+          </div>
+          <button type="button" class="station-download-close" aria-label="Cerrar">×</button>
+        </header>
+        <div class="station-download-preparing" role="status">
+          <span class="station-viewer-spinner" aria-hidden="true"></span>
+          <span>Preparando datos de la estación…</span>
+        </div>
+        <div class="station-download-body">
+          <fieldset>
+            <legend>Variables</legend>
+            <label class="station-download-all">
+              <input type="checkbox" id="station-download-all" checked>
+              <span>Seleccionar todas</span>
+            </label>
+            <div class="station-download-variables" id="station-download-variables"></div>
+          </fieldset>
+          <div class="station-download-grid">
+            <label>
+              <span>Fecha inicial</span>
+              <input type="date" id="station-download-start">
+            </label>
+            <label>
+              <span>Fecha final</span>
+              <input type="date" id="station-download-end">
+            </label>
+            <div class="station-download-range-warning" id="station-download-range-warning" role="alert" hidden></div>
+            <label>
+              <span>Escala temporal</span>
+              <select id="station-download-resolution">
+                <option value="5min">Cada 5 minutos</option>
+                <option value="hour">Horaria</option>
+                <option value="day">Diaria</option>
+                <option value="month">Mensual</option>
+                <option value="year">Anual</option>
+                <option value="custom">Otra resolución…</option>
+              </select>
+            </label>
+            <label>
+              <span>Formato de salida</span>
+              <select id="station-download-format">
+                <option value="dat">DAT (.dat)</option>
+                <option value="csv" selected>CSV (.csv)</option>
+                <option value="xlsx">Excel (.xlsx)</option>
+              </select>
+            </label>
+            <div class="station-download-custom" id="station-download-custom" hidden>
+              <label>
+                <span>Cada</span>
+                <input type="number" id="station-download-custom-value" min="1" max="10000" value="10">
+              </label>
+              <label>
+                <span>Unidad</span>
+                <select id="station-download-custom-unit">
+                  <option value="minute">Minutos</option>
+                  <option value="hour">Horas</option>
+                  <option value="day">Días</option>
+                </select>
+              </label>
+            </div>
+            <label class="station-download-coverage">
+              <span>Cobertura mínima</span>
+              <div class="station-download-percent-input">
+                <input type="number" id="station-download-coverage" min="1" max="100" step="1" value="80">
+                <span aria-hidden="true">%</span>
+              </div>
+              <small>Los periodos con menor cobertura se exportarán vacíos.</small>
+            </label>
+          </div>
+          <p class="station-download-message" id="station-download-message" role="status" aria-live="polite"></p>
+        </div>
+        <footer>
+          <button type="button" class="button station-download-cancel">Cancelar</button>
+          <button type="submit" class="button primary" id="station-download-submit">Descargar</button>
+        </footer>
+      </form>
     </div>
 
     <div class="station-viewer-modal" id="station-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="station-viewer-title" hidden>

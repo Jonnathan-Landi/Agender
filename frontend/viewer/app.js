@@ -1,3 +1,5 @@
+import { AdaptiveGpuRenderer } from "./gpu-renderer.js";
+
 const API_BASE = "/viewer-api";
 const launchParams = new URLSearchParams(window.location.search);
 
@@ -18,6 +20,9 @@ const state = {
   progressTimer: null,
   progressValue: 0,
   webgl: null,
+  renderEngine: "detecting",
+  gpuRenderer: null,
+  plotlyRelayoutBound: false,
   seriesController: null,
   themeMode: localStorage.getItem("agender.system.theme") || "system",
   lastPayload: null,
@@ -57,6 +62,7 @@ const el = {
   statRecords: document.getElementById("statRecords"),
   statMissing: document.getElementById("statMissing"),
   statCompleteness: document.getElementById("statCompleteness"),
+  renderEngine: document.getElementById("renderEngine"),
 };
 
 function setStatus(message) {
@@ -136,6 +142,7 @@ function applyTheme() {
   });
   if (state.lastPayload && window.Plotly) {
     Plotly.relayout(el.chart, chartThemeLayout());
+    state.gpuRenderer?.redraw();
   }
 }
 
@@ -264,16 +271,6 @@ async function waitForApi() {
   setStatus("API local no disponible.");
 }
 
-function fillSelect(select, values) {
-  select.innerHTML = "";
-  values.forEach((value) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = value;
-    select.appendChild(option);
-  });
-}
-
 function formatMonth(month) {
   const date = new Date(2024, Number(month) - 1, 1);
   const label = new Intl.DateTimeFormat("es-CO", { month: "long" }).format(date);
@@ -366,10 +363,59 @@ function setPanelCollapsed(collapsed, persist = true) {
 }
 
 function supportsWebGL() {
+  if (state.renderEngine === "webgpu") return false;
   if (state.webgl !== null) return state.webgl;
   const canvas = document.createElement("canvas");
-  state.webgl = Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+  try {
+    const context = canvas.getContext("webgl2")
+      || canvas.getContext("webgl")
+      || canvas.getContext("experimental-webgl");
+    state.webgl = Boolean(context && !context.isContextLost());
+  } catch {
+    state.webgl = false;
+  }
   return state.webgl;
+}
+
+function plotlyRejectedWebGL() {
+  return /webgl is not supported/i.test(el.chart.textContent || "");
+}
+
+async function renderSvgFallback(payload, config) {
+  state.renderEngine = "svg";
+  state.webgl = false;
+  state.gpuRenderer?.dispose();
+  Plotly.purge(el.chart);
+  await Plotly.react(el.chart, tracesForPayload(payload), chartLayout(payload), config);
+}
+
+function updateRenderEngine() {
+  const labels = { webgpu: "WebGPU", webgl: "WebGL", svg: "SVG", detecting: "Detectando…" };
+  el.renderEngine.textContent = `Renderizado: ${labels[state.renderEngine] || "—"}`;
+  el.renderEngine.title = state.renderEngine === "webgpu"
+    ? "Aceleración WebGPU activa; WebGL se usará si el dispositivo falla"
+    : state.renderEngine === "webgl"
+      ? "Aceleración WebGL activa"
+      : "Modo compatible sin aceleración GPU";
+}
+
+async function initializeRenderEngine() {
+  state.gpuRenderer = new AdaptiveGpuRenderer(el.chart, async (fallbackEngine) => {
+    state.renderEngine = fallbackEngine;
+    state.webgl = fallbackEngine === "webgl";
+    updateRenderEngine();
+    if (!state.lastPayload) return;
+    try {
+      await renderPayload(state.lastPayload);
+    } catch {
+      await renderSvgFallback(state.lastPayload, {});
+      updateRenderEngine();
+    }
+  });
+  const capability = await state.gpuRenderer.detect();
+  state.renderEngine = capability.engine;
+  state.webgl = capability.engine === "webgl";
+  updateRenderEngine();
 }
 
 async function applyMetadata(metadata) {
@@ -380,6 +426,7 @@ async function applyMetadata(metadata) {
   state.years = metadata.years;
   state.monthsByYear = metadata.months_by_year || {};
   state.daysByMonth = metadata.days_by_month || {};
+  state.webgl = state.renderEngine === "webgl";
   state.year = metadata.years.at(-1);
   state.month = "all";
   state.day = "all";
@@ -479,16 +526,67 @@ function statusPeriodText(payload) {
 }
 
 function makeTrace(name, x, y, rowIds, color, coverage = [], available = [], expected = []) {
+  const webgpu = state.renderEngine === "webgpu";
   return {
     type: supportsWebGL() ? "scattergl" : "scatter",
     mode: "markers",
     name,
     x,
     y,
-    customdata: x.map((_, index) => [rowIds[index], coverage[index], available[index], expected[index]]),
+    customdata: webgpu ? undefined : x.map((_, index) => [rowIds[index], coverage[index], available[index], expected[index]]),
     marker: { color, size: 5, opacity: 0.82 },
     hovertemplate: "%{x}<br>Valor: %{y}<br>Cobertura: %{customdata[1]}% (%{customdata[2]}/%{customdata[3]})<extra></extra>",
   };
+}
+
+function plotlyScaffoldingTraces(traces) {
+  if (state.renderEngine !== "webgpu") return traces;
+  return traces.map((trace) => {
+    const valid = trace.y
+      .map((value, index) => ({ value: Number(value), index }))
+      .filter((item) => Number.isFinite(item.value));
+    if (!valid.length) {
+      return { type: "scatter", mode: "markers", x: [], y: [], name: trace.name, hoverinfo: "skip" };
+    }
+    const min = valid.reduce((best, item) => (item.value < best.value ? item : best));
+    const max = valid.reduce((best, item) => (item.value > best.value ? item : best));
+    return {
+      type: "scatter",
+      mode: "markers",
+      name: trace.name,
+      x: [trace.x[0], trace.x.at(-1), trace.x[min.index], trace.x[max.index]],
+      y: [min.value, max.value, min.value, max.value],
+      marker: { color: trace.marker.color, size: 1, opacity: 0 },
+      hoverinfo: "skip",
+      showlegend: true,
+    };
+  });
+}
+
+function bindWebGpuRelayout() {
+  if (state.plotlyRelayoutBound || typeof el.chart.on !== "function") return;
+  el.chart.on("plotly_relayout", () => requestAnimationFrame(() => state.gpuRenderer?.redraw()));
+  state.plotlyRelayoutBound = true;
+}
+
+async function renderPayload(payload, config = null) {
+  const plotConfig = config || {
+    responsive: true,
+    scrollZoom: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: [
+      "toImage", "pan2d", "select2d", "lasso2d", "zoomIn2d", "zoomOut2d",
+      "autoScale2d", "hoverClosestCartesian", "hoverCompareCartesian", "toggleSpikelines",
+    ],
+  };
+  const traces = tracesForPayload(payload);
+  if (state.renderEngine === "webgpu") {
+    await Plotly.react(el.chart, plotlyScaffoldingTraces(traces), chartLayout(payload), plotConfig);
+    bindWebGpuRelayout();
+    state.gpuRenderer.render(traces);
+    return;
+  }
+  await Plotly.react(el.chart, traces, chartLayout(payload), plotConfig);
 }
 
 function tracesForPayload(payload) {
@@ -549,8 +647,6 @@ async function loadSeries() {
   const payload = await response.json();
   if (state.seriesController !== controller) return;
   state.lastPayload = payload;
-  const traces = tracesForPayload(payload);
-
   const config = {
     responsive: true,
     scrollZoom: true,
@@ -569,11 +665,28 @@ async function loadSeries() {
     ],
   };
 
-  await Plotly.react(el.chart, traces, chartLayout(payload), config);
+  try {
+    await renderPayload(payload, config);
+  } catch (error) {
+    if (state.renderEngine === "webgpu") {
+      state.gpuRenderer.failWebGpu();
+      return;
+    }
+    if (state.renderEngine !== "webgl") throw error;
+    await renderSvgFallback(payload, config);
+  }
+  if (state.renderEngine === "webgl" && plotlyRejectedWebGL()) {
+    await renderSvgFallback(payload, config);
+  }
+  updateRenderEngine();
   setStats(payload.stats);
 
   const sampleText = ` ${formatNumber(payload.grouped_periods)} períodos: ${formatNumber(payload.accepted_periods)} válidos, ${formatNumber(payload.na_periods)} NA y ${formatNumber(payload.missing_points)} timestamps ausentes; resolución ${resolutionLabel().toLowerCase()}, cobertura mínima ${state.minCoverage}%, ${payload.aggregation}.`;
-  const renderText = supportsWebGL() ? "" : " Renderizado en modo compatible sin WebGL.";
+  const renderText = state.renderEngine === "webgpu"
+    ? " Renderizado con WebGPU."
+    : state.renderEngine === "webgl"
+      ? " Renderizado con WebGL."
+      : " Renderizado en modo compatible SVG.";
   setStatus(`Variable ${payload.variable}, ${statusPeriodText(payload)}.${sampleText}${renderText}`);
 }
 
@@ -645,6 +758,7 @@ setStats({ total: 0, records: 0, missing: 0, completeness: 0 });
 renderVariableTabs([]);
 
 async function initializeViewer() {
+  await initializeRenderEngine();
   await waitForApi();
   const station = launchParams.get("station");
   if (!station) return;

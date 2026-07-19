@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
-from backend.indexer import synchronize
+from backend.indexer import inventory_snapshot, synchronize
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -32,3 +32,15 @@ class IndexerTests(TestCase):
         self.assertEqual(2, first["sync"]["processed"])
         self.assertEqual(0, second["sync"]["processed"])
         self.assertEqual(2, second["sync"]["reused"])
+
+    def test_snapshot_returns_catalog_and_last_inventory_without_scanning_source(self) -> None:
+        with TemporaryDirectory() as cache:
+            with patch("backend.indexer.CACHE_DIR", Path(cache)):
+                synchronize("raw", str(FIXTURES / "raw"), recursive=True)
+                result = inventory_snapshot("raw")
+
+        stations = {station["code"]: station for station in result["data"]}
+        self.assertTrue(result["snapshot"])
+        self.assertEqual(43, len(stations))
+        self.assertEqual(2, result["fileCount"])
+        self.assertEqual("2026-01-01", stations["LIM_ChicoSoldados"]["start"])

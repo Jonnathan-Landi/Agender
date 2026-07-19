@@ -183,6 +183,18 @@
           "markdownDescription": "Enables the check_for_update command without any pre-configured scope."
         },
         {
+          "description": "Enables the download_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-download-update",
+          "markdownDescription": "Enables the download_update command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_update_download_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-update-download-status",
+          "markdownDescription": "Enables the get_update_download_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the install_update command without any pre-configured scope.",
           "type": "string",
           "const": "allow-install-update",
@@ -193,6 +205,18 @@
           "type": "string",
           "const": "deny-check-for-update",
           "markdownDescription": "Denies the check_for_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the download_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-download-update",
+          "markdownDescription": "Denies the download_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_update_download_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-update-download-status",
+          "markdownDescription": "Denies the get_update_download_status command without any pre-configured scope."
         },
         {
           "description": "Denies the install_update command without any pre-configured scope.",

@@ -15,6 +15,40 @@ CACHE_VERSION = 1
 _locks = {"raw": threading.Lock(), "quality": threading.Lock()}
 
 
+def inventory_snapshot(source: str) -> dict[str, Any]:
+    """Return the catalog enriched with the last inventory without touching its data source."""
+    if source not in _locks:
+        raise ValueError("La fuente seleccionada no es válida.")
+    started = time.perf_counter()
+    catalog = load_station_catalog()
+    cache_path = CACHE_DIR / f"inventory_{source}.json"
+    cached = read_json(cache_path, {})
+    entries = cached.get("files", {}) if cached.get("version") == CACHE_VERSION else {}
+    known_entries = [
+        entry
+        for entry in entries.values()
+        if normalize_station_code(str(entry.get("station", ""))) in catalog
+    ]
+    generated_at = _iso_from_mtime(cache_path) if cache_path.is_file() else _iso_now()
+    return {
+        "data": _aggregate_stations(known_entries, catalog),
+        "source": source,
+        "recursive": cached.get("recursive", True),
+        "fileCount": len(known_entries),
+        "ignoredFileCount": 0,
+        "catalogStationCount": len(catalog),
+        "generatedAt": generated_at,
+        "snapshot": True,
+        "sync": {
+            "processed": 0,
+            "reused": len(known_entries),
+            "deleted": 0,
+            "durationMs": round((time.perf_counter() - started) * 1000),
+        },
+        "warnings": [],
+    }
+
+
 def synchronize(source: str, root_value: str, recursive: bool = True) -> dict[str, Any]:
     started = time.perf_counter()
     if source not in _locks:
@@ -182,3 +216,9 @@ def _iso_now() -> str:
     from datetime import UTC, datetime
 
     return datetime.now(UTC).isoformat()
+
+
+def _iso_from_mtime(path: Path) -> str:
+    from datetime import UTC, datetime
+
+    return datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat()

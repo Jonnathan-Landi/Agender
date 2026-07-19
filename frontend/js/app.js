@@ -17,4 +17,6 @@
   window.NotasAgenda.initAgenda();
   window.NotasViewer.initViewer();
   window.NotasHydromet.initHydromet();
+  window.NotasSync.start();
+  window.NotasSync.bootstrap({ reloadOnRemote: false }).catch((error) => console.error(error));
 })();
