@@ -4,10 +4,12 @@
   "description": "Allows the main window served by Agender's local backend to call application commands.",
   "windows": ["main"],
   "remote": {
-    "urls": ["http://127.0.0.1:47831/*"]
+    "urls": ["http://127.0.0.1:*/*"]
   },
   "permissions": [
     "allow-check-for-update",
+    "allow-get-update-download-status",
+    "allow-download-update",
     "allow-install-update"
   ]
 }

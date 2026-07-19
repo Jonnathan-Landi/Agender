@@ -1588,6 +1588,8 @@
 }
 
 .station-context-menu[hidden],
+.station-batch-modal[hidden],
+.station-download-modal[hidden],
 .station-viewer-modal[hidden] {
   display: none;
 }
@@ -1795,4 +1797,573 @@
 
 body.viewer-open {
   overflow: hidden;
+}
+
+.station-download-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  padding: 24px;
+  background: rgb(12 20 31 / 62%);
+  place-items: center;
+}
+
+.station-download-window {
+  display: grid;
+  width: min(610px, 100%);
+  max-height: min(690px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 38%);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.station-download-window > header,
+.station-download-window > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--panel) 94%, var(--accent));
+}
+
+.station-download-window > header {
+  border-bottom: 1px solid var(--line);
+}
+
+.station-download-window > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.station-download-window > header strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.station-download-window > header small {
+  color: var(--muted);
+}
+
+.station-download-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.station-download-close:hover {
+  background: var(--control);
+  color: var(--ink);
+}
+
+.station-download-body {
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+  padding: 16px 20px;
+}
+
+.station-download-preparing {
+  display: none;
+  min-height: 230px;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.station-download-window.is-preparing .station-download-preparing {
+  display: grid;
+}
+
+.station-download-window.is-preparing .station-download-body,
+.station-download-window.is-preparing > footer {
+  display: none;
+}
+
+.station-download-body fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.station-download-body legend,
+.station-download-grid label > span {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.station-download-all,
+.station-download-variables label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.station-download-all {
+  width: fit-content;
+  margin-bottom: 7px;
+  font-weight: 600;
+}
+
+.station-download-variables {
+  display: grid;
+  max-height: 112px;
+  overflow: auto;
+  padding: 3px 5px 3px 2px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+  gap: 6px 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.station-download-variables span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-download-all input[type="checkbox"],
+.station-download-variables input[type="checkbox"] {
+  appearance: none;
+  flex: 0 0 16px;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--control) 55%, transparent);
+  cursor: pointer;
+}
+
+.station-download-all input[type="checkbox"]:checked,
+.station-download-variables input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image:
+    linear-gradient(45deg, transparent 45%, white 45%, white 58%, transparent 58%),
+    linear-gradient(-45deg, transparent 37%, white 37%, white 50%, transparent 50%);
+  background-position: 1px 5px, 5px 2px;
+  background-repeat: no-repeat;
+  background-size: 7px 7px, 9px 9px;
+}
+
+.station-download-all input[type="checkbox"]:indeterminate {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: linear-gradient(white, white);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 8px 2px;
+}
+
+.station-download-all input[type="checkbox"]:focus-visible,
+.station-download-variables input[type="checkbox"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.station-download-grid {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.station-download-grid label {
+  display: grid;
+}
+
+.station-download-grid input[type="date"],
+.station-download-grid input[type="number"],
+.station-download-grid select {
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--ink);
+  font: inherit;
+}
+
+.station-download-range-warning {
+  grid-column: 1 / -1;
+  margin-top: -6px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, #d83b01 55%, var(--line));
+  border-radius: 5px;
+  background: color-mix(in srgb, #d83b01 9%, transparent);
+  color: color-mix(in srgb, #d83b01 80%, var(--ink));
+  font-size: 0.78rem;
+}
+
+.station-download-range-warning[hidden] {
+  display: none;
+}
+
+.station-download-custom {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(100px, 0.65fr) minmax(150px, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 5px 5px 0;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+
+.station-download-custom[hidden] {
+  display: none;
+}
+
+.station-download-coverage {
+  grid-column: 1 / -1;
+}
+
+.station-download-coverage small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.station-download-percent-input {
+  display: flex;
+  width: 112px;
+  height: 36px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+}
+
+.station-download-percent-input:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.station-download-grid .station-download-percent-input input,
+.station-batch-options .station-download-percent-input input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.station-download-percent-input > span {
+  margin: 0;
+  padding: 0 10px 0 4px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.station-download-message {
+  min-height: 20px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.station-download-message.is-error {
+  color: #d83b01;
+}
+
+.station-download-window > footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+
+body.download-open {
+  overflow: hidden;
+}
+
+.station-batch-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  padding: 24px;
+  background: rgb(12 20 31 / 68%);
+  place-items: center;
+}
+
+.station-batch-window {
+  display: grid;
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 42%);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.station-batch-window > header,
+.station-batch-window > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--accent));
+}
+
+.station-batch-window > header {
+  border-bottom: 1px solid var(--line);
+}
+
+.station-batch-window > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.station-batch-window > header small {
+  color: var(--muted);
+}
+
+.station-batch-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 24px;
+}
+
+.station-batch-body {
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+  padding: 16px 20px;
+}
+
+.station-batch-body fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.station-batch-body legend,
+.station-batch-options label > span {
+  margin-bottom: 7px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.station-batch-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.station-batch-all small {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.station-batch-search {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--muted);
+}
+
+.station-batch-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.station-batch-list {
+  display: grid;
+  max-height: 230px;
+  overflow: auto;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+  gap: 3px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.station-batch-list label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border-radius: 4px;
+  color: var(--ink);
+}
+
+.station-batch-list label:hover {
+  background: var(--accent-soft);
+}
+
+.station-batch-list label > span {
+  display: grid;
+  min-width: 0;
+}
+
+.station-batch-list strong,
+.station-batch-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-batch-list strong {
+  font-size: 0.82rem;
+}
+
+.station-batch-list small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.station-batch-all input[type="checkbox"],
+.station-batch-list input[type="checkbox"] {
+  appearance: none;
+  flex: 0 0 16px;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--control);
+}
+
+.station-batch-all input[type="checkbox"]:checked,
+.station-batch-list input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image:
+    linear-gradient(45deg, transparent 45%, white 45%, white 58%, transparent 58%),
+    linear-gradient(-45deg, transparent 37%, white 37%, white 50%, transparent 50%);
+  background-position: 1px 5px, 5px 2px;
+  background-repeat: no-repeat;
+  background-size: 7px 7px, 9px 9px;
+}
+
+.station-batch-all input[type="checkbox"]:indeterminate {
+  border-color: var(--accent);
+  background: var(--accent) linear-gradient(white, white) center / 8px 2px no-repeat;
+}
+
+.station-batch-empty {
+  grid-column: 1 / -1;
+  margin: 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.station-batch-options {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.station-batch-options label {
+  display: grid;
+}
+
+.station-batch-options select,
+.station-batch-options input[type="number"] {
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--ink);
+  font: inherit;
+}
+
+.station-batch-custom {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 0.65fr 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+}
+
+.station-batch-custom[hidden] {
+  display: none;
+}
+
+.station-batch-note,
+.station-batch-message {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.station-batch-message.is-error {
+  color: #d83b01;
+}
+
+.station-batch-window > footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 620px) {
+  .station-download-modal {
+    padding: 10px;
+  }
+
+  .station-download-grid,
+  .station-download-variables,
+  .station-download-custom,
+  .station-batch-list,
+  .station-batch-options,
+  .station-batch-custom {
+    grid-template-columns: 1fr;
+  }
 }

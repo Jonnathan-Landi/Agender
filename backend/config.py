@@ -14,6 +14,10 @@ CACHE_DIR = APP_DATA_DIR / "cache"
 DEFAULT_SETTINGS = {
     "rawDataPath": "",
     "qualityDataPath": "",
+    "rawDataSource": "local",
+    "qualityDataSource": "local",
+    "rawOneDriveUrl": "",
+    "qualityOneDriveUrl": "",
     "rawIncludeSubfolders": True,
     "qualityIncludeSubfolders": True,
 }
@@ -50,12 +54,38 @@ def validate_settings(values: Any) -> dict[str, Any]:
         if not isinstance(value, str) or "\0" in value or len(value) > 1024:
             raise ValueError(f"La ruta de {label} no es válida.")
         result[key] = value.strip()
+    for key in ("rawDataSource", "qualityDataSource"):
+        value = values.get(key, "local")
+        if value not in {"local", "onedrive"}:
+            raise ValueError("El origen de datos seleccionado no es válido.")
+        result[key] = value
+    for key in ("rawOneDriveUrl", "qualityOneDriveUrl"):
+        value = values.get(key, "")
+        if not isinstance(value, str) or "\0" in value or len(value) > 4096:
+            raise ValueError("El enlace de OneDrive o SharePoint no es válido.")
+        value = value.strip()
+        if value and not _is_microsoft_share_url(value):
+            raise ValueError("Usa un enlace HTTPS compartido de OneDrive o SharePoint.")
+        result[key] = value
     for key in ("rawIncludeSubfolders", "qualityIncludeSubfolders"):
         value = values.get(key, True)
         if not isinstance(value, bool):
             raise ValueError("La opción de incluir subcarpetas no es válida.")
         result[key] = value
     return result
+
+
+def _is_microsoft_share_url(value: str) -> bool:
+    from urllib.parse import urlsplit
+
+    parsed = urlsplit(value)
+    host = (parsed.hostname or "").casefold()
+    return parsed.scheme == "https" and (
+        host == "1drv.ms"
+        or host.endswith(".sharepoint.com")
+        or host.endswith(".onedrive.com")
+        or host == "onedrive.live.com"
+    )
 
 
 def read_json(path: Path, fallback: Any) -> Any:

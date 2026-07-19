@@ -7,7 +7,8 @@ import hashlib
 import shutil
 import threading
 import time
-from datetime import datetime
+import re
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -16,13 +17,24 @@ os.environ.setdefault("POLARS_MAX_THREADS", str(WORKER_THREADS))
 
 import duckdb
 import polars as pl
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 
 
 from ..catalog import normalize_station_code
 from ..config import APP_DATA_DIR, read_settings
+from ..onedrive_folders import materialize_source
 from ..security import current_user
+from .aggregations import RESOLUTION_INTERVALS, aggregation_function
+from .export_output import (
+    choose_export_folder as _choose_export_folder,
+    excel_bytes as _excel_bytes,
+    safe_export_name as _safe_export_name,
+    save_export_dialog as _save_export_dialog,
+    tabular_bytes as _tabular_bytes,
+    unique_output_path as _unique_output_path,
+)
+from .naming import canonical_name, clean_name
 
 
 APP_ROOT = APP_DATA_DIR / "viewer"
@@ -73,9 +85,35 @@ class SessionInfo(BaseModel):
     months_by_year: dict[str, list[int]]
     days_by_month: dict[str, list[int]]
     total_rows: int
+    first_date: str = ""
+    last_date: str = ""
 
 
-app = FastAPI(title="Agender Viewer API", version="1.0.0")
+class ExportRequest(BaseModel):
+    session_id: str
+    station_code: str
+    variables: list[str]
+    start_date: date | None = None
+    end_date: date | None = None
+    resolution: str = "original"
+    min_coverage: float = 80.0
+    file_format: str = "csv"
+    custom_value: int | None = None
+    custom_unit: str | None = None
+    choose_destination: bool = False
+
+
+class BatchExportRequest(BaseModel):
+    station_codes: list[str]
+    source: str = "raw"
+    resolution: str = "5min"
+    min_coverage: float = 80.0
+    file_format: str = "csv"
+    custom_value: int | None = None
+    custom_unit: str | None = None
+
+
+app = FastAPI(title="Agender Viewer API", version="1.9.1")
 
 
 def session_dir(session_id: str) -> Path:
@@ -127,17 +165,6 @@ def require_session(session_id: str) -> dict[str, Any]:
     if not path.exists():
         raise HTTPException(status_code=404, detail="Session not found")
     return read_json(path, {})
-
-
-def clean_name(name: str) -> str:
-    cleaned = name.strip().strip('"').strip("'").lower()
-    for char in (" ", "-", ".", "/", "\\", ":"):
-        cleaned = cleaned.replace(char, "_")
-    return cleaned
-
-
-def canonical_name(name: str) -> str:
-    return "".join(char for char in clean_name(name) if char.isalnum())
 
 
 def is_timestamp_alias(name: str) -> bool:
@@ -483,7 +510,17 @@ def cached_session(path: Path) -> dict[str, Any] | None:
     if not meta_path.is_file() or not data_path.is_file():
         return None
     meta = read_json(meta_path, {})
-    return meta if meta.get("source_fingerprint") == fingerprint else None
+    if meta.get("source_fingerprint") != fingerprint:
+        return None
+    if not meta.get("first_date") or not meta.get("last_date"):
+        bounds = pl.scan_parquet(data_path).select(
+            pl.col("__fd_timestamp").min().alias("first"),
+            pl.col("__fd_timestamp").max().alias("last"),
+        ).collect().row(0, named=True)
+        meta["first_date"] = bounds["first"].date().isoformat() if bounds["first"] else ""
+        meta["last_date"] = bounds["last"].date().isoformat() if bounds["last"] else ""
+        write_json(meta_path, meta)
+    return meta
 
 
 def read_input_file(path: Path) -> pl.DataFrame:
@@ -517,31 +554,170 @@ def stats_payload(total: int, records: int) -> dict[str, Any]:
         "completeness": round(completeness, 2),
     }
 
-
-RESOLUTION_INTERVALS = {
-    "5min": ("5 minutes", 5 * 60 * 1_000_000),
-    "hour": ("1 hour", 60 * 60 * 1_000_000),
-    "day": ("1 day", 24 * 60 * 60 * 1_000_000),
-    "month": ("1 month", None),
-    "year": ("1 year", None),
-}
+def _quoted_identifier(value: str) -> str:
+    return '"' + value.replace('"', '""') + '"'
 
 
-def aggregation_function(variable: str) -> tuple[str, str]:
-    """Devuelve la función SQL y su etiqueta según la convención de la variable."""
-    canonical = clean_name(variable)
-    if canonical.endswith("_min") or canonical == "min":
-        return "MIN", "mínimo"
-    if canonical.endswith("_max") or canonical == "max":
-        return "MAX", "máximo"
-    if any(token in canonical for token in ("lluvia", "precip", "rain", "ppt")):
-        return "SUM", "suma"
-    return "AVG", "promedio"
+def _export_query(payload: ExportRequest, meta: dict[str, Any]) -> tuple[str, list[Any], list[str]]:
+    if not payload.variables:
+        raise HTTPException(status_code=422, detail="Selecciona al menos una variable")
+    unknown = [variable for variable in payload.variables if variable not in meta["variables"]]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Variables no disponibles: {', '.join(unknown)}")
+    if payload.start_date and payload.end_date and payload.start_date > payload.end_date:
+        raise HTTPException(status_code=422, detail="La fecha inicial no puede ser posterior a la fecha final")
+    first_date = date.fromisoformat(meta["first_date"]) if meta.get("first_date") else None
+    last_date = date.fromisoformat(meta["last_date"]) if meta.get("last_date") else None
+    if first_date and payload.start_date and payload.start_date < first_date:
+        raise HTTPException(
+            status_code=422,
+            detail=f"La fecha inicial está fuera del rango disponible ({first_date} a {last_date})",
+        )
+    if last_date and payload.end_date and payload.end_date > last_date:
+        raise HTTPException(
+            status_code=422,
+            detail=f"La fecha final está fuera del rango disponible ({first_date} a {last_date})",
+        )
+    if payload.resolution not in {"original", "5min", "hour", "day", "month", "year", "custom"}:
+        raise HTTPException(status_code=422, detail="Escala temporal no válida")
+    if not 0 < payload.min_coverage <= 100:
+        raise HTTPException(status_code=422, detail="La cobertura mínima debe estar entre 1 y 100")
+
+    path = str(parquet_path(payload.session_id)).replace("'", "''")
+    filters: list[str] = []
+    filter_params: list[Any] = []
+    if payload.start_date:
+        filters.append("__fd_timestamp >= ?")
+        filter_params.append(datetime.combine(payload.start_date, datetime.min.time()))
+    if payload.end_date:
+        filters.append("__fd_timestamp < ?")
+        filter_params.append(datetime.combine(payload.end_date + timedelta(days=1), datetime.min.time()))
+    where_clause = " AND ".join(filters) if filters else "TRUE"
+    timestamp_label = meta.get("timestamp_column") or "fecha_hora"
+
+    if payload.resolution == "original":
+        columns = [_quoted_identifier(variable) for variable in payload.variables]
+        sql = (
+            f'SELECT __fd_timestamp AS {_quoted_identifier(timestamp_label)}, {", ".join(columns)} '
+            f"FROM read_parquet('{path}') WHERE {where_clause} ORDER BY __fd_timestamp"
+        )
+        return sql, filter_params, [timestamp_label, *payload.variables]
+
+    if payload.resolution == "custom":
+        if payload.custom_value is None or not 1 <= payload.custom_value <= 10_000:
+            raise HTTPException(status_code=422, detail="La resolución personalizada debe estar entre 1 y 10.000")
+        custom_units = {
+            "minute": ("minutes", 60 * 1_000_000),
+            "hour": ("hours", 60 * 60 * 1_000_000),
+            "day": ("days", 24 * 60 * 60 * 1_000_000),
+        }
+        if payload.custom_unit not in custom_units:
+            raise HTTPException(status_code=422, detail="Unidad de resolución personalizada no válida")
+        unit_label, unit_us = custom_units[payload.custom_unit]
+        interval_label = f"{payload.custom_value} {unit_label}"
+        fixed_resolution_us = payload.custom_value * unit_us
+    else:
+        interval_label, fixed_resolution_us = RESOLUTION_INTERVALS[payload.resolution]
+    source_interval_us = meta.get("sampling_interval_us")
+    if source_interval_us and fixed_resolution_us and fixed_resolution_us < source_interval_us:
+        raise HTTPException(
+            status_code=422,
+            detail="La escala elegida es menor que el intervalo original de los datos",
+        )
+    bucket_sql = f"time_bucket(INTERVAL '{interval_label}', __fd_timestamp)"
+    expected_sql = (
+        f"GREATEST(1, ROUND((epoch({bucket_sql} + INTERVAL '{interval_label}') - epoch({bucket_sql}))"
+        f" * 1000000 / {int(source_interval_us)}))"
+        if source_interval_us
+        else "1"
+    )
+    aggregates: list[str] = []
+    coverage_params: list[Any] = []
+    timestamp_header = (
+        "TIMESTAMP"
+        if payload.resolution in {"5min", "hour"}
+        or (payload.resolution == "custom" and payload.custom_unit in {"minute", "hour"})
+        else "Fecha"
+    )
+    output_columns = [timestamp_header]
+    for variable in payload.variables:
+        quoted = _quoted_identifier(variable)
+        aggregate, _label = aggregation_function(variable)
+        value_alias = _quoted_identifier(variable)
+        aggregates.append(
+            f"CASE WHEN COUNT({quoted}) * 100.0 / {expected_sql} >= ? "
+            f"THEN {aggregate}({quoted}) ELSE NULL END AS {value_alias}"
+        )
+        coverage_params.append(payload.min_coverage)
+        output_columns.append(variable)
+    sql = f"""
+        SELECT
+            {bucket_sql} AS {_quoted_identifier(timestamp_header)},
+            {", ".join(aggregates)}
+        FROM read_parquet('{path}')
+        WHERE {where_clause}
+        GROUP BY 1
+        ORDER BY 1
+    """
+    return sql, [*coverage_params, *filter_params], output_columns
 
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/export")
+def export_data(payload: ExportRequest) -> Any:
+    meta = require_session(payload.session_id)
+    if payload.file_format not in {"dat", "csv", "xlsx"}:
+        raise HTTPException(status_code=422, detail="Formato de salida no válido")
+    sql, params, headers = _export_query(payload, meta)
+    rows = duckdb_query(sql, params)
+    if not rows:
+        raise HTTPException(status_code=404, detail="No hay datos para el periodo seleccionado")
+
+    station = _safe_export_name(payload.station_code)
+    suffix = payload.resolution if payload.resolution != "custom" else f"{payload.custom_value}-{payload.custom_unit}"
+    filename = f"{station}-{suffix}.{payload.file_format}"
+    if payload.file_format == "xlsx":
+        content = _excel_bytes(headers, rows)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        delimiter = "\t" if payload.file_format == "dat" else ","
+        content = _tabular_bytes(headers, rows, delimiter)
+        media_type = "text/plain" if payload.file_format == "dat" else "text/csv"
+    if payload.choose_destination:
+        output = _save_export_dialog(filename, payload.file_format)
+        if not output:
+            return {"saved": False, "cancelled": True}
+        output.write_bytes(content)
+        return {
+            "saved": True,
+            "cancelled": False,
+            "filename": output.name,
+            "path": str(output),
+        }
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _station_matches(root: Path, recursive: bool, station_codes: list[str]) -> dict[str, Path]:
+    requested = {normalize_station_code(code): code for code in station_codes}
+    matches: dict[str, Path] = {}
+    candidates = root.rglob("*") if recursive else root.glob("*")
+    for path in candidates:
+        normalized = normalize_station_code(path.stem) if path.is_file() else ""
+        if (
+            normalized in requested
+            and path.suffix.lower() in {".dat", ".csv", ".txt", ".xlsx", ".parquet"}
+            and (normalized not in matches or path.stat().st_mtime_ns > matches[normalized].stat().st_mtime_ns)
+        ):
+            matches[normalized] = path
+    return matches
 
 
 @app.post("/api/stations/{station_code}", response_model=SessionInfo)
@@ -553,8 +729,11 @@ def open_station(station_code: str, request: Request, source: str = "raw") -> Se
     if not user:
         raise HTTPException(status_code=401, detail="Debes iniciar sesión")
     settings = read_settings(user["username"], user["role"] == "admin")
-    root_value = settings["rawDataPath" if source == "raw" else "qualityDataPath"]
     recursive = settings["rawIncludeSubfolders" if source == "raw" else "qualityIncludeSubfolders"]
+    try:
+        root_value, _remote_sync = materialize_source(user, settings, source)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     if not root_value:
         raise HTTPException(status_code=404, detail="La ruta de datos no está configurada")
     root = Path(root_value).resolve()
@@ -562,18 +741,79 @@ def open_station(station_code: str, request: Request, source: str = "raw") -> Se
         raise HTTPException(status_code=404, detail="La ruta configurada no está disponible")
 
     normalized_code = normalize_station_code(station_code)
-    candidates = root.rglob("*") if recursive else root.glob("*")
-    matches = [
-        path
-        for path in candidates
-        if path.is_file()
-        and path.suffix.lower() in {".dat", ".csv", ".txt", ".xlsx", ".parquet"}
-        and normalize_station_code(path.stem) == normalized_code
-    ]
-    if not matches:
+    selected = _station_matches(root, recursive, [station_code]).get(normalized_code)
+    if not selected:
         raise HTTPException(status_code=404, detail=f"No hay archivos para la estación {station_code}")
-    selected = max(matches, key=lambda path: path.stat().st_mtime_ns)
     return ingest_file(selected, selected.name)
+
+
+@app.post("/api/export-batch")
+def export_batch(payload: BatchExportRequest, request: Request) -> dict[str, Any]:
+    if payload.source not in {"raw", "quality"}:
+        raise HTTPException(status_code=422, detail="Fuente no válida")
+    unique_codes = list(dict.fromkeys(code.strip() for code in payload.station_codes if code.strip()))
+    if not unique_codes:
+        raise HTTPException(status_code=422, detail="Selecciona al menos una estación")
+    if len(unique_codes) > 250:
+        raise HTTPException(status_code=422, detail="Puedes descargar hasta 250 estaciones por lote")
+    user = current_user(request.cookies.get("agender_session"))
+    if not user:
+        raise HTTPException(status_code=401, detail="Debes iniciar sesión")
+    settings = read_settings(user["username"], user["role"] == "admin")
+    recursive = settings["rawIncludeSubfolders" if payload.source == "raw" else "qualityIncludeSubfolders"]
+    try:
+        root_value, _remote_sync = materialize_source(user, settings, payload.source)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    root = Path(root_value).resolve()
+    if not root.is_dir():
+        raise HTTPException(status_code=404, detail="La ruta configurada no está disponible")
+
+    folder = _choose_export_folder()
+    if not folder:
+        return {"saved": 0, "failed": 0, "cancelled": True, "files": [], "errors": []}
+    matches = _station_matches(root, recursive, unique_codes)
+    files: list[dict[str, str]] = []
+    errors: list[dict[str, str]] = []
+    for code in unique_codes:
+        try:
+            source_path = matches.get(normalize_station_code(code))
+            if not source_path:
+                raise ValueError("No se encontró el archivo de la estación")
+            session = ingest_file(source_path, source_path.name)
+            response = export_data(
+                ExportRequest(
+                    session_id=session.session_id,
+                    station_code=code,
+                    variables=session.variables,
+                    start_date=session.first_date,
+                    end_date=session.last_date,
+                    resolution=payload.resolution,
+                    min_coverage=payload.min_coverage,
+                    file_format=payload.file_format,
+                    custom_value=payload.custom_value,
+                    custom_unit=payload.custom_unit,
+                )
+            )
+            if not isinstance(response, Response):
+                raise ValueError("La exportación no generó un archivo")
+            disposition = response.headers.get("Content-Disposition", "")
+            match = re.search(r'filename="([^"]+)"', disposition)
+            filename = match.group(1) if match else f"{_safe_export_name(code)}.{payload.file_format}"
+            output = _unique_output_path(folder, filename)
+            output.write_bytes(bytes(response.body))
+            files.append({"station": code, "filename": output.name, "path": str(output)})
+        except (HTTPException, OSError, ValueError) as error:
+            detail = error.detail if isinstance(error, HTTPException) else str(error)
+            errors.append({"station": code, "detail": detail})
+    return {
+        "saved": len(files),
+        "failed": len(errors),
+        "cancelled": False,
+        "folder": str(folder),
+        "files": files,
+        "errors": errors,
+    }
 
 
 def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
@@ -601,6 +841,8 @@ def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
         normalized, interval_us = complete_time_series(normalized)
 
         normalized.write_parquet(parquet_path(session_id), compression="zstd")
+        first_timestamp = normalized["__fd_timestamp"].min()
+        last_timestamp = normalized["__fd_timestamp"].max()
         years = (
             normalized.select(pl.col("__fd_timestamp").dt.year().alias("year"))
             .drop_nulls()
@@ -648,6 +890,8 @@ def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
         "months_by_year": months_by_year,
         "days_by_month": days_by_month,
         "total_rows": normalized.height,
+        "first_date": first_timestamp.date().isoformat() if first_timestamp else "",
+        "last_date": last_timestamp.date().isoformat() if last_timestamp else "",
         "sampling_interval_us": interval_us,
         "worker_threads": WORKER_THREADS,
         "source_path": str(source_path),
@@ -805,16 +1049,3 @@ def get_data(
         "missing_points": missing_points,
         "stats": stats,
     }
-
-
-@app.get("/api/stats")
-def get_stats(session_id: str, variable: str) -> dict[str, Any]:
-    meta = require_session(session_id)
-    if variable not in meta["variables"]:
-        raise HTTPException(status_code=404, detail="Variable not found")
-    path = str(parquet_path(session_id)).replace("'", "''")
-    var = variable.replace('"', '""')
-    total, records = duckdb_query(
-        f"SELECT COUNT(*), COUNT(\"{var}\") FROM read_parquet('{path}')",
-    )[0]
-    return stats_payload(int(total), int(records))

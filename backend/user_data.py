@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import copy
 from datetime import UTC, datetime
 from typing import Any
 
 from .security import database
+from .sync_lock import user_sync_lock
 
 DATA_MODULES = {
     "agender.agenda.events": "agenda",
@@ -38,15 +40,109 @@ def read_user_data(user: dict[str, Any]) -> dict[str, Any]:
 def write_user_data(user: dict[str, Any], key: str, value: Any) -> None:
     if key not in _allowed_keys(user):
         raise PermissionError("No tienes acceso a este módulo.")
-    serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    if len(serialized.encode("utf-8")) > MAX_VALUE_BYTES:
-        raise ValueError("Los datos superan el límite permitido.")
-    with database() as connection:
+    with user_sync_lock(int(user["id"])), database() as connection:
+        previous_row = connection.execute(
+            "SELECT value_json FROM user_data WHERE user_id=? AND data_key=?",
+            (user["id"], key),
+        ).fetchone()
+        try:
+            previous = json.loads(previous_row["value_json"]) if previous_row else None
+        except json.JSONDecodeError:
+            previous = None
+        now = datetime.now(UTC).isoformat()
+        normalized = _normalize_records(value, previous, now)
+        serialized = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+        if len(serialized.encode("utf-8")) > MAX_VALUE_BYTES:
+            raise ValueError("Los datos superan el límite permitido.")
+        _update_sync_metadata(connection, user["id"], key, previous, normalized, now)
         connection.execute(
             """INSERT INTO user_data(user_id,data_key,value_json,updated_at) VALUES(?,?,?,?)
             ON CONFLICT(user_id,data_key) DO UPDATE SET
             value_json=excluded.value_json,updated_at=excluded.updated_at""",
-            (user["id"], key, serialized, datetime.now(UTC).isoformat()),
+            (user["id"], key, serialized, now),
+        )
+
+
+def _normalize_records(value: Any, previous: Any, now: str) -> Any:
+    if not isinstance(value, list):
+        return value
+    old_by_id = {
+        str(item["id"]): item
+        for item in previous or []
+        if isinstance(item, dict) and item.get("id") is not None
+    }
+    result: list[Any] = []
+    for original in value:
+        if not isinstance(original, dict) or original.get("id") is None:
+            result.append(original)
+            continue
+        item = copy.deepcopy(original)
+        record_id = str(item["id"])
+        old = old_by_id.get(record_id)
+        if not item.get("updatedAt"):
+            if old and _without_timestamp(old) == _without_timestamp(item):
+                item["updatedAt"] = old.get("updatedAt") or now
+            else:
+                item["updatedAt"] = now
+        result.append(item)
+    return result
+
+
+def _without_timestamp(value: dict[str, Any]) -> dict[str, Any]:
+    return {key: item for key, item in value.items() if key != "updatedAt"}
+
+
+def _record_values(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, list):
+        return {
+            str(item["id"]): item
+            for item in value
+            if isinstance(item, dict) and item.get("id") is not None
+        }
+    if isinstance(value, dict):
+        return {str(key): item for key, item in value.items()}
+    return None
+
+
+def _update_sync_metadata(
+    connection: Any,
+    user_id: int,
+    key: str,
+    previous: Any,
+    current: Any,
+    now: str,
+) -> None:
+    previous_records = _record_values(previous)
+    current_records = _record_values(current)
+    if previous_records is None or current_records is None:
+        return
+    previous_ids = set(previous_records)
+    current_ids = set(current_records)
+    for record_id in previous_ids - current_ids:
+        connection.execute(
+            """INSERT INTO sync_tombstones(user_id,data_key,record_id,deleted_at)
+            VALUES(?,?,?,?) ON CONFLICT(user_id,data_key,record_id) DO UPDATE SET
+            deleted_at=excluded.deleted_at""",
+            (user_id, key, record_id, now),
+        )
+    for record_id in current_ids:
+        old_value = previous_records.get(record_id)
+        new_value = current_records[record_id]
+        existing = connection.execute(
+            "SELECT updated_at FROM sync_record_meta WHERE user_id=? AND data_key=? AND record_id=?",
+            (user_id, key, record_id),
+        ).fetchone()
+        if old_value != new_value or not existing:
+            item_timestamp = new_value.get("updatedAt") if isinstance(new_value, dict) else None
+            connection.execute(
+                """INSERT INTO sync_record_meta(user_id,data_key,record_id,updated_at)
+                VALUES(?,?,?,?) ON CONFLICT(user_id,data_key,record_id) DO UPDATE SET
+                updated_at=excluded.updated_at""",
+                (user_id, key, record_id, item_timestamp or now),
+            )
+        connection.execute(
+            "DELETE FROM sync_tombstones WHERE user_id=? AND data_key=? AND record_id=?",
+            (user_id, key, record_id),
         )
 
 

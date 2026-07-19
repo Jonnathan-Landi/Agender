@@ -61,10 +61,21 @@ body {
   margin: 0;
   overflow: hidden;
   min-height: 100vh;
+  user-select: none;
+  -webkit-user-select: none;
   background:
     radial-gradient(circle at 18% 0%, rgba(0, 103, 192, 0.08), transparent 34%),
     var(--shell);
   color: var(--ink);
+}
+
+input,
+textarea,
+[contenteditable="true"],
+pre,
+code {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 :root[data-theme="dark"] body {

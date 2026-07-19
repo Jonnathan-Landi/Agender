@@ -212,9 +212,10 @@
   font-size: 11px;
 }
 
-.account-action,
-.account-logout {
+.account-popover > .account-action {
   display: flex;
+  box-sizing: border-box;
+  flex: 0 0 auto;
   width: calc(100% - 12px);
   min-height: 42px;
   align-items: center;
@@ -225,19 +226,30 @@
   border-radius: 5px;
   background: transparent;
   color: var(--ink);
+  font: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
-.account-action:hover {
+.account-popover > .account-action .font-icon {
+  display: grid;
+  flex: 0 0 22px;
+  width: 22px;
+  color: currentColor;
+  font-size: 17px;
+  place-items: center;
+}
+
+.account-popover > .account-action:hover {
   background: var(--subtle-hover);
 }
 
-.account-logout {
+.account-popover > .account-logout {
   margin-top: 0;
   color: #e81123;
 }
 
-.account-logout:hover {
+.account-popover > .account-logout:hover {
   background: color-mix(in srgb, #e81123 12%, transparent);
 }
 

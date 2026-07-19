@@ -4,16 +4,30 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Etiqueta existente que se publicará (por ejemplo, v1.8.1)"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   release-windows:
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Preparar Python
         uses: actions/setup-python@v5
@@ -59,7 +73,7 @@ jobs:
         shell: powershell
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: ./scripts/build-release.ps1 -ExpectedTag "${{ github.ref_name }}"
+        run: ./scripts/build-release.ps1 -ExpectedTag "$env:RELEASE_TAG"
 
       # La release permanece invisible para el updater mientras se cargan los archivos.
       - name: Crear borrador y cargar únicamente los artefactos validados
@@ -67,11 +81,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" `
+          gh release create "$env:RELEASE_TAG" `
             release-artifacts/* `
             --draft `
             --verify-tag `
-            --title "Agender ${{ github.ref_name }}" `
+            --title "Agender $env:RELEASE_TAG" `
             --notes "Nueva versión de Agender. Consulta los cambios incluidos en esta actualización."
 
       - name: Comprobar la carga y publicar la actualización
@@ -79,7 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $assets = gh release view "${{ github.ref_name }}" --json assets | ConvertFrom-Json
+          $assets = gh release view "$env:RELEASE_TAG" --json assets | ConvertFrom-Json
           $expected = @(Get-ChildItem release-artifacts -File).Name
           $uploaded = @($assets.assets.name)
           foreach ($name in $expected) {
@@ -87,4 +101,4 @@ jobs:
               throw "El artefacto $name no llegó a GitHub; la release seguirá en borrador."
             }
           }
-          gh release edit "${{ github.ref_name }}" --draft=false
+          gh release edit "$env:RELEASE_TAG" --draft=false

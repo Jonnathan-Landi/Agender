@@ -14,7 +14,7 @@
     const result = await response.json();
     const serverData = result.data || {};
 
-    for (const key of supportedKeys) {
+    const migrations = supportedKeys.map(async (key) => {
       const localKey = scopedKey(key);
       const queued = readLocal(pendingKey(key));
       if (queued.found) {
@@ -26,7 +26,8 @@
         const localValue = readLocal(localKey);
         if (localValue.found) await persist(key, localValue.value, JSON.stringify(localValue.value));
       }
-    }
+    });
+    await Promise.all(migrations);
   }
 
   function loadJson(key, fallback) {
@@ -60,6 +61,7 @@
     });
     if (!response.ok) throw new Error("No fue posible guardar los datos del usuario.");
     if (localStorage.getItem(pendingKey(key)) === serialized) localStorage.removeItem(pendingKey(key));
+    window.dispatchEvent(new CustomEvent("agender:data-saved", { detail: { key } }));
   }
 
   function readLocal(key) {

@@ -20,19 +20,16 @@ from .config import APP_DATA_DIR, read_json, write_json_atomic
 CLOUD_FILE_NAME = "agender-backup.json"
 CLOUD_STATE_FILE = APP_DATA_DIR / "cloud.json"
 TOKEN_SKEW_SECONDS = 90
+DEFAULT_CLIENT_IDS = {
+    "onedrive": "41680243-1eed-44c7-8ac5-20ba966f8209",
+}
 
 PROVIDERS = {
-    "google": {
-        "label": "Google Drive",
-        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
-        "token_url": "https://oauth2.googleapis.com/token",
-        "scopes": "openid email profile https://www.googleapis.com/auth/drive.appdata",
-    },
     "onedrive": {
         "label": "OneDrive",
         "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        "scopes": "offline_access User.Read Files.ReadWrite.AppFolder",
+        "scopes": "offline_access User.Read Files.ReadWrite Files.ReadWrite.AppFolder",
     },
 }
 
@@ -43,15 +40,39 @@ def cloud_status(user: dict[str, Any], base_url: str) -> dict[str, Any]:
     for provider, config in PROVIDERS.items():
         entry = _provider_entry(state, user, provider)
         token = entry.get("token") if isinstance(entry, dict) else None
+        connected = bool(isinstance(token, dict) and token.get("refresh_token"))
         providers[provider] = {
             "label": config["label"],
-            "configured": bool(entry.get("clientId") if isinstance(entry, dict) else ""),
-            "connected": bool(isinstance(token, dict) and token.get("refresh_token")),
+            "configured": bool(_client_id(entry, provider)),
+            "usesDefaultClient": provider in DEFAULT_CLIENT_IDS and not bool(entry.get("clientId")),
+            "connected": connected,
             "account": entry.get("account") if isinstance(entry, dict) else None,
             "lastBackupAt": entry.get("lastBackupAt") if isinstance(entry, dict) else None,
+            "syncEnabled": connected,
+            "lastSyncAt": entry.get("lastSyncAt") if isinstance(entry, dict) else None,
+            "lastSyncError": entry.get("lastSyncError") if isinstance(entry, dict) else None,
             "redirectUri": _redirect_uri(base_url, provider),
         }
     return {"providers": providers}
+
+
+def set_sync_enabled(user: dict[str, Any], enabled: bool) -> dict[str, bool]:
+    state = _read_state()
+    entry = _provider_entry(state, user, "onedrive", create=True)
+    entry["syncEnabled"] = bool(enabled)
+    _write_state(state)
+    return {"ok": True, "enabled": bool(enabled)}
+
+
+def set_sync_result(user: dict[str, Any], result: dict[str, Any]) -> None:
+    state = _read_state()
+    entry = _provider_entry(state, user, "onedrive", create=True)
+    if result.get("ok"):
+        entry["lastSyncAt"] = result.get("syncedAt") or datetime.now(UTC).isoformat()
+        entry.pop("lastSyncError", None)
+    else:
+        entry["lastSyncError"] = str(result.get("error") or "Error de sincronización")
+    _write_state(state)
 
 
 def save_client_id(user: dict[str, Any], provider: str, client_id: str) -> dict[str, bool]:
@@ -73,7 +94,7 @@ def start_auth(user: dict[str, Any], provider: str, base_url: str) -> dict[str, 
     _require_provider(provider)
     state = _read_state()
     entry = _provider_entry(state, user, provider, create=True)
-    client_id = entry.get("clientId", "").strip()
+    client_id = _client_id(entry, provider)
     if not client_id:
         raise ValueError("Primero pega el Client ID de este proveedor.")
 
@@ -119,7 +140,7 @@ def finish_auth(provider: str, query: dict[str, str], base_url: str) -> str:
     token = _post_form(
         PROVIDERS[provider]["token_url"],
         {
-            "client_id": entry["clientId"],
+            "client_id": _client_id(entry, provider),
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": pending.get("redirectUri") or _redirect_uri(base_url, provider),
@@ -129,6 +150,8 @@ def finish_auth(provider: str, query: dict[str, str], base_url: str) -> str:
     token["expires_at"] = time.time() + int(token.get("expires_in", 3600))
     entry["token"] = token
     entry["account"] = _account_info(provider, token["access_token"])
+    if provider == "onedrive":
+        entry["syncEnabled"] = True
     entry.pop("pending", None)
     state["users"][user_hash][provider] = entry
     _write_state(state)
@@ -186,7 +209,10 @@ def _google_upload(access_token: str, content: bytes) -> dict[str, Any]:
         + f"\r\n--{boundary}--\r\n".encode()
     )
     if file_id:
-        url = f"https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=multipart&fields=id,name,modifiedTime"
+        url = (
+            f"https://www.googleapis.com/upload/drive/v3/files/{file_id}"
+            "?uploadType=multipart&fields=id,name,modifiedTime"
+        )
         method = "PATCH"
     else:
         url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime"
@@ -260,7 +286,7 @@ def _access_token(user: dict[str, Any], provider: str) -> str:
     refreshed = _post_form(
         PROVIDERS[provider]["token_url"],
         {
-            "client_id": entry["clientId"],
+            "client_id": _client_id(entry, provider),
             "grant_type": "refresh_token",
             "refresh_token": token["refresh_token"],
         },
@@ -270,6 +296,11 @@ def _access_token(user: dict[str, Any], provider: str) -> str:
     entry["token"] = refreshed
     _write_state(state)
     return refreshed["access_token"]
+
+
+def _client_id(entry: Any, provider: str) -> str:
+    configured = entry.get("clientId", "") if isinstance(entry, dict) else ""
+    return str(configured or DEFAULT_CLIENT_IDS.get(provider, "")).strip()
 
 
 def _account_info(provider: str, access_token: str) -> dict[str, str]:
@@ -305,13 +336,42 @@ def _bytes_request(
 ) -> bytes:
     request = urllib.request.Request(url, data=body, headers=headers or {}, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        opener = urllib.request.build_opener(_SafeRedirectHandler())
+        with opener.open(request, timeout=30) as response:
             return response.read()
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
-        raise ValueError(f"Error de nube {error.code}: {detail}") from error
+        raise CloudHttpError(error.code, detail) from error
     except urllib.error.URLError as error:
         raise ValueError(f"No fue posible conectar con la nube: {error.reason}") from error
+
+
+class CloudHttpError(ValueError):
+    def __init__(self, code: int, detail: str):
+        self.code = code
+        self.detail = detail
+        super().__init__(f"Error de nube {code}: {detail}")
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        request: urllib.request.Request,
+        file_pointer: Any,
+        code: int,
+        message: str,
+        headers: Any,
+        new_url: str,
+    ) -> urllib.request.Request | None:
+        redirected = super().redirect_request(request, file_pointer, code, message, headers, new_url)
+        if redirected is None:
+            return None
+
+        source_host = urllib.parse.urlsplit(request.full_url).netloc.casefold()
+        target_host = urllib.parse.urlsplit(new_url).netloc.casefold()
+        if source_host != target_host:
+            redirected.remove_header("Authorization")
+        return redirected
 
 
 def _set_last_backup(user: dict[str, Any], provider: str, modified: str) -> None:
@@ -322,6 +382,10 @@ def _set_last_backup(user: dict[str, Any], provider: str, modified: str) -> None
 
 
 def _redirect_uri(base_url: str, provider: str) -> str:
+    parsed = urllib.parse.urlsplit(base_url)
+    if provider == "onedrive":
+        port = f":{parsed.port}" if parsed.port else ""
+        return f"http://localhost{port}/api/cloud/auth/callback/{provider}"
     return f"{base_url.rstrip('/')}/api/cloud/auth/callback/{provider}"
 
 

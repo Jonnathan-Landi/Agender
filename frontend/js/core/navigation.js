@@ -1,6 +1,7 @@
 (function () {
   const PANE_KEY = "agender.navigation.pane";
   const GROUP_KEY_PREFIX = "agender.navigation.group.";
+  const viewScrollPositions = new Map();
 
   function initNavigation() {
     const appShell = document.querySelector("#app-shell");
@@ -52,18 +53,24 @@
   function switchView(viewName) {
     const target = document.querySelector(`#${viewName}-view`);
     if (!target) return;
-    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+    const current = document.querySelector(".view.active");
+    if (current === target) return;
+    const workspace = document.querySelector(".workspace");
+    if (current) {
+      viewScrollPositions.set(current.id, workspace.scrollTop);
+      current.classList.remove("active");
+    }
     target.classList.add("active");
 
-    document.querySelectorAll(".nav-item[data-view]").forEach((nav) => {
-      nav.classList.toggle("active", nav.dataset.view === viewName);
-    });
-    document.querySelectorAll(".nav-group-toggle.active").forEach((toggle) => toggle.classList.remove("active"));
+    document.querySelector(".nav-item[data-view].active")?.classList.remove("active");
+    document.querySelector(`.nav-item[data-view="${viewName}"]`)?.classList.add("active");
+    document.querySelector(".nav-group-toggle.active")?.classList.remove("active");
     document.querySelectorAll("[data-nav-group]").forEach((group) => {
       const containsActiveView = Boolean(group.querySelector(`.nav-item[data-view="${viewName}"]`));
       group.classList.toggle("has-active-child", containsActiveView);
       if (containsActiveView) setGroupExpanded(group, true);
     });
+    workspace.scrollTop = viewScrollPositions.get(target.id) || 0;
   }
 
   window.NotasNavigation = {

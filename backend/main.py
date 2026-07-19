@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from io import BytesIO
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +11,6 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
 
 from .backup import export_backup_bytes, import_backup_bytes
 from .cloud_backup import (
@@ -21,12 +19,15 @@ from .cloud_backup import (
     finish_auth,
     restore_cloud_backup,
     save_client_id,
+    set_sync_enabled,
     start_auth,
     upload_cloud_backup,
 )
+from .cloud_sync import synchronize_onedrive
 from .config import read_settings, write_settings
-from .indexer import synchronize
-from .viewer.api import app as viewer_app
+from .desktop_dialogs import choose_directory
+from .lazy_asgi import LazyAsgiApp
+from .onedrive_folders import materialize_source
 from .security import (
     auth_status,
     change_password,
@@ -43,6 +44,7 @@ from .user_data import read_user_data, write_user_data
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 app = FastAPI(title="Agender", docs_url=None, redoc_url=None)
+viewer_app = LazyAsgiApp("backend.viewer.api", "app")
 
 
 @app.middleware("http")
@@ -79,6 +81,10 @@ async def enforce_module_access(request: Request, call_next):
 class PathSettings(BaseModel):
     rawDataPath: str = ""
     qualityDataPath: str = ""
+    rawDataSource: str = "local"
+    qualityDataSource: str = "local"
+    rawOneDriveUrl: str = ""
+    qualityOneDriveUrl: str = ""
     rawIncludeSubfolders: bool = True
     qualityIncludeSubfolders: bool = True
 
@@ -102,6 +108,10 @@ class UserDataValue(BaseModel):
 
 class CloudClientRequest(BaseModel):
     clientId: str
+
+
+class CloudSyncToggle(BaseModel):
+    enabled: bool
 
 
 class ExcelTableExport(BaseModel):
@@ -269,7 +279,10 @@ def put_cloud_client(provider: str, payload: CloudClientRequest, request: Reques
 @app.post("/api/cloud/{provider}/auth/start")
 def post_cloud_auth_start(provider: str, request: Request) -> dict[str, str]:
     try:
-        return start_auth(_require_user(request), provider, str(request.base_url))
+        result = start_auth(_require_user(request), provider, str(request.base_url))
+        if not webbrowser.open(result["authUrl"], new=2):
+            raise ValueError("No fue posible abrir el navegador predeterminado.")
+        return result
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -305,6 +318,22 @@ def post_cloud_backup(provider: str, request: Request) -> dict[str, object]:
 def post_cloud_restore(provider: str, request: Request) -> dict[str, object]:
     try:
         return restore_cloud_backup(_require_user(request), provider)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.put("/api/cloud/onedrive/sync")
+def put_onedrive_sync(payload: CloudSyncToggle, request: Request) -> dict[str, bool]:
+    try:
+        return set_sync_enabled(_require_user(request), payload.enabled)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/cloud/onedrive/sync")
+def post_onedrive_sync(request: Request) -> dict[str, object]:
+    try:
+        return synchronize_onedrive(_require_user(request))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -346,17 +375,40 @@ async def select_directory(request: DirectoryRequest) -> dict[str, str]:
 
 @app.get("/api/local-data")
 async def local_data(
-    request: Request, source: str = Query(default="raw", pattern="^(raw|quality)$")
+    request: Request,
+    source: str = Query(default="raw", pattern="^(raw|quality)$"),
+    refresh: bool = Query(default=True),
 ) -> dict[str, object]:
+    if not refresh:
+        return await run_in_threadpool(_inventory_snapshot, source)
     user = current_user(request.cookies.get("agender_session"))
     settings = read_settings(user["username"], user["role"] == "admin")
-    root = settings["rawDataPath" if source == "raw" else "qualityDataPath"]
     recursive = settings["rawIncludeSubfolders" if source == "raw" else "qualityIncludeSubfolders"]
-    return await run_in_threadpool(synchronize, source, root, recursive)
+    try:
+        root, remote_sync = await run_in_threadpool(materialize_source, user, settings, source)
+        result = await run_in_threadpool(_synchronize_inventory, source, root, recursive)
+        result["storage"] = remote_sync
+        return result
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+def _synchronize_inventory(source: str, root: str, recursive: bool) -> dict[str, Any]:
+    from .indexer import synchronize
+
+    return synchronize(source, root, recursive)
+
+
+def _inventory_snapshot(source: str) -> dict[str, Any]:
+    from .indexer import inventory_snapshot
+
+    return inventory_snapshot(source)
 
 
 @app.post("/api/hydromet/export-excel")
 def export_hydromet_excel(payload: ExcelTableExport, request: Request) -> dict[str, object]:
+    from .hydromet_export import export_inventory_excel
+
     user = _require_user(request)
     if "hydromet" not in user.get("modules", []):
         raise HTTPException(status_code=403, detail="Módulo no autorizado")
@@ -365,80 +417,12 @@ def export_hydromet_excel(payload: ExcelTableExport, request: Request) -> dict[s
     if len(payload.rows) > 100_000 or any(len(row) != len(payload.headers) for row in payload.rows):
         raise HTTPException(status_code=422, detail="La tabla no tiene una estructura válida")
 
-    workbook = Workbook(write_only=False)
-    sheet = workbook.active
-    sheet.title = "Tabla"
-    sheet.append(payload.headers)
-    for row in payload.rows:
-        sheet.append([_safe_excel_value(value) for value in row])
-
-    header_fill = PatternFill("solid", fgColor="405965")
-    for cell in sheet[1]:
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-    for index, header in enumerate(payload.headers, start=1):
-        sample_lengths = [
-            len(str(sheet.cell(row=row, column=index).value or ""))
-            for row in range(1, min(sheet.max_row, 300) + 1)
-        ]
-        column_letter = sheet.cell(row=1, column=index).column_letter
-        sheet.column_dimensions[column_letter].width = min(
-            42,
-            max(10, max(sample_lengths, default=len(header)) + 2),
-        )
-    sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = sheet.dimensions
-
-    stream = BytesIO()
-    workbook.save(stream)
-    filename = re.sub(r"[^A-Za-z0-9._-]+", "-", payload.filename).strip("-.") or "registro-hidromet"
-    output = _save_excel_dialog(f"{filename}.xlsx")
-    if not output:
-        return {"saved": False, "cancelled": True}
-    output.write_bytes(stream.getvalue())
-    return {"saved": True, "cancelled": False, "filename": output.name, "path": str(output)}
-
-
-def _safe_excel_value(value: Any) -> Any:
-    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
-        return f"'{value}"
-    return value
-
-
-def _save_excel_dialog(suggested_name: str) -> Path | None:
-    import tkinter as tk
-    from tkinter import filedialog
-
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    try:
-        selected = filedialog.asksaveasfilename(
-            title="Guardar tabla en Excel",
-            defaultextension=".xlsx",
-            initialfile=suggested_name,
-            filetypes=[("Libro de Excel", "*.xlsx")],
-        )
-        return Path(selected).resolve() if selected else None
-    finally:
-        root.destroy()
+    return export_inventory_excel(payload.headers, payload.rows, payload.filename)
 
 
 def _folder_dialog(initial_path: str) -> str:
-    import tkinter as tk
-    from tkinter import filedialog
-
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    try:
-        return (
-            filedialog.askdirectory(initialdir=initial_path or None, title="Selecciona una carpeta", mustexist=True)
-            or ""
-        )
-    finally:
-        root.destroy()
+    selected = choose_directory("Selecciona una carpeta", initial_path)
+    return str(selected) if selected else ""
 
 
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
