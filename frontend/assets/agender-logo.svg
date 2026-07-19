@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="left" x1="250" y1="180" x2="520" y2="840" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#20B9F2"/>
+      <stop offset="1" stop-color="#0067C0"/>
+    </linearGradient>
+    <linearGradient id="right" x1="510" y1="180" x2="780" y2="840" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#59D2FF"/>
+      <stop offset="1" stop-color="#0078D4"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="330" y1="560" x2="720" y2="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B8FD8"/>
+      <stop offset="1" stop-color="#21BDF4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="176" fill="#202633"/>
+  <g transform="translate(-138.24 -138.24) scale(1.27)">
+  <!-- Pata izquierda -->
+  <path d="
+    M190 790
+    L435 220
+    C450 185 486 185 503 220
+    L566 355
+    L503 505
+    L470 430
+    L287 830
+    Z"
+    fill="url(#left)"/>
+
+  <!-- Pata derecha -->
+  <path d="
+    M470 220
+    C487 185 523 185 540 220
+    L834 790
+    L737 830
+    L502 370
+    Z"
+    fill="url(#right)"/>
+
+  <!-- Barra de la A -->
+  <path d="
+    M320 620
+    L455 520
+    L724 520
+    L585 620
+    Z"
+    fill="url(#bar)"/>
+
+  <!-- Pliegue inferior -->
+  <path d="
+    M455 520
+    L585 620
+    L520 735
+    L390 645
+    Z"
+    fill="#0056B3"/>
+  </g>
+</svg>

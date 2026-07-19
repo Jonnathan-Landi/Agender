@@ -7,8 +7,11 @@ from typing import Any
 
 from .security import database
 from .sync_lock import user_sync_lock
+from .portable_profile import MAX_PROFILE_BYTES, PROFILE_KEYS
 
 DATA_MODULES = {
+    "agender.profile.preferences": None,
+    "agender.profile.onedrive-sources": None,
     "agender.agenda.events": "agenda",
     "agender.diary.tasks": "diary",
     "agender.diary.focus": "diary",
@@ -52,7 +55,8 @@ def write_user_data(user: dict[str, Any], key: str, value: Any) -> None:
         now = datetime.now(UTC).isoformat()
         normalized = _normalize_records(value, previous, now)
         serialized = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
-        if len(serialized.encode("utf-8")) > MAX_VALUE_BYTES:
+        limit = MAX_PROFILE_BYTES if key in PROFILE_KEYS else MAX_VALUE_BYTES
+        if len(serialized.encode("utf-8")) > limit:
             raise ValueError("Los datos superan el límite permitido.")
         _update_sync_metadata(connection, user["id"], key, previous, normalized, now)
         connection.execute(
@@ -148,4 +152,8 @@ def _update_sync_metadata(
 
 def _allowed_keys(user: dict[str, Any]) -> tuple[str, ...]:
     modules = set(user.get("modules", []))
-    return tuple(key for key, module in DATA_MODULES.items() if module in modules)
+    return tuple(key for key, module in DATA_MODULES.items() if module is None or module in modules)
+
+
+def allowed_data_keys(user: dict[str, Any]) -> tuple[str, ...]:
+    return _allowed_keys(user)

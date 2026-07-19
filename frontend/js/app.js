@@ -10,6 +10,7 @@
   const authenticated = await window.NotasLogin.initLogin();
   if (!authenticated) return;
   await window.NotasStorage.init();
+  window.NotasTheme.applySavedTheme();
   window.NotasLicenseAdmin.init();
   window.NotasSettings.initSettings();
   window.NotasRequests.initRequests();
@@ -18,5 +19,5 @@
   window.NotasViewer.initViewer();
   window.NotasHydromet.initHydromet();
   window.NotasSync.start();
-  window.NotasSync.bootstrap({ reloadOnRemote: false }).catch((error) => console.error(error));
+  window.NotasSync.bootstrap({ reloadOnRemote: true }).catch((error) => console.error(error));
 })();

@@ -8,13 +8,51 @@ from pathlib import Path
 from unittest.mock import patch
 
 from backend import security
-from backend.cloud_backup import CloudHttpError, _SafeRedirectHandler, _client_id, _redirect_uri
+from backend.cloud_account import CloudHttpError, _SafeRedirectHandler, _client_id, _redirect_uri
+from backend.cloud_identity import cloud_profile_filename, cloud_profile_id
 from backend.cloud_sync import _merge_record, _merge_user, synchronize_onedrive
+from backend.portable_profile import portable_onedrive_sources
 from backend.security import database
 from backend.user_data import write_user_data
 
 
 class CloudMergeTests(unittest.TestCase):
+    def test_cloud_files_are_isolated_by_agender_user(self) -> None:
+        admin = {"username": "Admin"}
+        alandi = {"username": "alandi"}
+
+        self.assertNotEqual(cloud_profile_id(admin), cloud_profile_id(alandi))
+        self.assertEqual(cloud_profile_id(admin), cloud_profile_id({"username": " admin "}))
+        self.assertNotEqual(
+            cloud_profile_filename("agender-sync-v1", admin),
+            cloud_profile_filename("agender-sync-v1", alandi),
+        )
+        self.assertNotIn("admin", cloud_profile_filename("agender-sync-v1", admin))
+
+    def test_portable_sources_never_include_local_paths(self) -> None:
+        settings = {
+            "rawDataPath": r"D:\Datos privados",
+            "rawDataSource": "local",
+            "rawOneDriveUrl": "",
+            "rawIncludeSubfolders": True,
+            "qualityDataPath": r"E:\Control",
+            "qualityDataSource": "onedrive",
+            "qualityOneDriveUrl": "https://example.sharepoint.com/:f:/s/datos",
+            "qualityIncludeSubfolders": False,
+        }
+
+        portable = portable_onedrive_sources(settings)
+        serialized = json.dumps(portable)
+
+        self.assertNotIn("raw", portable)
+        self.assertEqual(
+            portable["quality"],
+            {"url": "https://example.sharepoint.com/:f:/s/datos", "subfolders": False},
+        )
+        self.assertNotIn("DataPath", serialized)
+        self.assertNotIn(r"D:\\Datos privados", serialized)
+        self.assertLess(len(serialized.encode("utf-8")), 1024)
+
     def test_onedrive_uses_the_built_in_public_client(self) -> None:
         self.assertEqual(_client_id({}, "onedrive"), "41680243-1eed-44c7-8ac5-20ba966f8209")
 

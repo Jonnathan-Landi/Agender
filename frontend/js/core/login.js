@@ -1,8 +1,8 @@
 (function () {
   const viewModules = { hydromet: "hydromet", requests: "requests", diary: "diary", agenda: "agenda", reports: "reports", settings: "settings" };
+  let currentUser = null;
 
   async function initLogin() {
-    let currentUser = null;
     const dialog = document.querySelector("#login-dialog");
     const form = document.querySelector("#login-form");
     const username = document.querySelector("#login-username");
@@ -12,30 +12,18 @@
     const licensePicker = document.querySelector("#license-picker");
     const licenseInput = document.querySelector("#login-license");
     const changeDialog = document.querySelector("#password-change-dialog");
-    const accountPopover = document.querySelector("#account-popover");
     const licenseChangeDialog = document.querySelector("#license-change-dialog");
     const licenseChangeForm = document.querySelector("#license-change-form");
     const licenseChangeInput = document.querySelector("#license-change-file");
     const licenseChangeMessage = document.querySelector("#license-change-message");
     const licenseChangeLabel = licenseChangeInput.closest("label").querySelector("span:last-of-type");
 
-    document.querySelector("#login-open").addEventListener("click", () => {
-      if (currentUser) {
-        accountPopover.hidden = !accountPopover.hidden;
-        return;
-      }
-      message.textContent = "";
-      licensePicker.hidden = true;
-      dialog.showModal();
-      requestAnimationFrame(() => username.focus());
-    });
     document.querySelector("#account-logout").addEventListener("click", async () => {
       await fetch("/api/auth/logout", { method: "POST" });
       localStorage.removeItem("agender.auth.user");
       location.reload();
     });
     document.querySelector("#account-license-change").addEventListener("click", () => {
-      accountPopover.hidden = true;
       licenseChangeForm.reset();
       licenseChangeLabel.textContent = "Seleccionar nueva licencia";
       licenseChangeMessage.textContent = "";
@@ -76,16 +64,17 @@
         licenseChangeMessage.classList.add("error");
       }
     });
-    document.addEventListener("pointerdown", (event) => {
-      if (!accountPopover.hidden && !event.target.closest("#account-popover, #login-open")) accountPopover.hidden = true;
+    document.querySelector("#login-close").addEventListener("click", () => {
+      if (currentUser) dialog.close();
     });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") accountPopover.hidden = true;
+    document.querySelector("#login-cancel").addEventListener("click", () => {
+      if (currentUser) dialog.close();
     });
-    document.querySelector("#login-close").addEventListener("click", () => dialog.close());
-    document.querySelector("#login-cancel").addEventListener("click", () => dialog.close());
     dialog.addEventListener("click", (event) => {
-      if (event.target === dialog) dialog.close();
+      if (event.target === dialog && currentUser) dialog.close();
+    });
+    dialog.addEventListener("cancel", (event) => {
+      if (!currentUser) event.preventDefault();
     });
     toggle.addEventListener("click", () => {
       const visible = password.type === "text";
@@ -143,9 +132,11 @@
       const status = await response.json();
       currentUser = status.user;
       applyAccess(status.user, status.license);
+      document.querySelector("#login-close").hidden = !status.user;
+      document.querySelector("#login-cancel").hidden = !status.user;
       document.querySelector("#license-admin-open").hidden = status.user?.role !== "admin";
       document.body.dataset.authorityAvailable = String(Boolean(status.authorityAvailable));
-      if (!status.user && status.license.valid) dialog.showModal();
+      if (!status.user) dialog.showModal();
       if (status.user?.mustChangePassword) changeDialog.showModal();
       if (!status.license.valid) message.textContent = status.license.reason || "Se requiere una licencia válida.";
     } catch (error) {
@@ -179,19 +170,15 @@
       const children = [...group.querySelectorAll(".nav-subitem[data-view]")];
       group.hidden = children.length > 0 && children.every((item) => item.hidden);
     });
-    const loginLabel = document.querySelector("#login-open .nav-label");
-    loginLabel.textContent = user ? `${user.username} · Cerrar sesión` : "Iniciar sesión";
-    if (user) {
-      loginLabel.textContent = user.username;
-      document.querySelector("#account-popover-name").textContent = user.username;
-      document.querySelector("#account-popover-role").textContent = user.role === "admin" ? "Administrador" : "Usuario con licencia";
-    }
-    document.querySelector("#login-open").title = user ? `Sesión: ${user.username} (${user.role})` : "Iniciar sesión";
     if (user) {
       const current = document.querySelector(".view.active");
       if (current?.hidden) document.querySelector(`.nav-item[data-view]:not([hidden])`)?.click();
     }
   }
 
-  window.NotasLogin = { initLogin };
+  function getCurrentUser() {
+    return currentUser;
+  }
+
+  window.NotasLogin = { initLogin, getCurrentUser };
 })();

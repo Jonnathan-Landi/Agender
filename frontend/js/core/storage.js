@@ -1,5 +1,7 @@
 (function () {
   const supportedKeys = [
+    "agender.profile.preferences",
+    "agender.profile.onedrive-sources",
     "agender.agenda.events",
     "agender.diary.tasks",
     "agender.diary.focus",
@@ -53,6 +55,12 @@
     return request;
   }
 
+  function updateJson(key, changes) {
+    const current = loadJson(key, {});
+    const next = { ...(current && typeof current === "object" ? current : {}), ...changes };
+    return saveJson(key, next);
+  }
+
   async function persist(key, value, serialized) {
     const response = await fetch(`/api/user-data/${encodeURIComponent(key)}`, {
       method: "PUT",
@@ -83,6 +91,7 @@
   window.NotasStorage = {
     init,
     loadJson,
-    saveJson
+    saveJson,
+    updateJson
   };
 })();

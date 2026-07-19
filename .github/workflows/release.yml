@@ -85,8 +85,8 @@ jobs:
             release-artifacts/* `
             --draft `
             --verify-tag `
-            --title "Agender $env:RELEASE_TAG" `
-            --notes "Nueva versión de Agender. Consulta los cambios incluidos en esta actualización."
+            --title "Release $($env:RELEASE_TAG.TrimStart('v'))" `
+            --notes "Perfil multidispositivo, cuentas separadas por usuario, sincronización OneDrive mejorada, nueva identidad visual y limpieza de la arquitectura interna."
 
       - name: Comprobar la carga y publicar la actualización
         shell: powershell

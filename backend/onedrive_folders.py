@@ -9,7 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from .cloud_backup import _access_token, _bytes_request, _json_request
+from .cloud_account import _access_token, _bytes_request, _json_request
 from .config import APP_DATA_DIR, read_json, write_json_atomic
 
 REMOTE_DATA_EXTENSIONS = {".csv", ".dat", ".txt", ".xlsx", ".parquet"}

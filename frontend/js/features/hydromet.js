@@ -26,6 +26,7 @@
   const averageExcludedVariables = new Set(["TIMESTAMP", "RECORD"]);
   const qcOptions = ["None", "V1", "V2", "V3"];
   const qcStorageKey = "agender.hydromet.qc-methods";
+  const profileStorageKey = "agender.profile.preferences";
   const completionFilterOptions = [
     { value: "under50", label: "Menor a 50 %" },
     { value: "from51to70", label: "51 a 70 %" },
@@ -40,6 +41,8 @@
   };
 
   function initHydromet() {
+    const preferredSource = loadJson(profileStorageKey, {}).hydrometSource;
+    if (preferredSource === "raw" || preferredSource === "quality") selectedSource = preferredSource;
     qcMethods = normalizeQcMethods(loadJson(qcStorageKey, {}));
     hydrometBody = document.querySelector("#hydromet-body");
     hydrometSearch = document.querySelector("#hydromet-search");
@@ -142,6 +145,7 @@
     if (source === selectedSource) return;
     selectedSource = source;
     localStorage.setItem("agender.hydromet.source", source);
+    window.NotasStorage.updateJson(profileStorageKey, { hydrometSource: source });
     updateSourceSwitch();
     if (!restoreStationSnapshot(source)) {
       hydrometStations = [];

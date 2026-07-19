@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -12,19 +11,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .backup import export_backup_bytes, import_backup_bytes
-from .cloud_backup import (
+from .cloud_account import (
     cloud_status,
     disconnect,
     finish_auth,
-    restore_cloud_backup,
-    save_client_id,
     set_sync_enabled,
     start_auth,
-    upload_cloud_backup,
 )
 from .cloud_sync import synchronize_onedrive
 from .config import read_settings, write_settings
+from .portable_profile import PROFILE_SOURCES_KEY, portable_onedrive_sources
 from .desktop_dialogs import choose_directory
 from .lazy_asgi import LazyAsgiApp
 from .onedrive_folders import materialize_source
@@ -104,10 +100,6 @@ class PasswordChangeRequest(BaseModel):
 
 class UserDataValue(BaseModel):
     value: object
-
-
-class CloudClientRequest(BaseModel):
-    clientId: str
 
 
 class CloudSyncToggle(BaseModel):
@@ -240,40 +232,9 @@ def _require_user(request: Request) -> dict[str, Any]:
     return user
 
 
-@app.get("/api/backups/export")
-def export_user_backup(request: Request) -> Response:
-    user = _require_user(request)
-    content = export_backup_bytes(user)
-    date = json.loads(content.decode("utf-8")).get("exportedAt", "")[:10] or "backup"
-    username = re.sub(r"[^A-Za-z0-9._-]+", "-", user["username"]).strip("-") or "usuario"
-    filename = f"agender-{username}-{date}.agender-backup.json"
-    return Response(
-        content=content,
-        media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@app.post("/api/backups/import")
-async def import_user_backup(request: Request, backup: UploadFile = File(...)) -> dict[str, object]:
-    user = _require_user(request)
-    try:
-        return import_backup_bytes(user, await backup.read())
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-
 @app.get("/api/cloud/status")
 def get_cloud_status(request: Request) -> dict[str, object]:
     return cloud_status(_require_user(request), str(request.base_url))
-
-
-@app.put("/api/cloud/{provider}/client")
-def put_cloud_client(provider: str, payload: CloudClientRequest, request: Request) -> dict[str, bool]:
-    try:
-        return save_client_id(_require_user(request), provider, payload.clientId)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/cloud/{provider}/auth/start")
@@ -302,22 +263,6 @@ def cloud_auth_callback(provider: str, request: Request) -> Response:
 def post_cloud_disconnect(provider: str, request: Request) -> dict[str, bool]:
     try:
         return disconnect(_require_user(request), provider)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-
-@app.post("/api/cloud/{provider}/backup")
-def post_cloud_backup(provider: str, request: Request) -> dict[str, object]:
-    try:
-        return upload_cloud_backup(_require_user(request), provider)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-
-@app.post("/api/cloud/{provider}/restore")
-def post_cloud_restore(provider: str, request: Request) -> dict[str, object]:
-    try:
-        return restore_cloud_backup(_require_user(request), provider)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -362,7 +307,12 @@ def get_paths(request: Request) -> dict[str, object]:
 def put_paths(settings: PathSettings, request: Request) -> dict[str, object]:
     user = current_user(request.cookies.get("agender_session"))
     try:
-        return write_settings(settings.model_dump(), user["username"], user["role"] == "admin")
+        saved = write_settings(settings.model_dump(), user["username"], user["role"] == "admin")
+        existing = read_user_data(user).get(PROFILE_SOURCES_KEY, {})
+        portable = portable_onedrive_sources(saved, existing)
+        if portable != existing:
+            write_user_data(user, PROFILE_SOURCES_KEY, portable)
+        return saved
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Agender Viewer</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/agender-logo-32.png" />
     <script>
       (function () {
         var theme = localStorage.getItem("agender.system.theme") || "system";
@@ -17,7 +18,9 @@
     <main class="app-shell">
       <header class="app-titlebar">
         <div class="titlebar-brand">
-          <div class="titlebar-logo" aria-hidden="true">A</div>
+          <div class="titlebar-logo" aria-hidden="true">
+            <img src="../assets/agender-logo.svg" alt="" />
+          </div>
           <strong>Agender Viewer</strong>
         </div>
         <div class="titlebar-drag-region">
@@ -53,7 +56,9 @@
             </div>
 
             <div class="settings-profile-card">
-              <div class="settings-logo">A</div>
+              <div class="settings-logo" aria-hidden="true">
+                <img src="../assets/agender-logo.svg" alt="" />
+              </div>
               <div>
                 <strong>Agender</strong>
                 <span>Sistema de monitoreo</span>

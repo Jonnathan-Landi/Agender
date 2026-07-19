@@ -36,7 +36,7 @@ $modules = (& $python -m PyInstaller.utils.cliutils.archive_viewer -l $archivePa
 if ($LASTEXITCODE -ne 0) {
   throw "No se pudo inspeccionar el backend empaquetado con $python."
 }
-foreach ($required in "backend.main", "backend.backup", "backend.config") {
+foreach ($required in "backend.main", "backend.cloud_account", "backend.cloud_sync", "backend.config") {
   if ($modules -notmatch "'$([regex]::Escape($required))'") {
     throw "El módulo requerido $required no está incluido en el backend empaquetado."
   }

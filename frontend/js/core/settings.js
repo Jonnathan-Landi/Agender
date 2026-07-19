@@ -23,6 +23,7 @@
   let updateDownloadStartedAt = null;
 
   function initSettings() {
+    renderAgenderAccount();
     document.querySelectorAll("[data-settings-page]").forEach((button) => {
       button.addEventListener("click", () => showPage(button.dataset.settingsPage));
     });
@@ -64,6 +65,13 @@
     window.addEventListener("agender:sync-status", handleSyncStatus);
     loadCloudStatus();
     restoreUpdateDownload();
+  }
+
+  function renderAgenderAccount() {
+    const user = window.NotasLogin.getCurrentUser();
+    document.querySelector("#settings-agender-username").textContent = user?.username || "Usuario";
+    document.querySelector("#settings-agender-role").textContent =
+      user?.role === "admin" ? "Administrador" : "Usuario con licencia";
   }
 
   async function loadAppInfo() {
@@ -280,40 +288,6 @@
     }
   }
 
-  async function toggleOneDriveSync() {
-    const provider = cloudStatus.onedrive || {};
-    const button = document.querySelector("#onedrive-sync-toggle");
-    button.disabled = true;
-    setBackupMessage(provider.syncEnabled ? "Desactivando sincronización..." : "Activando sincronización...");
-    try {
-      await window.NotasSync.setEnabled(!provider.syncEnabled);
-      setBackupMessage(provider.syncEnabled ? "Sincronización desactivada." : "Sincronización OneDrive activada.");
-      await loadCloudStatus();
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    } finally {
-      renderOneDriveSync();
-    }
-  }
-
-  async function synchronizeOneDrive() {
-    const button = document.querySelector("#onedrive-sync-now");
-    button.disabled = true;
-    setBackupMessage("Sincronizando agenda, diario y solicitudes con OneDrive...");
-    try {
-      const result = await window.NotasSync.syncNow({ reloadOnRemote: true });
-      const conflicts = Number(result && result.conflicts) || 0;
-      setBackupMessage(conflicts
-        ? `Sincronización completada con ${conflicts} conflicto${conflicts === 1 ? "" : "s"} resuelto${conflicts === 1 ? "" : "s"} de forma determinista.`
-        : "Sincronización con OneDrive completada.");
-      await loadCloudStatus();
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    } finally {
-      renderOneDriveSync();
-    }
-  }
-
   function handleSyncStatus(event) {
     const detail = event.detail || {};
     const status = document.querySelector("#onedrive-sync-status");
@@ -328,28 +302,6 @@
       error: "Sincronización pendiente; Agender volverá a intentarlo automáticamente."
     };
     status.textContent = labels[detail.state] || status.textContent;
-  }
-
-  async function saveCloudClient() {
-    const input = document.querySelector("#cloud-client-id");
-    const clientId = input.value.trim();
-    if (!clientId || clientId.includes("•")) {
-      setBackupMessage("Pega un Client ID OAuth válido antes de guardar.", true);
-      return;
-    }
-    setBackupMessage("Guardando Client ID...");
-    try {
-      const response = await fetch(`/api/cloud/${activeCloudProvider}/client`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId })
-      });
-      await readJsonResponse(response, "No fue posible guardar el Client ID.");
-      setBackupMessage("Client ID guardado. Ahora puedes iniciar sesión.");
-      await loadCloudStatus();
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    }
   }
 
   async function startCloudLogin() {
@@ -395,102 +347,11 @@
     }
   }
 
-  async function createCloudBackup() {
-    const button = document.querySelector("#cloud-backup-button");
-    button.disabled = true;
-    setBackupMessage("Subiendo copia de seguridad a la nube...");
-    try {
-      const response = await fetch(`/api/cloud/${activeCloudProvider}/backup`, { method: "POST" });
-      const result = await readJsonResponse(response, "No fue posible crear la copia en la nube.");
-      setBackupMessage(`Copia guardada en la nube: ${formatCloudDate(result.modifiedAt)}`);
-      await loadCloudStatus();
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    } finally {
-      renderCloudProvider();
-    }
-  }
-
-  async function restoreCloudBackup() {
-    if (!confirm("Restaurar la copia en nube reemplazará los datos actuales del usuario conectado. ¿Continuar?")) return;
-    const button = document.querySelector("#cloud-restore-button");
-    button.disabled = true;
-    setBackupMessage("Restaurando copia desde la nube...");
-    try {
-      const response = await fetch(`/api/cloud/${activeCloudProvider}/restore`, { method: "POST" });
-      const result = await readJsonResponse(response, "No fue posible restaurar la copia en la nube.");
-      const restored = result.dataKeys ? result.dataKeys.length : 0;
-      setBackupMessage(`Copia restaurada: configuración ${result.settings ? "sí" : "no"}, ${restored} grupos de datos. Recargando...`);
-      setTimeout(() => location.reload(), 900);
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    } finally {
-      renderCloudProvider();
-    }
-  }
-
   function formatCloudDate(value) {
     if (!value) return "";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
-  }
-
-  async function exportBackup() {
-    const button = document.querySelector("#export-backup-button");
-    button.disabled = true;
-    setBackupMessage("Preparando copia de seguridad...");
-    try {
-      const response = await fetch("/api/backups/export", { cache: "no-store" });
-      if (!response.ok) await readJsonResponse(response, "No fue posible crear la copia de seguridad.");
-      const blob = await response.blob();
-      const filename = filenameFromDisposition(response.headers.get("Content-Disposition")) || "agender-backup.agender-backup.json";
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setBackupMessage("Copia descargada. Puedes guardarla en Google Drive, OneDrive o una memoria externa.");
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    } finally {
-      button.disabled = false;
-    }
-  }
-
-  async function importBackup(event) {
-    const input = event.currentTarget;
-    const file = input.files && input.files[0];
-    if (!file) return;
-    if (!confirm("Restaurar esta copia reemplazará los datos actuales del usuario conectado. ¿Continuar?")) {
-      input.value = "";
-      return;
-    }
-    const button = document.querySelector("#import-backup-button");
-    button.disabled = true;
-    setBackupMessage("Restaurando copia de seguridad...");
-    try {
-      const form = new FormData();
-      form.append("backup", file);
-      const response = await fetch("/api/backups/import", { method: "POST", body: form });
-      const result = await readJsonResponse(response, "No fue posible restaurar la copia de seguridad.");
-      const restored = result.dataKeys ? result.dataKeys.length : 0;
-      setBackupMessage(`Copia restaurada: configuración ${result.settings ? "sí" : "no"}, ${restored} grupos de datos. Recargando...`);
-      setTimeout(() => location.reload(), 900);
-    } catch (error) {
-      setBackupMessage(friendlyServerError(error), true);
-    } finally {
-      button.disabled = false;
-      input.value = "";
-    }
-  }
-
-  function filenameFromDisposition(value) {
-    const match = /filename="([^"]+)"/i.exec(value || "");
-    return match ? match[1] : "";
   }
 
   function setBackupMessage(message, isError) {
@@ -557,6 +418,9 @@
       body: JSON.stringify(payload)
     });
     await readJsonResponse(response, "No fue posible guardar las rutas.");
+    window.dispatchEvent(new CustomEvent("agender:data-saved", {
+      detail: { key: "agender.profile.onedrive-sources" }
+    }));
   }
 
   function renderPathSources() {

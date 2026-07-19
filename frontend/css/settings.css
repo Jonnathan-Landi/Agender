@@ -152,6 +152,98 @@
   color: var(--muted);
 }
 
+.settings-group-title {
+  margin: -10px 0 12px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.settings-expander {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.settings-expander summary {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 36px;
+  min-height: 80px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px 0 20px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-expander summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-expander summary:hover {
+  background: var(--subtle-hover);
+}
+
+.settings-expander summary > span:nth-child(2) {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-expander summary strong {
+  font-size: .95rem;
+  font-weight: 500;
+}
+
+.settings-expander summary small {
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.settings-expander-icon {
+  font-size: 20px;
+}
+
+.settings-expander-chevron {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--control);
+  font-size: 13px;
+  transition: transform 140ms ease;
+}
+
+.settings-expander[open] .settings-expander-chevron {
+  transform: rotate(180deg);
+}
+
+.theme-choice-list {
+  display: grid;
+  gap: 2px;
+  padding: 8px 20px 14px 66px;
+  border-top: 1px solid var(--line);
+}
+
+.theme-choice-list label {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.theme-choice-list input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.theme-choice-list span {
+  font-size: .9rem;
+}
+
 .settings-card {
   display: grid;
   grid-template-columns: 40px minmax(140px, 1fr) minmax(240px, 1fr);
@@ -607,98 +699,6 @@
 .update-hero p { margin: 0; color: var(--muted); }
 .backup-hero h2 { margin: 0 0 6px; }
 .backup-hero p { margin: 0; color: var(--muted); }
-.backup-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-
-.cloud-auth-panel [hidden] {
-  display: none !important;
-}
-
-.cloud-provider-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 24px 0 18px 74px;
-}
-
-.cloud-provider {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  padding: 6px 14px;
-  background: var(--control);
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.cloud-provider:hover {
-  background: var(--subtle-hover);
-}
-
-.cloud-provider.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.cloud-auth-panel,
-.cloud-actions-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 18px;
-  margin-left: 74px;
-  padding: 18px 0;
-  border-top: 1px solid var(--line);
-}
-
-.cloud-auth-panel {
-  align-items: start;
-}
-
-.cloud-auth-panel label,
-.cloud-auth-panel label span {
-  display: block;
-}
-
-.cloud-auth-panel label span {
-  margin-bottom: 8px;
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.cloud-account,
-.cloud-redirect {
-  grid-column: 1 / -1;
-  margin: -6px 0 0;
-  color: var(--muted);
-}
-
-.cloud-redirect {
-  margin-top: 0;
-  overflow-wrap: anywhere;
-  font-size: .82rem;
-}
-
-.cloud-redirect code {
-  color: var(--ink);
-}
-
-.cloud-actions-panel h3 {
-  margin: 0 0 6px;
-  font-size: 1rem;
-}
-
-.cloud-actions-panel p {
-  margin: 0;
-  color: var(--muted);
-}
-
-.local-backup-panel {
-  padding-bottom: 0;
-}
 .update-available { margin: 28px 0 0 86px; padding-top: 24px; border-top: 1px solid var(--line); }
 .update-available div { display: flex; align-items: baseline; gap: 12px; }
 .update-available span { color: var(--muted); font-size: .82rem; }
@@ -747,6 +747,36 @@
   margin: 24px 0 0 74px;
   padding: 24px 0 4px;
   border-top: 1px solid var(--line);
+}
+
+.agender-account-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 24px 0 0 74px;
+  padding: 24px 0 4px;
+  border-top: 1px solid var(--line);
+}
+
+.agender-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.agender-account-actions .button {
+  gap: 8px;
+}
+
+.account-logout-button {
+  border: 1px solid color-mix(in srgb, #e81123 42%, var(--line));
+  background: transparent;
+  color: #f04452;
+}
+
+.account-logout-button:hover {
+  background: color-mix(in srgb, #e81123 12%, transparent);
 }
 
 .onedrive-account-state > div,
@@ -806,17 +836,14 @@
   .update-hero .button { grid-column: 2; justify-self: start; }
   .update-available, .update-card .settings-message { margin-left: 76px; }
   .backup-hero { grid-template-columns: 54px 1fr; }
-  .backup-actions { justify-content: flex-start; }
-  .cloud-provider-tabs,
-  .cloud-auth-panel,
-  .cloud-actions-panel,
   .onedrive-account-state,
   .onedrive-account-card,
+  .agender-account-card,
   .backup-card .settings-message { margin-left: 74px; }
-  .cloud-auth-panel,
-  .cloud-actions-panel { grid-template-columns: 1fr; }
   .onedrive-account-state,
-  .onedrive-account-card { align-items: flex-start; flex-wrap: wrap; }
+  .onedrive-account-card,
+  .agender-account-card { align-items: flex-start; flex-wrap: wrap; }
+  .agender-account-actions { width: 100%; justify-content: flex-start; padding-left: 90px; }
 }
 
 .about-product {
@@ -833,12 +860,16 @@
   width: 64px;
   height: 64px;
   border-radius: 14px;
-  background: linear-gradient(145deg, #59c7ff, #0067c0);
+  overflow: hidden;
+  background: #202633;
   box-shadow: 0 8px 22px rgb(0 103 192 / 28%);
-  color: #fff;
-  font-size: 34px;
-  font-weight: 700;
   place-items: center;
+}
+
+.about-logo svg {
+  display: block;
+  width: 64px;
+  height: 64px;
 }
 
 .about-product h2,

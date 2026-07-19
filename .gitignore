@@ -15,7 +15,8 @@ build/
 dist/
 release-artifacts/
 src-tauri/target/
-src-tauri/resources/backend/
+src-tauri/resources/backend/*
+!src-tauri/resources/backend/.gitkeep
 
 # Claves, licencias y certificados privados
 license-authority/

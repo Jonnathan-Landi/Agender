@@ -1,24 +1,25 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import secrets
 from datetime import UTC, datetime
 from typing import Any
 
-from .cloud_backup import (
+from .cloud_account import (
     CloudHttpError,
     _access_token,
     _bytes_request,
     _json_request,
     set_sync_result,
 )
+from .cloud_identity import cloud_profile_filename, cloud_profile_id
 from .config import APP_DATA_DIR
 from .security import database
 from .sync_lock import user_sync_lock
-from .user_data import DATA_MODULES
+from .portable_profile import PROFILE_SOURCES_KEY, apply_portable_onedrive_sources
+from .user_data import allowed_data_keys
 
-SYNC_FILE_NAME = "agender-sync-v1.json"
+SYNC_FILE_PREFIX = "agender-sync-v1"
 SYNC_FORMAT = "agender.sync"
 SYNC_VERSION = 1
 DEVICE_ID_FILE = APP_DATA_DIR / "device-id"
@@ -43,11 +44,12 @@ def synchronize_onedrive(user: dict[str, Any]) -> dict[str, Any]:
 def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
     token = _access_token(user, "onedrive")
     device_id = _device_id()
-    user_key = _sync_user_key(user)
+    user_key = cloud_profile_id(user)
+    file_name = cloud_profile_filename(SYNC_FILE_PREFIX, user)
     conflicts = 0
 
     for _attempt in range(MAX_SYNC_ATTEMPTS):
-        remote, etag, exists = _download_document(token)
+        remote, etag, exists = _download_document(token, file_name)
         remote_user = remote.setdefault("users", {}).get(user_key, {"collections": {}})
         local_user = _local_document(user, device_id)
         merged_user, attempt_conflicts = _merge_user(local_user, remote_user)
@@ -57,7 +59,7 @@ def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
 
         content = json.dumps(remote, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         try:
-            upload = _upload_document(token, content, etag, exists)
+            upload = _upload_document(token, file_name, content, etag, exists)
         except CloudHttpError as error:
             if error.code in {409, 412}:
                 continue
@@ -77,8 +79,8 @@ def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
     raise ValueError("OneDrive cambió varias veces durante la sincronización. Intenta nuevamente.")
 
 
-def _download_document(access_token: str) -> tuple[dict[str, Any], str, bool]:
-    base = f"https://graph.microsoft.com/v1.0/me/drive/special/approot:/{SYNC_FILE_NAME}"
+def _download_document(access_token: str, file_name: str) -> tuple[dict[str, Any], str, bool]:
+    base = f"https://graph.microsoft.com/v1.0/me/drive/special/approot:/{file_name}"
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
         metadata = _json_request(f"{base}?$select=id,eTag,lastModifiedDateTime", headers=headers)
@@ -99,14 +101,20 @@ def _download_document(access_token: str) -> tuple[dict[str, Any], str, bool]:
     return document, str(metadata.get("eTag") or ""), True
 
 
-def _upload_document(access_token: str, content: bytes, etag: str, exists: bool) -> dict[str, Any]:
+def _upload_document(
+    access_token: str,
+    file_name: str,
+    content: bytes,
+    etag: str,
+    exists: bool,
+) -> dict[str, Any]:
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
         "If-Match" if exists else "If-None-Match": etag if exists else "*",
     }
     return _json_request(
-        f"https://graph.microsoft.com/v1.0/me/drive/special/approot:/{SYNC_FILE_NAME}:/content",
+        f"https://graph.microsoft.com/v1.0/me/drive/special/approot:/{file_name}:/content",
         method="PUT",
         headers=headers,
         body=content,
@@ -118,7 +126,7 @@ def _empty_document() -> dict[str, Any]:
 
 
 def _local_document(user: dict[str, Any], device_id: str) -> dict[str, Any]:
-    allowed = {key for key, module in DATA_MODULES.items() if module in set(user.get("modules", []))}
+    allowed = set(allowed_data_keys(user))
     collections: dict[str, Any] = {}
     with database() as connection:
         rows = connection.execute(
@@ -248,9 +256,10 @@ def _timestamp_value(value: str) -> float:
 
 def _apply_merged_user(user: dict[str, Any], merged: dict[str, Any]) -> int:
     changed = 0
+    portable_sources: Any = None
     with database() as connection:
         for key, collection in merged.get("collections", {}).items():
-            if key not in DATA_MODULES or DATA_MODULES[key] not in set(user.get("modules", [])):
+            if key not in allowed_data_keys(user):
                 continue
             records = collection.get("records", {})
             kind = collection.get("kind")
@@ -296,6 +305,8 @@ def _apply_merged_user(user: dict[str, Any], merged: dict[str, Any]) -> int:
                     (user["id"], key, serialized, updated_at),
                 )
                 changed += 1
+            if key == PROFILE_SOURCES_KEY:
+                portable_sources = value
             connection.execute(
                 "DELETE FROM sync_tombstones WHERE user_id=? AND data_key=?",
                 (user["id"], key),
@@ -333,6 +344,8 @@ def _apply_merged_user(user: dict[str, Any], merged: dict[str, Any]) -> int:
                             envelope.get("deviceId") or "",
                         ),
                     )
+    if portable_sources is not None and apply_portable_onedrive_sources(user, portable_sources):
+        changed += 1
     return changed
 
 
@@ -350,4 +363,4 @@ def _device_id() -> str:
 
 
 def _sync_user_key(user: dict[str, Any]) -> str:
-    return hashlib.sha256(str(user.get("username", "")).strip().casefold().encode()).hexdigest()[:24]
+    return cloud_profile_id(user)

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Registro hidrometeorológico</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/agender-logo-32.png">
     <script>
       (function () {
         var theme = localStorage.getItem("agender.system.theme") || "system";
@@ -62,24 +63,6 @@
             <span class="nav-label">Generar licencia</span>
           </button>
           <input id="license-authority-key" type="file" accept=".pem" hidden>
-          <button class="nav-item" type="button" id="login-open">
-            <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE77B;</span></span>
-            <span class="nav-label">Iniciar sesión</span>
-          </button>
-          <div class="account-popover" id="account-popover" role="dialog" aria-label="Cuenta" hidden>
-            <div class="account-popover-header">
-              <span class="account-popover-avatar font-icon" aria-hidden="true">&#xE77B;</span>
-              <span><strong id="account-popover-name"></strong><small id="account-popover-role"></small></span>
-            </div>
-            <button class="account-action account-license-change" type="button" id="account-license-change">
-              <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
-              <span>Cambiar licencia</span>
-            </button>
-            <button class="account-action account-logout" type="button" id="account-logout">
-              <span class="font-icon" aria-hidden="true">&#xE8AC;</span>
-              <span>Cerrar sesión</span>
-            </button>
-          </div>
           <button class="nav-item" type="button" data-view="settings">
             <span class="nav-icon" aria-hidden="true">
               <span class="font-icon">&#xE713;</span>
@@ -583,6 +566,10 @@
                 <span class="settings-nav-icon paths-icon"><span class="font-icon">&#xED25;</span></span>
                 <span>Rutas</span>
               </button>
+              <button class="settings-nav-item" type="button" data-settings-page="backup">
+                <span class="settings-nav-icon backup-icon-nav"><span class="font-icon">&#xE8E5;</span></span>
+                <span>Cuentas</span>
+              </button>
               <button class="settings-nav-item" type="button" data-settings-page="information">
                 <span class="settings-nav-icon about-icon"><span class="font-icon">&#xE946;</span></span>
                 <span>Información</span>
@@ -591,31 +578,28 @@
                 <span class="settings-nav-icon updates-icon"><span class="font-icon">&#xE895;</span></span>
                 <span>Actualizaciones</span>
               </button>
-              <button class="settings-nav-item" type="button" data-settings-page="backup">
-                <span class="settings-nav-icon backup-icon-nav"><span class="font-icon">&#xE8E5;</span></span>
-                <span>OneDrive</span>
-              </button>
             </nav>
           </aside>
 
           <div class="settings-content">
             <section class="settings-page active" data-settings-panel="system">
               <h1 id="settings-title">Sistema</h1>
-
-              <section class="settings-card">
-                <span class="settings-card-icon" aria-hidden="true">
-                  <span class="font-icon">&#xE793;</span>
-                </span>
-                <div>
-                  <h2>Tema</h2>
-                  <p>Ajusta la apariencia de la aplicacion.</p>
+              <h2 class="settings-group-title">Apariencia</h2>
+              <details class="settings-expander">
+                <summary>
+                  <span class="settings-expander-icon font-icon" aria-hidden="true">&#xE790;</span>
+                  <span>
+                    <strong>Tema de la aplicación</strong>
+                    <small>Selecciona el tema que se mostrará en Agender</small>
+                  </span>
+                  <span class="settings-expander-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+                </summary>
+                <div class="theme-choice-list" role="radiogroup" aria-label="Tema de la aplicación">
+                  <label><input type="radio" name="application-theme" value="light" data-theme-option="light"><span>Claro</span></label>
+                  <label><input type="radio" name="application-theme" value="dark" data-theme-option="dark"><span>Oscuro</span></label>
+                  <label><input type="radio" name="application-theme" value="system" data-theme-option="system"><span>Usar la configuración del sistema</span></label>
                 </div>
-                <div class="segmented" role="radiogroup" aria-label="Tema">
-                  <button class="segment active" type="button" data-theme-option="system">Seguir sistema</button>
-                  <button class="segment" type="button" data-theme-option="light">Claro</button>
-                  <button class="segment" type="button" data-theme-option="dark">Oscuro</button>
-                </div>
-              </section>
+              </details>
             </section>
 
             <section class="settings-page" data-settings-panel="paths">
@@ -696,7 +680,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.9.1.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.10.7.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -712,7 +696,31 @@
               </div>
               <section class="about-card">
                 <div class="about-product">
-                  <span class="about-logo" aria-hidden="true">A</span>
+                  <span class="about-logo" aria-hidden="true">
+                    <svg viewBox="0 0 1024 1024" role="img" aria-label="Agender">
+                      <defs>
+                        <linearGradient id="about-logo-left" x1="250" y1="180" x2="520" y2="840" gradientUnits="userSpaceOnUse">
+                          <stop offset="0" stop-color="#20b9f2"/>
+                          <stop offset="1" stop-color="#0067c0"/>
+                        </linearGradient>
+                        <linearGradient id="about-logo-right" x1="510" y1="180" x2="780" y2="840" gradientUnits="userSpaceOnUse">
+                          <stop offset="0" stop-color="#59d2ff"/>
+                          <stop offset="1" stop-color="#0078d4"/>
+                        </linearGradient>
+                        <linearGradient id="about-logo-bar" x1="330" y1="560" x2="720" y2="560" gradientUnits="userSpaceOnUse">
+                          <stop offset="0" stop-color="#0b8fd8"/>
+                          <stop offset="1" stop-color="#21bdf4"/>
+                        </linearGradient>
+                      </defs>
+                      <rect width="1024" height="1024" rx="176" fill="#202633"/>
+                      <g transform="translate(-138.24 -138.24) scale(1.27)">
+                        <path d="M190 790 435 220C450 185 486 185 503 220L566 355 503 505 470 430 287 830Z" fill="url(#about-logo-left)"/>
+                        <path d="M470 220C487 185 523 185 540 220L834 790 737 830 502 370Z" fill="url(#about-logo-right)"/>
+                        <path d="M320 620 455 520 724 520 585 620Z" fill="url(#about-logo-bar)"/>
+                        <path d="M455 520 585 620 520 735 390 645Z" fill="#0056b3"/>
+                      </g>
+                    </svg>
+                  </span>
                   <div><h2 id="about-product-name">Agender</h2><p>Versión: <strong id="about-version">—</strong></p></div>
                 </div>
                 <dl class="about-details">
@@ -727,41 +735,33 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.9.1</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.10.7</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.9.1</strong>
+                <strong class="news-version-number">1.10.7</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
                   <h2>Nuevas funcionalidades</h2>
                   <ul>
-                    <li>Se agregó la descarga de datos por estación en formatos DAT, CSV y Excel.</li>
-                    <li>Se agregó la selección de variables, rango de fechas, cobertura mínima y escala temporal.</li>
-                    <li>Se incorporaron resoluciones personalizadas en minutos, horas y días.</li>
-                    <li>Se agregó la descarga múltiple de estaciones, generando un archivo independiente por cada estación seleccionada.</li>
-                    <li>Se integró la descarga múltiple con los filtros activos del registro hidrometeorológico.</li>
-                    <li>Se migró el acceso a datos de OneDrive hacia una caché local sincronizada para reutilizar los archivos en el Viewer y las exportaciones.</li>
-                    <li>Se incorporó la sincronización automática en segundo plano para carpetas locales y fuentes de OneDrive.</li>
-                    <li>Se agregó un inventario inmediato basado en stations.xlsx y en la última información disponible mientras los archivos se actualizan.</li>
-                    <li>Se agregó el progreso de descarga de actualizaciones con porcentaje, tamaño y tiempo transcurrido.</li>
-                    <li>Se incorporó la instalación silenciosa de actualizaciones y la reapertura automática de Agender.</li>
+                    <li>Se incorporó un perfil multidispositivo sincronizado mediante OneDrive.</li>
+                    <li>Se agregó la sincronización del tema, el origen hidrometeorológico y los enlaces compartidos de OneDrive.</li>
+                    <li>Se separó la información remota por cuenta Microsoft y usuario de Agender.</li>
+                    <li>Se creó la sección Cuentas para administrar el perfil de Agender, la licencia y la cuenta Microsoft vinculada.</li>
+                    <li>Se renovó el icono de Agender para mejorar su presencia en la barra de tareas y accesos directos.</li>
+                    <li>Se rediseñó Apariencia como un control compacto preparado para incorporar más opciones del sistema.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
                   <h2>Correcciones</h2>
                   <ul>
-                    <li>Se corrigió la aparición temporal de variables y fechas pertenecientes a una estación abierta anteriormente.</li>
-                    <li>Se corrigió la validación de fechas que permitía solicitar periodos fuera del rango disponible del archivo.</li>
-                    <li>Se corrigió la exportación de columnas de cobertura que no debían formar parte del archivo final.</li>
-                    <li>Se corrigieron los encabezados temporales para utilizar TIMESTAMP en minutos y horas, y Fecha desde la escala diaria.</li>
-                    <li>Se evitó la sobrescritura accidental de archivos durante las descargas múltiples.</li>
-                    <li>Se corrigió la tabla vacía que aparecía mientras OneDrive terminaba de sincronizar los archivos hidrometeorológicos.</li>
-                    <li>Se eliminó el bloqueo de la interfaz durante el escaneo de carpetas locales y la descarga desde OneDrive.</li>
-                    <li>Se redujeron los parpadeos y el tiempo de respuesta al cambiar entre módulos.</li>
-                    <li>Se optimizó el arranque evitando cargar el Viewer, Polars, DuckDB y Excel antes de necesitarlos.</li>
-                    <li>Se corrigió el actualizador que mostraba el asistente de instalación antes de reemplazar la versión anterior.</li>
+                    <li>Se corrigió la sincronización para que nunca copie rutas de carpetas locales entre equipos.</li>
+                    <li>Se corrigió el aislamiento de perfiles para impedir que un usuario descargue o sobrescriba los datos de otro.</li>
+                    <li>Se corrigió el interruptor de sincronización para respetar realmente su estado persistido.</li>
+                    <li>Se corrigió la aplicación de cambios remotos al iniciar Agender.</li>
+                    <li>Se eliminó el sistema anterior de respaldos que podía duplicar información y generar estados remotos diferentes.</li>
+                    <li>Se retiraron controles, estilos, módulos y artefactos de compilaciones anteriores que ya no tenían uso.</li>
                   </ul>
                 </section>
               </div>
@@ -803,21 +803,40 @@
             </section>
 
             <section class="settings-page" data-settings-panel="backup">
-              <h1>OneDrive</h1>
-              <p class="settings-page-description">Mantén tus datos de Agender sincronizados automáticamente entre tus equipos.</p>
+              <h1>Cuentas</h1>
+              <p class="settings-page-description">Administra tu perfil de Agender y la cuenta Microsoft utilizada para sincronizarlo.</p>
 
               <section class="backup-card onedrive-settings-card" aria-live="polite">
                 <div class="backup-hero">
                   <span class="backup-icon font-icon" aria-hidden="true">&#xE753;</span>
                   <div>
-                    <h2>Cuenta OneDrive</h2>
-                    <p>Sincroniza rutas, solicitudes, diario y agenda sin intervención manual.</p>
+                    <h2>Sincronización de cuenta</h2>
+                    <p>Cada usuario de Agender mantiene un perfil independiente dentro de OneDrive.</p>
                   </div>
                 </div>
 
+                <section class="agender-account-card">
+                  <span class="onedrive-account-avatar font-icon" aria-hidden="true">&#xE77B;</span>
+                  <div class="onedrive-account-details">
+                    <small>Usuario de Agender</small>
+                    <strong id="settings-agender-username">Usuario</strong>
+                    <span id="settings-agender-role">Perfil con licencia</span>
+                  </div>
+                  <div class="agender-account-actions">
+                    <button class="button secondary" type="button" id="account-license-change">
+                      <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+                      Cambiar licencia
+                    </button>
+                    <button class="button account-logout-button" type="button" id="account-logout">
+                      <span class="font-icon" aria-hidden="true">&#xE8AC;</span>
+                      Cerrar sesión
+                    </button>
+                  </div>
+                </section>
+
                 <section class="onedrive-account-state" id="onedrive-disconnected">
                   <div>
-                    <h3>Conecta tu cuenta Microsoft</h3>
+                    <h3>Cuenta Microsoft no vinculada</h3>
                     <p>Agender solo accederá a su propia carpeta dentro de OneDrive.</p>
                   </div>
                   <button class="button primary" id="cloud-login-button" type="button">Iniciar sesión con Microsoft</button>
@@ -826,6 +845,7 @@
                 <section class="onedrive-account-card" id="onedrive-connected" hidden>
                   <span class="onedrive-account-avatar font-icon" aria-hidden="true">&#xE77B;</span>
                   <div class="onedrive-account-details">
+                    <small>Cuenta Microsoft vinculada</small>
                     <strong id="onedrive-account-name">Cuenta Microsoft</strong>
                     <span id="onedrive-account-email"></span>
                     <small id="onedrive-sync-status">Sincronización automática activa</small>
