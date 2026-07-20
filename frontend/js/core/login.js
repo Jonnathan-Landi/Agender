@@ -1,5 +1,13 @@
 (function () {
-  const viewModules = { hydromet: "hydromet", requests: "requests", diary: "diary", agenda: "agenda", reports: "reports", settings: "settings" };
+  const viewModules = {
+    hydromet: "hydromet",
+    requests: "requests",
+    diary: "diary",
+    agenda: "agenda",
+    "report-water-quality": "report-water-quality",
+    "report-hydromet-network": "report-hydromet-network",
+    settings: "settings"
+  };
   let currentUser = null;
 
   async function initLogin() {
@@ -135,13 +143,16 @@
       document.querySelector("#login-close").hidden = !status.user;
       document.querySelector("#login-cancel").hidden = !status.user;
       document.querySelector("#license-admin-open").hidden = status.user?.role !== "admin";
+      document.querySelector("#license-admin-view").hidden = status.user?.role !== "admin";
       document.body.dataset.authorityAvailable = String(Boolean(status.authorityAvailable));
+      window.NotasNavigation.restoreActiveView();
       if (!status.user) dialog.showModal();
       if (status.user?.mustChangePassword) changeDialog.showModal();
       if (!status.license.valid) message.textContent = status.license.reason || "Se requiere una licencia válida.";
     } catch (error) {
       applyAccess(null, { valid: false });
     }
+    delete document.documentElement.dataset.restoringView;
     return Boolean(currentUser);
   }
 

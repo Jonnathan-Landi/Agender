@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reporte de Calidad del agua</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/agender-integration.css">
+  </head>
+  <body>
+    <main class="reports-viewport">
+      <div id="reports-scale-wrapper">
+        <div id="reports"></div>
+      </div>
+    </main>
+
+    <div class="context-format-menu" id="contextFormatMenu">
+      <select id="fontFamilySelect" class="font-family-select" title="Tipo de letra">
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', Times, serif">Times New Roman</option>
+        <option value="'Calibri Light', Calibri, sans-serif">Calibri Light</option>
+        <option value="Calibri, Arial, sans-serif">Calibri Títulos</option>
+      </select>
+      <div class="font-size-combo">
+        <input id="fontSizeInput" class="font-size-input" type="text" inputmode="numeric" title="Tamaño de letra" aria-label="Tamaño de letra">
+        <button id="fontSizeToggle" class="font-size-toggle" type="button" title="Mostrar tamaños" aria-label="Mostrar tamaños" aria-expanded="false">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"></path></svg>
+        </button>
+        <div id="fontSizeDropdown" class="font-size-dropdown" hidden>
+          <button type="button" data-size="8">8</button>
+          <button type="button" data-size="9">9</button>
+          <button type="button" data-size="10">10</button>
+          <button type="button" data-size="11">11</button>
+          <button type="button" data-size="12">12</button>
+          <button type="button" data-size="14">14</button>
+          <button type="button" data-size="16">16</button>
+          <button type="button" data-size="18">18</button>
+          <button type="button" data-size="20">20</button>
+          <button type="button" data-size="22">22</button>
+          <button type="button" data-size="24">24</button>
+          <button type="button" data-size="26">26</button>
+          <button type="button" data-size="28">28</button>
+          <button type="button" data-size="36">36</button>
+          <button type="button" data-size="48">48</button>
+          <button type="button" data-size="72">72</button>
+        </div>
+      </div>
+      <div class="format-menu-group">
+        <button type="button" id="boldBtn" class="format-icon-button" title="Negrita" aria-label="Negrita">B</button>
+        <button type="button" id="italicBtn" class="format-icon-button" title="Cursiva" aria-label="Cursiva">I</button>
+        <button type="button" id="underlineBtn" class="format-icon-button" title="Subrayado" aria-label="Subrayado">U</button>
+      </div>
+      <div class="format-menu-group format-align-group" aria-label="Alineación">
+        <button type="button" class="format-icon-button align-button" data-align="left" title="Alinear izquierda" aria-label="Alinear izquierda">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 9h10M3 13h14M3 17h10"></path></svg>
+        </button>
+        <button type="button" class="format-icon-button align-button" data-align="center" title="Centrar" aria-label="Centrar">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M5 9h10M3 13h14M5 17h10"></path></svg>
+        </button>
+        <button type="button" class="format-icon-button align-button" data-align="right" title="Alinear derecha" aria-label="Alinear derecha">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M7 9h10M3 13h14M7 17h10"></path></svg>
+        </button>
+        <button type="button" class="format-icon-button align-button" data-align="justify" title="Justificar" aria-label="Justificar">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 9h14M3 13h14M3 17h14"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/report-zoom.js"></script>
+    <script type="module" src="js/agender-bridge.js"></script>
+  </body>
+</html>

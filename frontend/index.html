@@ -10,6 +10,9 @@
         var theme = localStorage.getItem("agender.system.theme") || "system";
         var dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.dataset.theme = dark ? "dark" : "light";
+        if (sessionStorage.getItem("agender.navigation.active-view")) {
+          document.documentElement.dataset.restoringView = "true";
+        }
       })();
     </script>
     <link rel="stylesheet" href="css/style.css">
@@ -51,18 +54,30 @@
               </button>
             </div>
           </div>
-          <button class="nav-item" type="button" data-view="reports">
-            <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE9D2;</span></span>
-            <span class="nav-label">Reportes</span>
-          </button>
+          <div class="nav-group" data-nav-group="reports">
+            <button class="nav-item nav-group-toggle" type="button" aria-expanded="false" aria-controls="reports-nav-items">
+              <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE9D2;</span></span>
+              <span class="nav-label">Reportes</span>
+              <span class="nav-group-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+            </button>
+            <div class="nav-submenu" id="reports-nav-items">
+              <button class="nav-item nav-subitem" type="button" data-view="report-water-quality">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE790;</span></span>
+                <span class="nav-label">Calidad del agua</span>
+              </button>
+              <button class="nav-item nav-subitem" type="button" data-view="report-hydromet-network">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xEC4A;</span></span>
+                <span class="nav-label">Red hidrometeorológica</span>
+              </button>
+            </div>
+          </div>
         </nav>
 
         <div class="nav-footer">
-          <button class="nav-item" type="button" id="license-admin-open" hidden>
+          <button class="nav-item" type="button" id="license-admin-open" data-view="license-admin" hidden>
             <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE8F9;</span></span>
             <span class="nav-label">Generar licencia</span>
           </button>
-          <input id="license-authority-key" type="file" accept=".pem" hidden>
           <button class="nav-item" type="button" data-view="settings">
             <span class="nav-icon" aria-hidden="true">
               <span class="font-icon">&#xE713;</span>
@@ -73,9 +88,153 @@
       </aside>
 
       <main class="workspace">
-        <section class="view reports-view" id="reports-view" aria-labelledby="reports-title">
-          <header class="toolbar"><h1 id="reports-title">Reportes</h1></header>
-          <div class="reports-placeholder" aria-hidden="true"></div>
+        <section class="view report-module-view" id="report-water-quality-view" aria-labelledby="report-water-quality-title">
+          <header class="toolbar report-module-toolbar">
+            <div>
+              <p class="eyebrow" id="report-water-quality-title">Reporte de Calidad del agua</p>
+            </div>
+            <div class="toolbar-actions">
+              <span class="water-quality-save-state" id="water-quality-save-state" role="status" aria-live="polite"></span>
+              <button class="button secondary compact-button" type="button" id="water-quality-clear">
+                <span class="font-icon" aria-hidden="true">&#xE74D;</span>
+                <span>Limpiar valores</span>
+              </button>
+              <button class="button secondary compact-button" type="button" id="water-quality-settings" aria-label="Configurar reporte" title="Configurar reporte">
+                <span class="font-icon" aria-hidden="true">&#xE713;</span>
+                <span>Configurar</span>
+              </button>
+              <button class="button secondary compact-button" type="button" id="water-quality-print">
+                <span class="font-icon" aria-hidden="true">&#xE749;</span>
+                <span>Imprimir</span>
+              </button>
+              <button class="button primary compact-button" type="button" id="water-quality-save">
+                <span class="font-icon" aria-hidden="true">&#xE74E;</span>
+                <span>Guardar</span>
+              </button>
+            </div>
+          </header>
+          <div class="water-quality-workspace">
+            <iframe
+              class="water-quality-frame"
+              id="water-quality-frame"
+              src="about:blank"
+              data-src="wqreport/index.html"
+              title="Editor del reporte de calidad del agua"
+            ></iframe>
+          </div>
+        </section>
+
+        <section class="view report-module-view" id="report-hydromet-network-view" aria-labelledby="report-hydromet-network-title">
+          <header class="toolbar report-module-toolbar">
+            <div>
+              <p class="eyebrow" id="report-hydromet-network-title">Reportes de Red hidrometeorológica</p>
+            </div>
+          </header>
+        </section>
+
+        <section class="view license-admin-view" id="license-admin-view" aria-labelledby="license-admin-title" hidden>
+          <header class="toolbar license-admin-toolbar">
+            <div>
+              <p class="eyebrow">Administración</p>
+              <h1 id="license-admin-title">Generar licencia</h1>
+            </div>
+          </header>
+          <form class="license-admin-form" id="license-admin-form">
+            <section class="license-admin-card license-authority-card">
+              <div>
+                <span class="license-admin-card-icon font-icon" aria-hidden="true">&#xE8D7;</span>
+                <div>
+                  <h2>Clave de firma</h2>
+                  <p id="license-authority-status">Comprobando la clave privada de la autoridad…</p>
+                </div>
+              </div>
+              <label class="button secondary license-authority-import" for="license-authority-key" title="Importar clave" aria-label="Importar clave">
+                <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+              </label>
+              <input id="license-authority-key" type="file" accept=".pem" hidden>
+            </section>
+
+            <div class="license-admin-grid">
+              <section class="license-admin-card license-owner-card">
+                <header>
+                  <span class="license-admin-card-icon font-icon" aria-hidden="true">&#xE77B;</span>
+                  <div><h2>Datos del propietario</h2><p>Define la identidad y las credenciales iniciales.</p></div>
+                </header>
+                <div class="license-admin-fields">
+                  <label><span>Nombres</span><input name="fullName" required></label>
+                  <label><span>Usuario</span><input name="username" required></label>
+                  <label><span>Clave temporal</span><input name="temporaryPassword" type="password" minlength="10" required></label>
+                  <label><span>Identificador</span><input name="licenseId" placeholder="CLIENTE-001" required></label>
+                  <label><span>Revisión</span><input name="revision" type="number" min="1" value="1" required></label>
+                </div>
+              </section>
+
+              <section class="license-admin-card license-modules-card">
+                <header>
+                  <span class="license-admin-card-icon font-icon" aria-hidden="true">&#xE8F9;</span>
+                  <div><h2>Módulos habilitados</h2><p>Selecciona únicamente los accesos incluidos en la licencia.</p></div>
+                </header>
+                <fieldset class="license-permissions">
+                  <legend class="sr-only">Permisos</legend>
+                  <label class="license-permission-row">
+                    <input type="checkbox" name="modules" value="hydromet">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xEC4A;</span>
+                    <span><strong>Registro hidrometeorológico</strong><small>Viewer, datos crudos, control de calidad y rutas.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-group">
+                    <input type="checkbox" id="license-personal-all">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE77B;</span>
+                    <span><strong>Gestión personal</strong><small>Selecciona todo el grupo o funciones individuales.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="requests">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE82E;</span>
+                    <span><strong>Solicitud de datos</strong><small>Registro y seguimiento de solicitudes.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="diary">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE70B;</span>
+                    <span><strong>Diario</strong><small>Tareas, enfoque y planificación diaria.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="agenda">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE787;</span>
+                    <span><strong>Agenda</strong><small>Calendario y administración de eventos.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-group">
+                    <input type="checkbox" id="license-reports-all">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE9D2;</span>
+                    <span><strong>Reportes</strong><small>Selecciona ambos reportes o únicamente el submódulo requerido.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="report-water-quality">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE790;</span>
+                    <span><strong>Calidad del agua</strong><small>Edición, almacenamiento e impresión del reporte.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="report-hydromet-network">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xEC4A;</span>
+                    <span><strong>Red hidrometeorológica</strong><small>Acceso al submódulo de reportes hidrometeorológicos.</small></span>
+                  </label>
+                </fieldset>
+              </section>
+            </div>
+            <footer class="license-admin-actions">
+              <p class="login-message" id="license-admin-message" role="status" aria-live="polite"></p>
+              <button class="button primary" type="submit">
+                <span class="font-icon" aria-hidden="true">&#xE74E;</span>
+                <span>Generar archivo</span>
+              </button>
+            </footer>
+          </form>
         </section>
 
         <section class="view" id="requests-view" aria-labelledby="requests-title">
@@ -201,39 +360,64 @@
             </div>
           </header>
 
-          <section class="diary-layout">
-            <div class="diary-main">
-              <section class="diary-task-panel" aria-label="Tareas del diario">
-                <div class="diary-list-head">
-                  <div>
-                    <span class="panel-eyebrow">Lista de trabajo</span>
-                    <strong id="diary-list-title">Hoy</strong>
+          <nav class="diary-view-tabs" aria-label="Vistas del Diario">
+            <button class="diary-view-tab active" type="button" data-diary-view="plan" aria-selected="true">
+              <span class="font-icon" aria-hidden="true">&#xE8A5;</span>
+              <span>Plan diario</span>
+            </button>
+            <button class="diary-view-tab" type="button" data-diary-view="board" aria-selected="false">
+              <span class="font-icon" aria-hidden="true">&#xE80A;</span>
+              <span>Tablero de estados</span>
+            </button>
+          </nav>
+
+          <div class="diary-mode-panel active" id="diary-plan-view">
+            <section class="diary-layout">
+              <div class="diary-main">
+                <section class="diary-task-panel" aria-label="Tareas del diario">
+                  <div class="diary-list-head">
+                    <div>
+                      <span class="panel-eyebrow">Lista de trabajo</span>
+                      <strong id="diary-list-title">Hoy</strong>
+                    </div>
+                    <span id="diary-list-count">0 tareas</span>
                   </div>
-                  <span id="diary-list-count">0 tareas</span>
-                </div>
-                <div class="diary-task-list" id="diary-task-list"></div>
-                <div class="empty-state" id="diary-empty-state">
-                  <strong>No hay tareas para este dia</strong>
-                  <span>Crea una tarea para organizar tu jornada.</span>
-                </div>
-              </section>
-            </div>
+                  <div class="diary-task-list" id="diary-task-list"></div>
+                  <div class="empty-state" id="diary-empty-state">
+                    <strong>No hay tareas para este día</strong>
+                    <span>Crea una tarea para organizar tu jornada.</span>
+                  </div>
+                </section>
+              </div>
 
-            <aside class="diary-side-panel" aria-label="Foco del dia">
-              <section class="diary-focus">
-                <span class="panel-eyebrow">Foco del dia</span>
-                <textarea id="diary-focus-note" rows="5" placeholder="Define el resultado principal que quieres lograr hoy"></textarea>
-              </section>
+              <aside class="diary-side-panel" aria-label="Foco del día">
+                <section class="diary-focus">
+                  <span class="panel-eyebrow">Foco del día</span>
+                  <textarea id="diary-focus-note" rows="5" placeholder="Define el resultado principal que quieres lograr hoy"></textarea>
+                </section>
 
-              <section class="diary-distribution" aria-label="Estado de todas las tareas">
-                <span class="panel-eyebrow">Todas las tareas</span>
-                <div class="diary-state-row"><span>Pendientes</span><strong id="diary-all-pending">0</strong></div>
-                <div class="diary-state-row"><span>En proceso</span><strong id="diary-all-progress">0</strong></div>
-                <div class="diary-state-row"><span>En espera</span><strong id="diary-all-waiting">0</strong></div>
-                <div class="diary-state-row"><span>Finalizadas</span><strong id="diary-all-done">0</strong></div>
-              </section>
-            </aside>
+                <section class="diary-distribution" aria-label="Estado de todas las tareas">
+                  <span class="panel-eyebrow">Todas las tareas</span>
+                  <div class="diary-state-row"><span>Pendientes</span><strong id="diary-all-pending">0</strong></div>
+                  <div class="diary-state-row"><span>En proceso</span><strong id="diary-all-progress">0</strong></div>
+                  <div class="diary-state-row"><span>En espera</span><strong id="diary-all-waiting">0</strong></div>
+                  <div class="diary-state-row"><span>Finalizadas</span><strong id="diary-all-done">0</strong></div>
+                </section>
+              </aside>
+            </section>
+          </div>
+
+          <section class="diary-mode-panel diary-board-panel" id="diary-board-view" aria-label="Tablero de estados">
+            <div class="diary-board" id="diary-status-board"></div>
           </section>
+          <div class="diary-board-context-menu" id="diary-board-context-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-board-menu-action="edit">
+              <span class="font-icon" aria-hidden="true">&#xE70F;</span><span>Editar</span>
+            </button>
+            <button class="danger" type="button" role="menuitem" data-board-menu-action="delete">
+              <span class="font-icon" aria-hidden="true">&#xE74D;</span><span>Eliminar</span>
+            </button>
+          </div>
         </section>
 
         <section class="view" id="agenda-view" aria-labelledby="agenda-title">
@@ -680,7 +864,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.10.7.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.11.9.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -735,33 +919,34 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.10.7</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.11.9</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.10.7</strong>
+                <strong class="news-version-number">1.11.9</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
                   <h2>Nuevas funcionalidades</h2>
                   <ul>
-                    <li>Se incorporó un perfil multidispositivo sincronizado mediante OneDrive.</li>
-                    <li>Se agregó la sincronización del tema, el origen hidrometeorológico y los enlaces compartidos de OneDrive.</li>
-                    <li>Se separó la información remota por cuenta Microsoft y usuario de Agender.</li>
-                    <li>Se creó la sección Cuentas para administrar el perfil de Agender, la licencia y la cuenta Microsoft vinculada.</li>
-                    <li>Se renovó el icono de Agender para mejorar su presencia en la barra de tareas y accesos directos.</li>
-                    <li>Se rediseñó Apariencia como un control compacto preparado para incorporar más opciones del sistema.</li>
+                    <li>Se incorporó Reportes con los submódulos Calidad del agua y Red hidrometeorológica.</li>
+                    <li>Se migró el reporte de Calidad del agua a Tauri con edición, guardado e impresión.</li>
+                    <li>Se agregó al Diario el Plan diario y un Tablero de estados con tarjetas movibles.</li>
+                    <li>El tablero permite mover tarjetas entre estados, cambiar prioridades directamente y administrar tareas mediante un menú contextual.</li>
+                    <li>Generar licencia ahora funciona como una vista completa y admite permisos separados por reporte.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
                   <h2>Correcciones</h2>
                   <ul>
-                    <li>Se corrigió la sincronización para que nunca copie rutas de carpetas locales entre equipos.</li>
-                    <li>Se corrigió el aislamiento de perfiles para impedir que un usuario descargue o sobrescriba los datos de otro.</li>
-                    <li>Se corrigió el interruptor de sincronización para respetar realmente su estado persistido.</li>
-                    <li>Se corrigió la aplicación de cambios remotos al iniciar Agender.</li>
-                    <li>Se eliminó el sistema anterior de respaldos que podía duplicar información y generar estados remotos diferentes.</li>
-                    <li>Se retiraron controles, estilos, módulos y artefactos de compilaciones anteriores que ya no tenían uso.</li>
+                    <li>Se eliminó el parpadeo provocado por la recarga completa después de sincronizar con OneDrive.</li>
+                    <li>Los cambios remotos ahora actualizan las vistas abiertas sin reiniciar la aplicación.</li>
+                    <li>Se corrigió la restauración de la pestaña activa durante cambios de sesión y licencia.</li>
+                    <li>Cambiar la prioridad desde el tablero conserva la posición manual de la tarea.</li>
+                    <li>Los controles de prioridad ahora utilizan el chevrón y el desplegable visual de WinUI 3.</li>
+                    <li>La eliminación de tareas utiliza una confirmación integrada en Agender y ya no muestra mensajes del servidor local.</li>
+                    <li>Se aislaron los datos de Calidad del agua para que no se sincronicen con OneDrive.</li>
+                    <li>Se retiraron dependencias, controles, estilos obsoletos y artefactos heredados de Electron y módulos descartados.</li>
                   </ul>
                 </section>
               </div>
@@ -931,6 +1116,22 @@
       </form>
     </dialog>
 
+    <dialog id="diary-delete-dialog" class="confirmation-dialog" aria-labelledby="diary-delete-title">
+      <form method="dialog" class="confirmation-form" id="diary-delete-form">
+        <header>
+          <span class="confirmation-icon font-icon" aria-hidden="true">&#xE74D;</span>
+          <div>
+            <h2 id="diary-delete-title">Eliminar tarea</h2>
+            <p id="diary-delete-message">Esta acción no se puede deshacer.</p>
+          </div>
+        </header>
+        <footer>
+          <button class="button secondary" type="button" id="diary-delete-cancel">Cancelar</button>
+          <button class="button danger-button" type="submit">Eliminar</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog id="agenda-event-dialog">
       <form method="dialog" class="request-form" id="agenda-event-form">
         <header>
@@ -1061,6 +1262,50 @@
       </form>
     </dialog>
 
+    <dialog id="water-quality-settings-dialog" class="water-quality-settings-dialog" aria-labelledby="water-quality-settings-title">
+      <form method="dialog" class="water-quality-settings-form">
+        <header>
+          <div>
+            <p class="eyebrow">Reporte de Calidad del agua</p>
+            <h2 id="water-quality-settings-title">Configuración</h2>
+          </div>
+          <button class="icon-button" type="button" id="water-quality-settings-close" aria-label="Cerrar">×</button>
+        </header>
+        <div class="water-quality-settings-body">
+          <section class="water-quality-settings-section" aria-labelledby="water-quality-policy-title">
+            <div class="water-quality-settings-section-title">
+              <span class="font-icon" aria-hidden="true">&#xE8D7;</span>
+              <div><strong id="water-quality-policy-title">Políticas</strong><small>Selecciona el encabezado y perfil institucional del reporte.</small></div>
+            </div>
+            <label class="water-quality-setting-row">
+              <span><strong>Perfil de políticas</strong><small>Aplica el formato predeterminado o el encabezado de TI.</small></span>
+              <select id="water-quality-policy-select">
+                <option value="default">Defecto</option>
+                <option value="it">TI</option>
+              </select>
+            </label>
+          </section>
+          <section class="water-quality-settings-section" aria-labelledby="water-quality-editing-title">
+            <div class="water-quality-settings-section-title">
+              <span class="font-icon" aria-hidden="true">&#xE70F;</span>
+              <div><strong id="water-quality-editing-title">Edición</strong><small>Controla la modificación de textos y su propagación entre hojas.</small></div>
+            </div>
+            <label class="water-quality-setting-row water-quality-toggle-row">
+              <span><strong>Modo edición</strong><small>Permite modificar textos y utilizar el menú de formato con clic derecho.</small></span>
+              <input id="water-quality-edit-mode" type="checkbox">
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label class="water-quality-setting-row water-quality-toggle-row">
+              <span><strong>Heredar ediciones</strong><small>Copia en las demás páginas los cambios realizados en la página 1.</small></span>
+              <input id="water-quality-edit-inheritance" type="checkbox">
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+          </section>
+        </div>
+        <footer><button class="button primary" type="button" id="water-quality-settings-done">Listo</button></footer>
+      </form>
+    </dialog>
+
     <dialog id="login-dialog" class="login-dialog" aria-labelledby="login-title">
       <form class="login-form" id="login-form">
         <header class="login-header">
@@ -1127,58 +1372,6 @@
       </form>
     </dialog>
 
-    <dialog id="license-admin-dialog" class="login-dialog license-admin-dialog" aria-labelledby="license-admin-title">
-      <form class="login-form" id="license-admin-form">
-        <header class="login-header"><span class="login-avatar font-icon" aria-hidden="true">&#xE8F9;</span><div><h2 id="license-admin-title">Generar licencia</h2><p>Define el propietario, acceso temporal y módulos habilitados.</p></div><button class="login-close" type="button" id="license-admin-close" aria-label="Cerrar"><svg viewBox="0 0 12 12"><path d="M1 1l10 10M11 1 1 11"/></svg></button></header>
-        <div class="login-fields">
-          <label><span>Nombres</span><input name="fullName" required></label>
-          <label><span>Usuario</span><input name="username" required></label>
-          <label><span>Clave temporal</span><input name="temporaryPassword" type="password" minlength="10" required></label>
-          <label><span>Identificador</span><input name="licenseId" placeholder="CLIENTE-001" required></label>
-          <label><span>Revisión</span><input name="revision" type="number" min="1" value="1" required></label>
-          <fieldset class="license-permissions"><legend>Permisos</legend>
-            <label class="license-permission-row">
-              <input type="checkbox" name="modules" value="hydromet">
-              <span class="license-permission-check" aria-hidden="true">✓</span>
-              <span class="license-permission-icon font-icon" aria-hidden="true">&#xEC4A;</span>
-              <span><strong>Registro hidrometeorológico</strong><small>Incluye Viewer, datos crudos, control de calidad y configuración de rutas.</small></span>
-            </label>
-            <label class="license-permission-row license-permission-group">
-              <input type="checkbox" id="license-personal-all">
-              <span class="license-permission-check" aria-hidden="true">✓</span>
-              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE77B;</span>
-              <span><strong>Gestión personal</strong><small>Selecciona todo el grupo o únicamente las funciones necesarias.</small></span>
-            </label>
-            <label class="license-permission-row license-permission-child">
-              <input type="checkbox" name="modules" value="requests">
-              <span class="license-permission-check" aria-hidden="true">✓</span>
-              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE82E;</span>
-              <span><strong>Solicitud de datos</strong><small>Registro, seguimiento e importación de solicitudes.</small></span>
-            </label>
-            <label class="license-permission-row license-permission-child">
-              <input type="checkbox" name="modules" value="diary">
-              <span class="license-permission-check" aria-hidden="true">✓</span>
-              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE70B;</span>
-              <span><strong>Diario</strong><small>Tareas, notas de enfoque y planificación diaria.</small></span>
-            </label>
-            <label class="license-permission-row license-permission-child">
-              <input type="checkbox" name="modules" value="agenda">
-              <span class="license-permission-check" aria-hidden="true">✓</span>
-              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE787;</span>
-              <span><strong>Agenda</strong><small>Calendario y administración de eventos.</small></span>
-            </label>
-            <label class="license-permission-row">
-              <input type="checkbox" name="modules" value="reports">
-              <span class="license-permission-check" aria-hidden="true">✓</span>
-              <span class="license-permission-icon font-icon" aria-hidden="true">&#xE9D2;</span>
-              <span><strong>Reportes</strong><small>Acceso al módulo de reportes y sus futuras funciones.</small></span>
-            </label>
-          </fieldset><p class="login-message" id="license-admin-message"></p>
-        </div><footer><button class="button secondary" type="button" id="license-admin-cancel">Cancelar</button><button class="button primary" type="submit">Generar archivo</button></footer>
-      </form>
-    </dialog>
-
-    <script src="js/subcuencas-data.js"></script>
     <script src="js/core/utils.js"></script>
     <script src="js/core/ui.js"></script>
     <script src="js/core/storage.js"></script>
@@ -1397,6 +1590,7 @@
     <script src="js/features/viewer.js"></script>
     <script src="js/features/hydromet-map.js"></script>
     <script src="js/features/hydromet.js"></script>
+    <script src="js/features/water-quality-report.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>

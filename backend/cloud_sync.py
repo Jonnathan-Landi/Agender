@@ -17,7 +17,7 @@ from .config import APP_DATA_DIR
 from .security import database
 from .sync_lock import user_sync_lock
 from .portable_profile import PROFILE_SOURCES_KEY, apply_portable_onedrive_sources
-from .user_data import allowed_data_keys
+from .user_data import syncable_data_keys
 
 SYNC_FILE_PREFIX = "agender-sync-v1"
 SYNC_FORMAT = "agender.sync"
@@ -126,7 +126,7 @@ def _empty_document() -> dict[str, Any]:
 
 
 def _local_document(user: dict[str, Any], device_id: str) -> dict[str, Any]:
-    allowed = set(allowed_data_keys(user))
+    allowed = set(syncable_data_keys(user))
     collections: dict[str, Any] = {}
     with database() as connection:
         rows = connection.execute(
@@ -259,7 +259,7 @@ def _apply_merged_user(user: dict[str, Any], merged: dict[str, Any]) -> int:
     portable_sources: Any = None
     with database() as connection:
         for key, collection in merged.get("collections", {}).items():
-            if key not in allowed_data_keys(user):
+            if key not in syncable_data_keys(user):
                 continue
             records = collection.get("records", {})
             kind = collection.get("kind")

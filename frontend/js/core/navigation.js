@@ -1,6 +1,7 @@
 (function () {
   const PANE_KEY = "agender.navigation.pane";
   const GROUP_KEY_PREFIX = "agender.navigation.group.";
+  const ACTIVE_VIEW_KEY = "agender.navigation.active-view";
   const viewScrollPositions = new Map();
 
   function initNavigation() {
@@ -36,6 +37,8 @@
     document.querySelectorAll("[data-view]").forEach((item) => {
       item.addEventListener("click", () => switchView(item.dataset.view));
     });
+
+    restoreActiveView();
   }
 
   function setGroupExpanded(group, expanded) {
@@ -53,6 +56,7 @@
   function switchView(viewName) {
     const target = document.querySelector(`#${viewName}-view`);
     if (!target) return;
+    sessionStorage.setItem(ACTIVE_VIEW_KEY, viewName);
     const current = document.querySelector(".view.active");
     if (current === target) return;
     const workspace = document.querySelector(".workspace");
@@ -73,7 +77,16 @@
     workspace.scrollTop = viewScrollPositions.get(target.id) || 0;
   }
 
+  function restoreActiveView() {
+    const savedView = sessionStorage.getItem(ACTIVE_VIEW_KEY);
+    const navigationItem = savedView
+      ? document.querySelector(`.nav-item[data-view="${savedView}"]`)
+      : null;
+    if (navigationItem && !navigationItem.hidden) switchView(savedView);
+  }
+
   window.NotasNavigation = {
-    initNavigation
+    initNavigation,
+    restoreActiveView
   };
 })();

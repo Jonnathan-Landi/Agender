@@ -67,6 +67,8 @@ Los paquetes se firman para impedir que una descarga manipulada pueda instalarse
 2. Crea en GitHub Actions el secreto `TAURI_SIGNING_PRIVATE_KEY` con todo el contenido
    de ese archivo. La clave actual no tiene contraseña.
 3. Actualiza la misma versión SemVer en `src-tauri/tauri.conf.json` y `src-tauri/Cargo.toml`.
+   En la línea `1.11.x`, el tercer número identifica el acumulado de correcciones publicadas:
+   por ejemplo, seis correcciones corresponden a `1.11.6`.
 4. Antes de crear la etiqueta, ejecuta localmente el mismo build y las mismas validaciones
    que usará GitHub Actions:
 

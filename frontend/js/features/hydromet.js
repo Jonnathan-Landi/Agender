@@ -102,6 +102,7 @@
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) syncLocalStations();
     });
+    window.addEventListener("agender:data-refreshed", handleRemoteDataRefresh);
 
     document.querySelectorAll("[data-hydromet-tab]").forEach((button) => {
       button.addEventListener("click", () => activateHydrometTab(button));
@@ -139,6 +140,27 @@
       selectedHydrometCode = "";
       renderHydromet();
     });
+  }
+
+  function handleRemoteDataRefresh(event) {
+    const keys = event.detail?.keys || [];
+    if (keys.includes(qcStorageKey)) {
+      qcMethods = normalizeQcMethods(loadJson(qcStorageKey, {}));
+      renderHydromet();
+    }
+    if (!keys.includes(profileStorageKey)) return;
+    const preferredSource = loadJson(profileStorageKey, {}).hydrometSource;
+    if (!["raw", "quality"].includes(preferredSource) || preferredSource === selectedSource) return;
+    selectedSource = preferredSource;
+    localStorage.setItem("agender.hydromet.source", selectedSource);
+    updateSourceSwitch();
+    if (!restoreStationSnapshot(selectedSource)) {
+      hydrometStations = [];
+      completenessRecords = {};
+      fillHydrometFilters();
+      renderHydromet();
+    }
+    syncLocalStations();
   }
 
   function selectSource(source) {

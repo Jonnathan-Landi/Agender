@@ -48,7 +48,14 @@
 
     form.addEventListener("submit", saveFromDialog);
     body.addEventListener("click", handleTableClick);
+    window.addEventListener("agender:data-refreshed", handleRemoteDataRefresh);
 
+    render();
+  }
+
+  function handleRemoteDataRefresh(event) {
+    if (!event.detail?.keys?.includes(STORAGE_KEY)) return;
+    records = loadJson(STORAGE_KEY, []);
     render();
   }
 

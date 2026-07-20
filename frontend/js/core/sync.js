@@ -6,23 +6,22 @@
   let syncing = null;
   let saveTimer = null;
   let interval = null;
-  let reloadPending = false;
 
-  async function bootstrap({ reloadOnRemote = false } = {}) {
+  async function bootstrap() {
     await refreshStatus();
     if (!enabled || !connected || !navigator.onLine) return null;
-    return syncNow({ reloadOnRemote, quiet: true });
+    return syncNow({ quiet: true });
   }
 
   function start() {
     clearInterval(interval);
     interval = setInterval(() => {
-      if (!document.hidden) syncNow({ reloadOnRemote: true, quiet: true });
+      if (!document.hidden) syncNow({ quiet: true });
     }, AUTO_INTERVAL_MS);
     window.addEventListener("agender:data-saved", scheduleAfterSave);
-    window.addEventListener("online", () => syncNow({ reloadOnRemote: true, quiet: true }));
+    window.addEventListener("online", () => syncNow({ quiet: true }));
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) syncNow({ reloadOnRemote: true, quiet: true });
+      if (!document.hidden) syncNow({ quiet: true });
     });
   }
 
@@ -54,14 +53,14 @@
     const result = await readResponse(response);
     enabled = Boolean(result.enabled);
     emitStatus({ state: enabled ? "ready" : "disabled" });
-    if (enabled) await syncNow({ reloadOnRemote: true });
+    if (enabled) await syncNow();
     return result;
   }
 
   function scheduleAfterSave() {
     if (!enabled || !connected) return;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => syncNow({ reloadOnRemote: true, quiet: true }), SAVE_DEBOUNCE_MS);
+    saveTimer = setTimeout(() => syncNow({ quiet: true }), SAVE_DEBOUNCE_MS);
   }
 
   async function syncNow(options = {}) {
@@ -75,26 +74,20 @@
     return syncing;
   }
 
-  async function performSync({ reloadOnRemote = true, quiet = false } = {}) {
+  async function performSync({ quiet = false } = {}) {
     if (!quiet) emitStatus({ state: "syncing" });
     try {
       const response = await fetch("/api/cloud/onedrive/sync", { method: "POST" });
       const result = await readResponse(response);
       connected = true;
       emitStatus({ state: result.busy ? "syncing" : "synced", result });
-      if (reloadOnRemote && Number(result.remoteApplied) > 0) scheduleReload();
+      if (Number(result.remoteApplied) > 0) await window.NotasStorage.refreshFromServer();
       return result;
     } catch (error) {
       emitStatus({ state: navigator.onLine ? "error" : "offline", error: error.message });
       if (!quiet) throw error;
       return null;
     }
-  }
-
-  function scheduleReload() {
-    if (reloadPending) return;
-    reloadPending = true;
-    setTimeout(() => location.reload(), 500);
   }
 
   async function readResponse(response) {

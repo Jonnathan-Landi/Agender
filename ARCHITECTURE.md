@@ -25,9 +25,17 @@ Agender es una aplicación de escritorio local con tres capas:
 - La indexación hidrometeorológica se importa dentro de un trabajador cuando se solicita el inventario.
 - La sincronización remota no bloquea la construcción inicial de la interfaz.
 - Las migraciones independientes de almacenamiento del frontend pueden ejecutarse en paralelo.
+- Los controladores de dominio solo se inicializan cuando el usuario posee el módulo correspondiente.
+- El catálogo geográfico de subcuencas se carga bajo demanda para usuarios con Hidrometeorología; no
+  forma parte del coste de arranque de los demás perfiles.
 - `frontend/js/core/` contiene infraestructura compartida.
 - `frontend/js/features/` contiene controladores de cada función visible.
 - `frontend/viewer/` es un módulo encapsulado y se comunica mediante `/viewer-api`.
+- `frontend/wqreport/` contiene el editor aislado de Calidad del agua; solo se comunica con la aplicación
+  principal mediante `WQReportBridge`.
+- `frontend/js/features/water-quality-report.js` coordina navegación, configuración y exportación del
+  editor, pero no conoce elementos internos de sus hojas.
+- `backend/wqreport_export.py` prepara y genera el PDF; `main.py` únicamente valida permisos y enruta.
 
 No se permiten dependencias desde módulos de dominio hacia `backend/main.py`.
 
@@ -60,6 +68,23 @@ Siguientes extracciones:
 2. Separar los modales hidrometeorológicos de `index.html` cuando exista un cargador de componentes local.
 3. Dividir `hydromet.css` por tabla, mapa, menús contextuales y descargas.
 4. Mantener `app.js` como punto de composición, sin lógica de dominio.
+
+### Reporte de Calidad del agua
+
+Distribución actual:
+
+- `frontend/wqreport/js/`: renderizado, estado, eventos, edición, políticas, tablas y formato.
+- `frontend/wqreport/js/agender-bridge.js`: API pública del editor embebido.
+- `frontend/wqreport/css/style.css`: estilos funcionales de las hojas y sus controles.
+- `frontend/wqreport/css/agender-integration.css`: adaptación del lienzo al iframe.
+- `frontend/css/water-quality-report.css`: interfaz del módulo y configuración en Agender.
+- `backend/wqreport_export.py`: serialización segura y generación PDF.
+
+El controlador principal no debe consultar botones, campos o selectores privados del iframe. Los nuevos
+comandos deben agregarse al bridge. El estado persistente utiliza las claves
+`agender.reports.water-quality` y `agender.reports.water-quality.preferences`. Ambas son locales al
+perfil de Agender, están excluidas de OneDrive y solo se escriben al pulsar **Guardar** dentro del
+módulo. Los cambios de políticas, edición y contenido permanecen en memoria hasta ese momento.
 
 ## Política de eliminación
 

@@ -53,6 +53,8 @@ async def enforce_module_access(request: Request, call_next):
         required = "settings"
     elif path.startswith("/viewer-api"):
         required = "viewer"
+    elif path.startswith("/wqreport"):
+        required = "report-water-quality"
     if required:
         user = current_user(request.cookies.get("agender_session"))
         if not user:
@@ -110,6 +112,12 @@ class ExcelTableExport(BaseModel):
     filename: str
     headers: list[str]
     rows: list[list[Any]]
+
+
+class WaterQualityPdfExport(BaseModel):
+    reportsHtml: str
+    suggestedFileName: str = "Reporte_CA"
+    pageHeight: int = 1260
 
 
 class LicenseGenerationRequest(BaseModel):
@@ -370,6 +378,24 @@ def export_hydromet_excel(payload: ExcelTableExport, request: Request) -> dict[s
     return export_inventory_excel(payload.headers, payload.rows, payload.filename)
 
 
+@app.post("/api/reports/water-quality/export-pdf")
+def export_water_quality_pdf(payload: WaterQualityPdfExport, request: Request) -> dict[str, object]:
+    from .wqreport_export import export_report_pdf
+
+    user = _require_user(request)
+    if "report-water-quality" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    try:
+        return export_report_pdf(
+            payload.reportsHtml,
+            payload.suggestedFileName,
+            payload.pageHeight,
+            (FRONTEND_DIR / "wqreport").as_uri() + "/",
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
 def _folder_dialog(initial_path: str) -> str:
     selected = choose_directory("Selecciona una carpeta", initial_path)
     return str(selected) if selected else ""
@@ -377,6 +403,8 @@ def _folder_dialog(initial_path: str) -> str:
 
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
+app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
+app.mount("/wqreport", StaticFiles(directory=FRONTEND_DIR / "wqreport", html=True), name="wqreport")
 app.mount("/viewer-api", viewer_app, name="viewer-api")
 app.mount("/viewer", StaticFiles(directory=FRONTEND_DIR / "viewer", html=True), name="viewer")
 

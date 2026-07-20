@@ -20,7 +20,18 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .config import APP_DATA_DIR
 
-ALL_MODULES = {"hydromet", "viewer", "requests", "diary", "agenda", "reports", "settings", "licenses"}
+REPORT_MODULES = {"report-water-quality", "report-hydromet-network"}
+ALL_MODULES = {
+    "hydromet",
+    "viewer",
+    "requests",
+    "diary",
+    "agenda",
+    "reports",
+    *REPORT_MODULES,
+    "settings",
+    "licenses",
+}
 DB_PATH = APP_DATA_DIR / "users.db"
 PUBLIC_KEY_PATH = Path(__file__).resolve().parent / "security" / "license_public_key.pem"
 PROGRAM_DATA_ROOT = Path(os.environ.get("PROGRAMDATA", APP_DATA_DIR.parent))
@@ -120,7 +131,7 @@ def validate_license_payload(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("La revisión de la licencia debe ser mayor o igual a 1")
     payload = dict(payload)
     payload["revision"] = revision
-    payload["modules"] = sorted(set(payload.get("modules", [])) & ALL_MODULES)
+    payload["modules"] = sorted(_expand_module_access(payload.get("modules", [])))
     payload["valid"] = True
     return payload
 
@@ -298,7 +309,7 @@ def user_payload(row: sqlite3.Row, license_data: dict[str, Any]) -> dict[str, An
         "username": row["username"],
         "role": row["role"],
         "mustChangePassword": bool(row["must_change_password"]),
-        "modules": sorted(ALL_MODULES if admin else license_data.get("modules", [])),
+        "modules": sorted(ALL_MODULES if admin else _expand_module_access(license_data.get("modules", []))),
     }
 
 
@@ -321,8 +332,15 @@ def generate_license(values: dict[str, Any]) -> bytes:
     key = serialization.load_pem_private_key(path.read_bytes(), password=None)
     if not isinstance(key, Ed25519PrivateKey):
         raise ValueError("Clave privada no válida")
-    requested = set(values.get("modules", [])) & {"hydromet", "requests", "diary", "agenda", "reports"}
-    modules = set(requested)
+    requested = set(values.get("modules", [])) & {
+        "hydromet",
+        "requests",
+        "diary",
+        "agenda",
+        "reports",
+        *REPORT_MODULES,
+    }
+    modules = _expand_module_access(requested)
     if "hydromet" in requested:
         modules.update({"viewer", "settings"})
     modules = sorted(modules)
@@ -348,6 +366,18 @@ def generate_license(values: dict[str, Any]) -> bytes:
     }
     payload["signature"] = base64.b64encode(key.sign(canonical_license(payload))).decode()
     return json.dumps(payload, ensure_ascii=False, indent=2).encode()
+
+
+def _expand_module_access(values: Any) -> set[str]:
+    modules = set(values or []) & ALL_MODULES
+    selected_reports = modules & REPORT_MODULES
+    if "reports" in modules and not selected_reports:
+        modules.update(REPORT_MODULES)  # compatibilidad con licencias anteriores
+    elif selected_reports:
+        modules.add("reports")
+    if "hydromet" in modules:
+        modules.update({"viewer", "settings"})
+    return modules
 
 
 def install_authority_key(content: bytes) -> None:

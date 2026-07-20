@@ -17,6 +17,12 @@ DATA_MODULES = {
     "agender.diary.focus": "diary",
     "agender.request.records": "requests",
     "agender.hydromet.qc-methods": "hydromet",
+    "agender.reports.water-quality": "report-water-quality",
+    "agender.reports.water-quality.preferences": "report-water-quality",
+}
+LOCAL_ONLY_DATA_KEYS = {
+    "agender.reports.water-quality",
+    "agender.reports.water-quality.preferences",
 }
 MAX_VALUE_BYTES = 5 * 1024 * 1024
 
@@ -157,3 +163,7 @@ def _allowed_keys(user: dict[str, Any]) -> tuple[str, ...]:
 
 def allowed_data_keys(user: dict[str, Any]) -> tuple[str, ...]:
     return _allowed_keys(user)
+
+
+def syncable_data_keys(user: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(key for key in _allowed_keys(user) if key not in LOCAL_ONLY_DATA_KEYS)

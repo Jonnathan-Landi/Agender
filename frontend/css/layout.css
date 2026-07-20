@@ -7,6 +7,10 @@
   transition: grid-template-columns 180ms ease;
 }
 
+html[data-restoring-view="true"] .app-shell {
+  visibility: hidden;
+}
+
 .app-shell.nav-collapsed {
   grid-template-columns: 64px minmax(0, 1fr);
 }

@@ -9,6 +9,7 @@
     "Proyectos Institucionales",
     "Solicitudes de Informacion"
   ];
+  const STATUSES = ["Pendiente", "En proceso", "En espera", "Finalizada"];
   const { loadJson, saveJson } = window.NotasStorage;
   const { escapeHtml, formatDate } = window.NotasUtils;
 
@@ -24,6 +25,16 @@
   let form;
   let dialogTitle;
   let focusNote;
+  let statusBoard;
+  let boardContextMenu;
+  let boardContextTaskId = "";
+  let deleteTaskId = "";
+  let deleteDialog;
+  let deleteForm;
+  let deleteMessage;
+  let activeDiaryView = "plan";
+  let pointerDrag = null;
+  let suppressBoardClick = false;
 
   function initDiary() {
     selectedDate = document.querySelector("#diary-date");
@@ -35,6 +46,11 @@
     form = document.querySelector("#diary-task-form");
     dialogTitle = document.querySelector("#diary-dialog-title");
     focusNote = document.querySelector("#diary-focus-note");
+    statusBoard = document.querySelector("#diary-status-board");
+    boardContextMenu = document.querySelector("#diary-board-context-menu");
+    deleteDialog = document.querySelector("#diary-delete-dialog");
+    deleteForm = document.querySelector("#diary-delete-form");
+    deleteMessage = document.querySelector("#diary-delete-message");
 
     fields = {
       id: document.querySelector("#diary-task-id"),
@@ -65,21 +81,51 @@
     fields.status.addEventListener("change", syncProgressWithStatus);
     taskList.addEventListener("click", handleTaskAction);
     taskList.addEventListener("change", handleTaskChange);
+    document.querySelectorAll("[data-diary-view]").forEach((button) => {
+      button.addEventListener("click", () => selectDiaryView(button.dataset.diaryView));
+    });
+    statusBoard.addEventListener("click", handleBoardClick);
+    statusBoard.addEventListener("contextmenu", handleBoardContextMenu);
+    statusBoard.addEventListener("pointerdown", handleBoardPointerDown);
+    statusBoard.addEventListener("pointermove", handleBoardPointerMove);
+    statusBoard.addEventListener("pointerup", handleBoardPointerUp);
+    statusBoard.addEventListener("pointercancel", cancelBoardPointerDrag);
+    boardContextMenu.addEventListener("click", handleBoardMenuAction);
+    deleteForm.addEventListener("submit", confirmTaskDeletion);
+    document.querySelector("#diary-delete-cancel").addEventListener("click", cancelTaskDeletion);
+    deleteDialog.addEventListener("close", () => {
+      if (deleteDialog.returnValue !== "deleted") deleteTaskId = "";
+    });
+    document.addEventListener("pointerdown", dismissBoardContextMenu);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeBoardContextMenu();
+    });
+    window.addEventListener("agender:data-refreshed", handleRemoteDataRefresh);
 
     renderDiary();
   }
 
-  function openTaskForm(task) {
+  function handleRemoteDataRefresh(event) {
+    const keys = event.detail?.keys || [];
+    if (!keys.includes(TASKS_KEY) && !keys.includes(FOCUS_KEY)) return;
+    if (pointerDrag) clearBoardPointerDrag();
+    closeBoardContextMenu();
+    tasks = loadJson(TASKS_KEY, []);
+    focusNotes = loadJson(FOCUS_KEY, {});
+    renderDiary();
+  }
+
+  function openTaskForm(task, defaults = {}) {
     form.reset();
     dialogTitle.textContent = task ? "Editar tarea" : "Nueva tarea";
     fields.id.value = task ? task.id : crypto.randomUUID();
     fields.title.value = task ? task.title : "";
-    fields.date.value = task ? task.date : selectedDate.value || today();
+    fields.date.value = task ? task.date : defaults.date || selectedDate.value || today();
     fields.dueDate.value = task ? task.dueDate || "" : "";
     fields.category.value = task ? normalizeCategory(task.category) : CATEGORIES[0];
     fields.priority.value = task ? task.priority : "Media";
-    fields.status.value = task ? task.status : "Pendiente";
-    fields.progress.value = task ? task.progress : 0;
+    fields.status.value = task ? task.status : defaults.status || "Pendiente";
+    fields.progress.value = task ? task.progress : statusProgress(fields.status.value, 0);
     fields.notes.value = task ? task.notes : "";
     dialog.showModal();
     fields.title.focus();
@@ -136,12 +182,7 @@
     }
 
     if (button.dataset.action === "delete") {
-      const confirmed = confirm("Eliminar esta tarea?");
-      if (!confirmed) return;
-      tasks = tasks.filter((item) => item.id !== task.id);
-      saveTasks();
-      notifyDiaryChanged();
-      renderDiary();
+      requestTaskDeletion(task);
     }
   }
 
@@ -170,6 +211,7 @@
     taskList.innerHTML = visibleTasks.map(taskTemplate).join("");
     emptyState.classList.toggle("visible", visibleTasks.length === 0);
     updateAllTaskCounts();
+    renderStatusBoard();
   }
 
   function updateAllTaskCounts() {
@@ -215,7 +257,7 @@
         </div>
         <div class="diary-task-controls">
           <select data-diary-status data-id="${task.id}" aria-label="Estado de ${escapeHtml(task.title)}">
-            ${["Pendiente", "En proceso", "En espera", "Finalizada"].map((status) => `
+            ${STATUSES.map((status) => `
               <option ${task.status === status ? "selected" : ""}>${status}</option>
             `).join("")}
           </select>
@@ -231,6 +273,285 @@
 
   function handleDateChange() {
     renderDiary();
+  }
+
+  function selectDiaryView(view) {
+    activeDiaryView = view === "board" ? "board" : "plan";
+    document.querySelectorAll("[data-diary-view]").forEach((button) => {
+      const active = button.dataset.diaryView === activeDiaryView;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    document.querySelector("#diary-plan-view").classList.toggle("active", activeDiaryView === "plan");
+    document.querySelector("#diary-board-view").classList.toggle("active", activeDiaryView === "board");
+    if (activeDiaryView === "board") renderStatusBoard();
+  }
+
+  function renderStatusBoard() {
+    const query = searchInput.value.trim().toLowerCase();
+    const visibleTasks = tasks.filter((task) => {
+      const searchable = [task.title, task.category, task.priority, task.status, task.dueDate, task.notes]
+        .join(" ")
+        .toLowerCase();
+      return !query || searchable.includes(query);
+    });
+    statusBoard.innerHTML = STATUSES.map((status) => {
+      const columnTasks = visibleTasks.filter((task) => task.status === status);
+      return boardColumnTemplate(status, columnTasks);
+    }).join("");
+  }
+
+  function boardColumnTemplate(status, columnTasks) {
+    return `
+      <section class="diary-board-column ${statusClass(status)}" data-board-status="${escapeHtml(status)}">
+        <header>
+          <div><i aria-hidden="true"></i><strong>${escapeHtml(status)}</strong><span>${columnTasks.length}</span></div>
+        </header>
+        <div class="diary-board-cards">
+          ${columnTasks.map(boardCardTemplate).join("")}
+          ${columnTasks.length ? "" : '<p class="diary-board-empty">Sin tareas en este estado</p>'}
+        </div>
+        <button class="diary-board-add" type="button" data-board-action="add" data-status="${escapeHtml(status)}">
+          <span class="font-icon" aria-hidden="true">&#xE710;</span><span>Agregar tarea</span>
+        </button>
+      </section>
+    `;
+  }
+
+  function boardCardTemplate(task) {
+    const deadline = deadlineInfo(task);
+    return `
+      <article class="diary-board-card ${deadline.className}" data-task-id="${task.id}" tabindex="0">
+        <div class="diary-board-card-meta">
+          <div class="diary-board-priority-control">
+            <button class="diary-priority diary-board-priority ${priorityClass(task.priority)}" type="button"
+              data-board-priority-toggle="${task.id}" aria-haspopup="menu" aria-expanded="false">
+              <span>${escapeHtml(task.priority)}</span><span class="font-icon" aria-hidden="true">&#xE70D;</span>
+            </button>
+            <div class="diary-board-priority-menu" role="menu" hidden>
+              ${["Alta", "Media", "Baja"].map((priority) => `
+                <button type="button" role="menuitemradio" aria-checked="${task.priority === priority}"
+                  data-board-priority-value="${escapeHtml(priority)}" data-task-id="${task.id}">
+                  <i class="${priorityClass(priority)}" aria-hidden="true"></i><span>${priority}</span>
+                </button>
+              `).join("")}
+            </div>
+          </div>
+          <span>${escapeHtml(task.category || "General")}</span>
+        </div>
+        <h2>${escapeHtml(task.title)}</h2>
+        ${task.notes ? `<p>${escapeHtml(task.notes)}</p>` : ""}
+        <footer>
+          <span>${escapeHtml(dueDateLabel(task.dueDate))}</span>
+          <strong>${clampProgress(task.progress)}%</strong>
+        </footer>
+      </article>
+    `;
+  }
+
+  function handleBoardClick(event) {
+    if (suppressBoardClick) {
+      event.preventDefault();
+      return;
+    }
+    const addButton = event.target.closest('[data-board-action="add"]');
+    if (addButton) {
+      openTaskForm(null, { status: addButton.dataset.status });
+      return;
+    }
+    const priorityToggle = event.target.closest("[data-board-priority-toggle]");
+    if (priorityToggle) {
+      const menu = priorityToggle.nextElementSibling;
+      const opening = menu.hidden;
+      closeBoardPriorityMenus();
+      menu.hidden = !opening;
+      priorityToggle.setAttribute("aria-expanded", String(opening));
+      return;
+    }
+    const priorityOption = event.target.closest("[data-board-priority-value]");
+    if (priorityOption) {
+      updateBoardPriority(priorityOption.dataset.taskId, priorityOption.dataset.boardPriorityValue);
+    }
+  }
+
+  function updateBoardPriority(taskId, value) {
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || task.priority === value) {
+      closeBoardPriorityMenus();
+      return;
+    }
+    task.priority = value;
+    task.updatedAt = new Date().toISOString();
+    saveTasks();
+    notifyDiaryChanged();
+    renderDiary();
+  }
+
+  function handleBoardPointerDown(event) {
+    if (event.button !== 0) return;
+    if (event.target.closest("button, input, textarea, a")) return;
+    const card = event.target.closest("[data-task-id]");
+    if (!card) return;
+    pointerDrag = {
+      card,
+      id: card.dataset.taskId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - card.getBoundingClientRect().left,
+      offsetY: event.clientY - card.getBoundingClientRect().top,
+      moved: false,
+      target: null,
+      ghost: null,
+      placeholder: null
+    };
+    card.setPointerCapture(event.pointerId);
+  }
+
+  function handleBoardPointerMove(event) {
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - pointerDrag.startX, event.clientY - pointerDrag.startY);
+    if (!pointerDrag.moved && distance < 6) return;
+    if (!pointerDrag.moved) {
+      pointerDrag.moved = true;
+      pointerDrag.card.classList.add("dragging");
+      document.body.classList.add("diary-card-dragging");
+      pointerDrag.ghost = createBoardDragGhost(pointerDrag);
+      pointerDrag.placeholder = document.createElement("div");
+      pointerDrag.placeholder.className = "diary-board-drop-placeholder";
+    }
+    event.preventDefault();
+    positionBoardDragGhost(pointerDrag, event.clientX, event.clientY);
+    const column = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-board-status]");
+    statusBoard.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+    pointerDrag.target = column && statusBoard.contains(column) ? column : null;
+    if (pointerDrag.target) {
+      pointerDrag.target.classList.add("drag-over");
+      pointerDrag.target.querySelector(".diary-board-cards")?.append(pointerDrag.placeholder);
+    } else {
+      pointerDrag.placeholder.remove();
+    }
+  }
+
+  function handleBoardPointerUp(event) {
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    const { card, id, moved, target } = pointerDrag;
+    if (card.hasPointerCapture(event.pointerId)) card.releasePointerCapture(event.pointerId);
+    if (moved) {
+      suppressBoardClick = true;
+      setTimeout(() => { suppressBoardClick = false; }, 0);
+    }
+    const task = tasks.find((item) => item.id === id);
+    if (moved && target && task && task.status !== target.dataset.boardStatus) {
+      task.status = target.dataset.boardStatus;
+      task.progress = statusProgress(task.status, task.progress);
+      task.updatedAt = new Date().toISOString();
+      saveTasks();
+      notifyDiaryChanged();
+      renderDiary();
+    }
+    clearBoardPointerDrag();
+  }
+
+  function cancelBoardPointerDrag(event) {
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    clearBoardPointerDrag();
+  }
+
+  function clearBoardPointerDrag() {
+    pointerDrag?.ghost?.remove();
+    pointerDrag?.placeholder?.remove();
+    pointerDrag = null;
+    document.body.classList.remove("diary-card-dragging");
+    statusBoard.querySelectorAll(".dragging, .drag-over").forEach((item) => {
+      item.classList.remove("dragging", "drag-over");
+    });
+  }
+
+  function createBoardDragGhost(drag) {
+    const ghost = drag.card.cloneNode(true);
+    const bounds = drag.card.getBoundingClientRect();
+    ghost.className = "diary-board-drag-ghost";
+    ghost.removeAttribute("data-task-id");
+    ghost.removeAttribute("tabindex");
+    ghost.style.width = `${bounds.width}px`;
+    document.body.append(ghost);
+    return ghost;
+  }
+
+  function positionBoardDragGhost(drag, clientX, clientY) {
+    drag.ghost.style.left = `${clientX - drag.offsetX}px`;
+    drag.ghost.style.top = `${clientY - drag.offsetY}px`;
+  }
+
+  function handleBoardContextMenu(event) {
+    const card = event.target.closest("[data-task-id]");
+    if (!card) return;
+    event.preventDefault();
+    boardContextTaskId = card.dataset.taskId;
+    boardContextMenu.hidden = false;
+    const bounds = boardContextMenu.getBoundingClientRect();
+    boardContextMenu.style.left = `${Math.min(event.clientX, window.innerWidth - bounds.width - 8)}px`;
+    boardContextMenu.style.top = `${Math.min(event.clientY, window.innerHeight - bounds.height - 8)}px`;
+    boardContextMenu.querySelector("button")?.focus();
+  }
+
+  function handleBoardMenuAction(event) {
+    const button = event.target.closest("[data-board-menu-action]");
+    if (!button) return;
+    const task = tasks.find((item) => item.id === boardContextTaskId);
+    closeBoardContextMenu();
+    if (!task) return;
+    if (button.dataset.boardMenuAction === "edit") {
+      openTaskForm(task);
+      return;
+    }
+    if (button.dataset.boardMenuAction === "delete") {
+      requestTaskDeletion(task);
+    }
+  }
+
+  function requestTaskDeletion(task) {
+    deleteTaskId = task.id;
+    deleteMessage.textContent = `Se eliminará “${task.title}”. Esta acción no se puede deshacer.`;
+    deleteDialog.returnValue = "";
+    deleteDialog.showModal();
+  }
+
+  function confirmTaskDeletion(event) {
+    event.preventDefault();
+    if (!deleteTaskId) {
+      deleteDialog.close();
+      return;
+    }
+    tasks = tasks.filter((item) => item.id !== deleteTaskId);
+    deleteTaskId = "";
+    saveTasks();
+    notifyDiaryChanged();
+    renderDiary();
+    deleteDialog.close("deleted");
+  }
+
+  function cancelTaskDeletion() {
+    deleteTaskId = "";
+    deleteDialog.close();
+  }
+
+  function dismissBoardContextMenu(event) {
+    if (!boardContextMenu.hidden && !boardContextMenu.contains(event.target)) closeBoardContextMenu();
+    if (!event.target.closest(".diary-board-priority-control")) closeBoardPriorityMenus();
+  }
+
+  function closeBoardContextMenu() {
+    boardContextMenu.hidden = true;
+    boardContextTaskId = "";
+  }
+
+  function closeBoardPriorityMenus() {
+    statusBoard.querySelectorAll(".diary-board-priority-menu:not([hidden])").forEach((menu) => {
+      menu.hidden = true;
+      menu.previousElementSibling?.setAttribute("aria-expanded", "false");
+    });
   }
 
   function goToday() {

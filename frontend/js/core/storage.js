@@ -6,7 +6,9 @@
     "agender.diary.tasks",
     "agender.diary.focus",
     "agender.request.records",
-    "agender.hydromet.qc-methods"
+    "agender.hydromet.qc-methods",
+    "agender.reports.water-quality",
+    "agender.reports.water-quality.preferences"
   ];
   const pending = new Map();
 
@@ -32,6 +34,29 @@
     await Promise.all(migrations);
   }
 
+  async function refreshFromServer() {
+    const response = await fetch("/api/user-data", { cache: "no-store" });
+    if (!response.ok) throw new Error("No fue posible actualizar los datos sincronizados.");
+    const result = await response.json();
+    const serverData = result.data || {};
+    const changedKeys = [];
+    supportedKeys.forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(serverData, key)) return;
+      if (readLocal(pendingKey(key)).found) return;
+      const localKey = scopedKey(key);
+      const serialized = JSON.stringify(serverData[key]);
+      if (localStorage.getItem(localKey) === serialized) return;
+      localStorage.setItem(localKey, serialized);
+      changedKeys.push(key);
+    });
+    if (changedKeys.length) {
+      window.dispatchEvent(new CustomEvent("agender:data-refreshed", {
+        detail: { keys: changedKeys }
+      }));
+    }
+    return changedKeys;
+  }
+
   function loadJson(key, fallback) {
     try {
       const value = JSON.parse(localStorage.getItem(scopedKey(key)));
@@ -41,14 +66,14 @@
     }
   }
 
-  function saveJson(key, value) {
+  function saveJson(key, value, options = {}) {
     const serialized = JSON.stringify(value);
     localStorage.setItem(scopedKey(key), serialized);
     localStorage.setItem(pendingKey(key), serialized);
     const previous = pending.get(key) || Promise.resolve();
     const request = previous
       .catch(() => {})
-      .then(() => persist(key, value, serialized))
+      .then(() => persist(key, value, serialized, options))
       .catch((error) => console.error(error));
     pending.set(key, request);
     request.then(() => { if (pending.get(key) === request) pending.delete(key); });
@@ -61,7 +86,7 @@
     return saveJson(key, next);
   }
 
-  async function persist(key, value, serialized) {
+  async function persist(key, value, serialized, options = {}) {
     const response = await fetch(`/api/user-data/${encodeURIComponent(key)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -69,7 +94,9 @@
     });
     if (!response.ok) throw new Error("No fue posible guardar los datos del usuario.");
     if (localStorage.getItem(pendingKey(key)) === serialized) localStorage.removeItem(pendingKey(key));
-    window.dispatchEvent(new CustomEvent("agender:data-saved", { detail: { key } }));
+    if (options.notify !== false) {
+      window.dispatchEvent(new CustomEvent("agender:data-saved", { detail: { key } }));
+    }
   }
 
   function readLocal(key) {
@@ -90,6 +117,7 @@
 
   window.NotasStorage = {
     init,
+    refreshFromServer,
     loadJson,
     saveJson,
     updateJson

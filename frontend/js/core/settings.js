@@ -324,7 +324,7 @@
       if (activeCloudProvider === "onedrive") {
         const provider = await window.NotasSync.refreshStatus();
         if (provider?.syncEnabled) {
-          await window.NotasSync.syncNow({ reloadOnRemote: true, quiet: true });
+          await window.NotasSync.syncNow({ quiet: true });
         }
       }
       return;

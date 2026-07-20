@@ -14,6 +14,17 @@ from backend import security
 
 
 class LicenseRevisionTests(TestCase):
+    def test_legacy_report_permission_expands_to_both_submodules(self):
+        modules = security._expand_module_access(["reports"])
+        self.assertIn("report-water-quality", modules)
+        self.assertIn("report-hydromet-network", modules)
+
+    def test_report_submodule_does_not_grant_the_other_report(self):
+        modules = security._expand_module_access(["report-water-quality"])
+        self.assertIn("reports", modules)
+        self.assertIn("report-water-quality", modules)
+        self.assertNotIn("report-hydromet-network", modules)
+
     def test_activation_rejects_same_or_older_revision(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

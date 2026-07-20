@@ -6,12 +6,6 @@
 @import url("hydromet.css");
 @import url("diary.css");
 @import url("agenda.css");
+@import url("water-quality-report.css");
+@import url("license-admin.css");
 @import url("responsive.css");
-/* Vista reservada para el futuro módulo de reportes. */
-.reports-view {
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.reports-placeholder {
-  min-height: 0;
-}

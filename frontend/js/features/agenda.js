@@ -59,7 +59,15 @@
     grid.addEventListener("click", handleAgendaClick);
     miniGrid.addEventListener("click", handleMiniCalendarClick);
     window.addEventListener("agender:diary-changed", renderAgenda);
+    window.addEventListener("agender:data-refreshed", handleRemoteDataRefresh);
 
+    renderAgenda();
+  }
+
+  function handleRemoteDataRefresh(event) {
+    const keys = event.detail?.keys || [];
+    if (!keys.includes(EVENTS_KEY) && !keys.includes(DIARY_TASKS_KEY)) return;
+    events = loadJson(EVENTS_KEY, []);
     renderAgenda();
   }
 

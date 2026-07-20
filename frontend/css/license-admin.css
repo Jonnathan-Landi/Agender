@@ -1,0 +1,183 @@
+.license-admin-view {
+  min-height: 100%;
+}
+
+.license-admin-toolbar {
+  align-items: flex-end;
+}
+
+.license-admin-toolbar .eyebrow {
+  margin: 0 0 5px;
+}
+
+.license-admin-toolbar h1 {
+  margin: 0;
+}
+
+.license-admin-form {
+  display: grid;
+  gap: 16px;
+  padding: 0 24px 24px;
+}
+
+.license-admin-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.license-authority-card,
+.license-admin-card > header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.license-authority-card {
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.license-authority-card > div,
+.license-admin-card > header {
+  min-width: 0;
+}
+
+.license-authority-card > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.license-authority-import {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  place-items: center;
+  cursor: pointer;
+}
+
+.license-authority-import .font-icon {
+  margin: 0;
+  font-size: 18px;
+}
+
+.license-admin-card-icon {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 20px;
+}
+
+.license-admin-card h2,
+.license-admin-card p {
+  margin: 0;
+}
+
+.license-admin-card h2 {
+  font-size: 17px;
+}
+
+.license-admin-card p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.license-admin-card p.error {
+  color: var(--danger);
+}
+
+.license-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(420px, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.license-admin-card > header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.license-admin-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 20px;
+}
+
+.license-admin-fields label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.license-admin-fields label:nth-child(3),
+.license-admin-fields label:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.license-modules-card .license-permissions {
+  margin: 0;
+  padding: 12px 20px 20px;
+  border: 0;
+}
+
+.license-modules-card legend {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.license-admin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.license-admin-actions .login-message {
+  flex: 1;
+  margin: 0;
+  text-align: right;
+}
+
+@media (max-width: 1050px) {
+  .license-admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .license-admin-form {
+    padding: 0 14px 18px;
+  }
+
+  .license-authority-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .license-admin-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .license-admin-fields label {
+    grid-column: 1 / -1;
+  }
+}

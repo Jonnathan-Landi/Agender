@@ -1,0 +1,14 @@
+.reports-viewport {
+  height: 100vh;
+  padding: 0;
+  background: transparent;
+}
+
+#reports {
+  gap: 24px;
+}
+
+.report-page {
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+}

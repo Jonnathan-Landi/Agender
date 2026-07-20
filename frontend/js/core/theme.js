@@ -5,6 +5,9 @@
 
   function initTheme() {
     applySavedTheme();
+    window.addEventListener("agender:data-refreshed", (event) => {
+      if (event.detail?.keys?.includes(PROFILE_KEY)) applySavedTheme();
+    });
 
     document.querySelectorAll("[data-theme-option]").forEach((button) => {
       button.addEventListener("change", () => {
