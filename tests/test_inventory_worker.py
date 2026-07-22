@@ -21,6 +21,18 @@ class InventoryWorkerTests(TestCase):
         self.assertNotIn("text", run.call_args.kwargs)
         self.assertNotIn("encoding", run.call_args.kwargs)
 
+    def test_frozen_inventory_worker_starts_with_a_fresh_pyinstaller_environment(self) -> None:
+        completed = CompletedProcess([], 0, b'{"data":[]}', b"")
+        with (
+            patch("backend.main.sys.frozen", True, create=True),
+            patch("backend.main.sys.executable", r"C:\Agender\agender-backend.exe"),
+            patch("backend.main.subprocess.run", return_value=completed) as run,
+        ):
+            _synchronize_inventory("raw", r"C:\Datos", True)
+
+        self.assertEqual("1", run.call_args.kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"])
+        self.assertEqual(r"C:\Agender\agender-backend.exe", run.call_args.args[0][0])
+
     def test_inventory_worker_rejects_empty_output(self) -> None:
         completed = CompletedProcess([], 0, b"", b"")
 

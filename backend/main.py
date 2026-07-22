@@ -502,6 +502,11 @@ def _synchronize_inventory(source: str, root: str, recursive: bool) -> dict[str,
     )
     creation_flags = 0x08000000 if sys.platform == "win32" else 0
     environment = os.environ.copy()
+    if getattr(sys, "frozen", False):
+        # El trabajador vuelve a ejecutar el mismo binario PyInstaller. Sin un
+        # entorno nuevo, el hijo puede intentar reutilizar el bundle ya abierto
+        # por el servidor y fallar únicamente en la aplicación instalada.
+        environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
     # A redirected Python stdout follows the Windows console code page unless it
     # is pinned explicitly.  The worker prints JSON containing station names and
     # paths, so an accented character could otherwise make the reader thread die

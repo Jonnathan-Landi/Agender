@@ -419,7 +419,10 @@
     updateConnectionStatus(`${sourceLabel(source)} · actualizando…`, "server");
     try {
       const response = await fetch(`/api/local-data?source=${source}&refresh=true`, { headers: { Accept: "application/json" }, cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({}));
+        throw new Error(failure.detail || `HTTP ${response.status}`);
+      }
       const payload = await response.json();
       lastFullSyncAt.set(source, Date.now());
       applyStationPayload(payload, source);

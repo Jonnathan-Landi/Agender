@@ -46,6 +46,19 @@ $backendExecutable = Join-Path $projectRoot "src-tauri\resources\backend\agender
 if (-not (Test-Path -LiteralPath $backendExecutable)) {
   throw "No existe el ejecutable del backend empaquetado: $backendExecutable"
 }
+$inventoryFixture = Join-Path $projectRoot "tests\fixtures\raw"
+$workerOutput = & $backendExecutable --index-worker --source raw --root $inventoryFixture --recursive true
+if ($LASTEXITCODE -ne 0) {
+  throw "El trabajador de inventario empaquetado terminó con código $LASTEXITCODE."
+}
+try {
+  $workerResult = ($workerOutput -join "`n") | ConvertFrom-Json
+} catch {
+  throw "El trabajador de inventario empaquetado no devolvió JSON válido."
+}
+if (-not $workerResult.data -or $workerResult.catalogStationCount -lt 1) {
+  throw "El trabajador de inventario empaquetado devolvió un catálogo vacío."
+}
 $backend = Start-Process -FilePath $backendExecutable -ArgumentList "--port", "18765" -PassThru -WindowStyle Hidden
 try {
   $ready = $false
