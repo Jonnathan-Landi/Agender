@@ -89,7 +89,7 @@ jobs:
             --draft `
             --verify-tag `
             --title "Release Agender $($env:RELEASE_TAG.TrimStart('v'))" `
-            --notes "Solicitud de datos renovada con controles WinUI 3, calendarios y corrección ortográfica; documentos PDF con guardado local y sincronización OneDrive; y modo en segundo plano persistente para una reapertura inmediata."
+            --notes "Se corrigió la actualización de los inventarios de Datos crudos y Control de calidad con caracteres acentuados, y se mejoró el detalle mostrado cuando una actualización falla."
 
       - name: Comprobar la carga y publicar la actualización
         shell: powershell

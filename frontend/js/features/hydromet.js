@@ -440,7 +440,11 @@
       if (Array.isArray(payload.warnings) && payload.warnings.length) console.warn(payload.warnings.join("\n"));
     } catch (error) {
       console.error("No fue posible leer los archivos locales", error);
-      if (selectedSource === source) updateConnectionStatus(`${sourceLabel(source)} · no fue posible actualizar`, "error");
+      if (selectedSource === source) {
+        const detail = String(error?.message || "Error desconocido").replace(/\s+/g, " ").trim();
+        const summary = detail.length > 140 ? `${detail.slice(0, 137)}…` : detail;
+        updateConnectionStatus(`${sourceLabel(source)} · no fue posible actualizar: ${summary}`, "error");
+      }
     } finally {
       syncingSources.delete(source);
       if (selectedSource === source) document.querySelector("#hydromet-connection-status").disabled = false;

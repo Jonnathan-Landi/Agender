@@ -83,7 +83,7 @@ class WaterQualityReportIntegrationTests(unittest.TestCase):
         self.assertNotIn("dialog.showModal()", controller)
         self.assertNotIn("dialog.close()", controller)
 
-    def test_release_version_is_1_12_2(self):
+    def test_release_version_is_1_12_3(self):
         project_root = Path(__file__).resolve().parent.parent
         tauri_config = json.loads(
             (project_root / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8")
@@ -94,9 +94,9 @@ class WaterQualityReportIntegrationTests(unittest.TestCase):
         viewer_api = (
             project_root / "backend" / "viewer" / "api.py"
         ).read_text(encoding="utf-8")
-        self.assertEqual(tauri_config["version"], "1.12.2")
-        self.assertIn('version = "1.12.2"', cargo_manifest)
-        self.assertIn('version="1.12.2"', viewer_api)
+        self.assertEqual(tauri_config["version"], "1.12.3")
+        self.assertIn('version = "1.12.3"', cargo_manifest)
+        self.assertIn('version="1.12.3"', viewer_api)
 
     def test_report_storage_requires_water_quality_submodule(self):
         user = {"modules": ["report-water-quality"]}

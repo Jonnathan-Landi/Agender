@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from subprocess import CompletedProcess
 from unittest import TestCase
 from unittest.mock import patch
 
 from backend.main import _synchronize_inventory
+from backend.index_worker import write_result
 
 
 class InventoryWorkerTests(TestCase):
+    def test_worker_writes_accented_json_as_utf8_bytes(self) -> None:
+        output = BytesIO()
+
+        write_result({"name": "Estación Machángara"}, output)
+
+        self.assertEqual({"name": "Estación Machángara"}, json.loads(output.getvalue().decode("utf-8")))
+
     def test_inventory_worker_forces_utf8_and_decodes_json(self) -> None:
         payload = {"stations": [{"name": "Estación Machángara"}]}
         completed = CompletedProcess([], 0, json.dumps(payload, ensure_ascii=False).encode("utf-8"), b"")
