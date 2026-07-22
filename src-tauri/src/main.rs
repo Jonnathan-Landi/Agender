@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
+    fs,
     io::{BufRead, BufReader},
     net::TcpStream,
     process::{Child, Command, Stdio},
@@ -18,6 +19,7 @@ use tauri_plugin_updater::UpdaterExt;
 
 const BACKEND_PORT_PREFIX: &str = "AGENDER_BACKEND_PORT=";
 const BACKEND_START_TIMEOUT: Duration = Duration::from_secs(30);
+const BACKGROUND_MODE_FILE: &str = "background-mode.json";
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +42,41 @@ struct UpdateDownload {
 struct UpdateState(Arc<Mutex<UpdateDownload>>);
 struct TrustedBackend(Arc<Mutex<Option<u16>>>);
 struct BackgroundMode(AtomicBool);
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct BackgroundModePreference {
+    enabled: bool,
+}
+
+fn background_mode_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|directory| directory.join(BACKGROUND_MODE_FILE))
+        .map_err(|error| error.to_string())
+}
+
+fn load_background_mode(app: &tauri::AppHandle) -> bool {
+    let Ok(path) = background_mode_path(app) else {
+        return false;
+    };
+    let Ok(contents) = fs::read_to_string(path) else {
+        return false;
+    };
+    serde_json::from_str::<BackgroundModePreference>(&contents)
+        .map(|preference| preference.enabled)
+        .unwrap_or(false)
+}
+
+fn save_background_mode(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let path = background_mode_path(app)?;
+    let directory = path
+        .parent()
+        .ok_or_else(|| "Ruta de configuración no válida".to_string())?;
+    fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+    let contents = serde_json::to_vec(&BackgroundModePreference { enabled })
+        .map_err(|error| error.to_string())?;
+    fs::write(path, contents).map_err(|error| error.to_string())
+}
 
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -103,12 +140,23 @@ fn set_background_mode(
     state: tauri::State<'_, BackgroundMode>,
 ) -> Result<(), String> {
     ensure_trusted_window(&window, &trusted)?;
+    save_background_mode(&app, enabled)?;
     state.0.store(enabled, Ordering::Relaxed);
     if let Some(tray) = app.tray_by_id("agender") {
         tray.set_visible(enabled)
             .map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+fn get_background_mode(
+    window: tauri::WebviewWindow,
+    trusted: tauri::State<'_, TrustedBackend>,
+    state: tauri::State<'_, BackgroundMode>,
+) -> Result<bool, String> {
+    ensure_trusted_window(&window, &trusted)?;
+    Ok(state.0.load(Ordering::Relaxed))
 }
 
 #[tauri::command]
@@ -310,6 +358,7 @@ fn main() {
             get_update_download_status,
             download_update,
             install_update,
+            get_background_mode,
             set_background_mode
         ])
         .manage(backend)
@@ -317,6 +366,10 @@ fn main() {
         .manage(trusted_backend)
         .manage(BackgroundMode(AtomicBool::new(false)))
         .setup(|app| {
+            let background_mode = load_background_mode(app.handle());
+            app.state::<BackgroundMode>()
+                .0
+                .store(background_mode, Ordering::Relaxed);
             if let Some(icon) = app.default_window_icon().cloned() {
                 let tray = TrayIconBuilder::with_id("agender")
                     .icon(icon)
@@ -338,7 +391,7 @@ fn main() {
                         }
                     })
                     .build(app)?;
-                tray.set_visible(false)?;
+                tray.set_visible(background_mode)?;
             }
             if let Some(window) = app.get_webview_window("main") {
                 let close_handle = app.handle().clone();
@@ -472,7 +525,10 @@ fn main() {
                     let _ = tray.set_visible(true);
                 }
             }
-            if matches!(event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+            if matches!(
+                event,
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+            ) {
                 if let Some(mut child) = backend_for_exit.lock().unwrap().take() {
                     let _ = child.kill();
                     let _ = child.wait();

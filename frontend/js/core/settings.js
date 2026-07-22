@@ -69,23 +69,32 @@
     restoreUpdateDownload();
   }
 
-  function initBackgroundMode() {
+  async function initBackgroundMode() {
     const checkbox = document.querySelector("#keep-running-background");
-    const enabled = localStorage.getItem(backgroundModeKey) === "true";
-    checkbox.checked = enabled;
-    applyBackgroundMode(enabled);
-    checkbox.addEventListener("change", () => {
+    checkbox.checked = localStorage.getItem(backgroundModeKey) === "true";
+    try {
+      checkbox.checked = Boolean(await tauriInvoke("get_background_mode"));
       localStorage.setItem(backgroundModeKey, String(checkbox.checked));
-      applyBackgroundMode(checkbox.checked);
+    } catch {
+      // El navegador de desarrollo usa solamente la preferencia local.
+    }
+    checkbox.addEventListener("change", async () => {
+      const enabled = checkbox.checked;
+      checkbox.disabled = true;
+      try {
+        await applyBackgroundMode(enabled);
+        localStorage.setItem(backgroundModeKey, String(enabled));
+      } catch (error) {
+        checkbox.checked = !enabled;
+        console.error("No fue posible cambiar el modo en segundo plano.", error);
+      } finally {
+        checkbox.disabled = false;
+      }
     });
   }
 
   async function applyBackgroundMode(enabled) {
-    try {
-      await tauriInvoke("set_background_mode", { enabled: Boolean(enabled) });
-    } catch {
-      // El navegador de desarrollo no posee integración con la bandeja del sistema.
-    }
+    await tauriInvoke("set_background_mode", { enabled: Boolean(enabled) });
   }
 
   function renderAgenderAccount() {
@@ -107,10 +116,10 @@
     }
   }
 
-  function tauriInvoke(command) {
+  function tauriInvoke(command, args) {
     const invoke = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke;
     if (!invoke) throw new Error("La búsqueda de actualizaciones solo está disponible en la aplicación de escritorio.");
-    return invoke(command);
+    return invoke(command, args);
   }
 
   async function checkForUpdates() {

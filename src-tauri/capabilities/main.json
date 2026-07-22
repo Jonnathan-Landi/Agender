@@ -11,6 +11,7 @@
     "allow-get-update-download-status",
     "allow-download-update",
     "allow-install-update",
+    "allow-get-background-mode",
     "allow-set-background-mode"
   ]
 }

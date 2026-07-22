@@ -16,6 +16,26 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn('data-request-view="board"', self.document)
         self.assertIn('id="request-status-board"', self.document)
 
+    def test_requests_owns_its_visual_components_without_diary_css(self):
+        requests_markup = self.document.split('<section class="view" id="requests-view"', 1)[1].split(
+            '<section class="view" id="diary-view"', 1
+        )[0]
+        self.assertNotIn("diary-", requests_markup)
+        self.assertNotIn("diary-", self.controller)
+        for class_name in ("request-view-tab", "request-board-column", "request-context-menu"):
+            self.assertIn(f".{class_name}", self.styles)
+
+    def test_form_and_filters_use_winui_comboboxes(self):
+        self.assertIn('data-request-form-combobox="priority"', self.document)
+        self.assertIn('data-request-form-combobox="status"', self.document)
+        self.assertEqual(2, self.document.count("data-request-filter-combobox>"))
+        self.assertNotIn('<select id="request-priority"', self.document)
+        self.assertNotIn('<select id="status"', self.document)
+        self.assertNotIn('<select id="request-filter"', self.document)
+        self.assertNotIn('<select id="status-filter"', self.document)
+        self.assertIn("handleFormComboboxClick", self.controller)
+        self.assertIn("handleFilterComboboxClick", self.controller)
+
     def test_board_reuses_request_records(self):
         self.assertEqual(self.controller.count('const STORAGE_KEY = "agender.request.records"'), 1)
         self.assertIn("renderStatusBoard();", self.controller)
@@ -122,10 +142,18 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn("formatIsoDate(record.requestDate)", self.controller)
         self.assertIn("formatIsoDate(record.responseDate)", self.controller)
         self.assertEqual(2, self.document.count('placeholder="AAAA-MM-DD"'))
-        self.assertIn('id="request-date-picker" type="date"', self.document)
-        self.assertIn('id="response-date-picker" type="date"', self.document)
-        self.assertIn("selectCalendarDate", self.controller)
+        self.assertIn('data-request-calendar="request"', self.document)
+        self.assertIn('data-request-calendar="response"', self.document)
+        self.assertIn("renderCalendar", self.controller)
+        self.assertIn("isoFromDate", self.controller)
         self.assertIn("function isValidIsoDate", self.controller)
+
+    def test_form_disables_autofill_and_enables_spanish_spellcheck(self):
+        self.assertIn('id="request-form" autocomplete="off" lang="es"', self.document)
+        for field_id in ("requester", "request-objective", "requested-information", "request-observations"):
+            field = self.document.split(f'id="{field_id}"', 1)[1].split(">", 1)[0]
+            self.assertIn('spellcheck="true"', field)
+        self.assertGreaterEqual(self.document.count('autocomplete="off"'), 7)
 
 
 if __name__ == "__main__":

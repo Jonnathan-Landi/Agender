@@ -113,7 +113,7 @@ class BatchExportRequest(BaseModel):
     custom_unit: str | None = None
 
 
-app = FastAPI(title="Agender Viewer API", version="1.12.1")
+app = FastAPI(title="Agender Viewer API", version="1.12.2")
 
 
 def session_dir(session_id: str) -> Path:

@@ -32,11 +32,15 @@
     });
   }
 
-  function restoreBackgroundMode() {
+  async function restoreBackgroundMode() {
     const invoke = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke;
     if (!invoke) return;
-    const enabled = localStorage.getItem("agender.system.keep-running") === "true";
-    invoke("set_background_mode", { enabled }).catch(() => {});
+    try {
+      const enabled = await invoke("get_background_mode");
+      localStorage.setItem("agender.system.keep-running", String(Boolean(enabled)));
+    } catch (error) {
+      console.error("No fue posible restaurar el modo en segundo plano.", error);
+    }
   }
 
   document.querySelectorAll("[data-dialog-close]").forEach((button) => {
@@ -52,7 +56,7 @@
     revealApplication();
     return;
   }
-  restoreBackgroundMode();
+  await restoreBackgroundMode();
   await window.NotasStorage.init();
   const user = window.NotasLogin.getCurrentUser();
   const modules = new Set(user?.modules || []);

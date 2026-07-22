@@ -29,13 +29,15 @@
       requester: document.querySelector("#requester"),
       requestDocument: document.querySelector("#request-document"),
       requestDate: document.querySelector("#request-date"),
-      requestDatePicker: document.querySelector("#request-date-picker"),
+      requestDatePicker: document.querySelector('[data-request-calendar="request"]'),
+      requestDateFlyout: document.querySelector('[data-request-calendar-flyout="request"]'),
       objective: document.querySelector("#request-objective"),
       requestedInformation: document.querySelector("#requested-information"),
       status: document.querySelector("#status"),
       priority: document.querySelector("#request-priority"),
       responseDate: document.querySelector("#response-date"),
-      responseDatePicker: document.querySelector("#response-date-picker"),
+      responseDatePicker: document.querySelector('[data-request-calendar="response"]'),
+      responseDateFlyout: document.querySelector('[data-request-calendar-flyout="response"]'),
       responseDocument: document.querySelector("#response-document"),
       observations: document.querySelector("#request-observations"),
       requestPdf: document.querySelector("#request-pdf"),
@@ -60,6 +62,7 @@
     const filterMenu = document.querySelector("#request-filter-menu");
     const filterToggle = document.querySelector("#request-filter-toggle");
     window.NotasUI.initDismissibleMenu({ menu: filterMenu, toggle: filterToggle });
+    filterMenu.addEventListener("click", handleFilterComboboxClick);
     searchInput.addEventListener("input", render);
     priorityFilter.addEventListener("change", render);
     statusFilter.addEventListener("change", render);
@@ -69,21 +72,17 @@
 
     form.addEventListener("submit", saveFromDialog);
     form.addEventListener("click", handleAttachmentAction);
+    form.addEventListener("click", handleFormComboboxClick);
+    form.addEventListener("click", handleCalendarClick);
+    form.addEventListener("keydown", handleFormComboboxKeydown);
     fields.requestPdf.addEventListener("change", () => selectPendingFiles("request", fields.requestPdf.files));
     fields.responsePdf.addEventListener("change", () => selectPendingFiles("response", fields.responsePdf.files));
     fields.additionalPdfs.addEventListener("change", () => selectPendingFiles("additional", fields.additionalPdfs.files));
     fields.requestDate.addEventListener("input", () => {
-      syncDatePicker(fields.requestDate, fields.requestDatePicker);
       syncDateValidity();
     });
-    fields.requestDatePicker.addEventListener("change", () => selectCalendarDate(fields.requestDatePicker, fields.requestDate));
     fields.responseDate.addEventListener("input", () => {
-      syncDatePicker(fields.responseDate, fields.responseDatePicker);
       syncDateValidity();
-      syncResponseDocumentRequirement();
-    });
-    fields.responseDatePicker.addEventListener("change", () => {
-      selectCalendarDate(fields.responseDatePicker, fields.responseDate);
       syncResponseDocumentRequirement();
     });
     body.addEventListener("click", handleQuickChoice);
@@ -145,8 +144,8 @@
     fields.observations.value = record ? record.observations : "";
     document.querySelector("#request-attachment-message").textContent = "";
     renderAttachmentList(record);
-    syncDatePicker(fields.requestDate, fields.requestDatePicker);
-    syncDatePicker(fields.responseDate, fields.responseDatePicker);
+    syncFormComboboxes();
+    closeCalendars();
     syncResponseDocumentRequirement();
     syncDateValidity();
     dialog.showModal();
@@ -196,13 +195,182 @@
     fields.responseDocument.required = Boolean(fields.responseDate.value);
   }
 
-  function syncDatePicker(textInput, datePicker) {
-    datePicker.value = isValidIsoDate(textInput.value) ? textInput.value : "";
+  function syncFormComboboxes() {
+    form.querySelectorAll("[data-request-form-combobox]").forEach((combobox) => {
+      const field = combobox.dataset.requestFormCombobox === "status" ? fields.status : fields.priority;
+      combobox.querySelector("[data-request-form-combobox-value]").textContent = field.value;
+      combobox.querySelectorAll("[data-request-form-value]").forEach((option) => {
+        option.setAttribute("aria-selected", String(option.dataset.requestFormValue === field.value));
+      });
+    });
   }
 
-  function selectCalendarDate(datePicker, textInput) {
-    textInput.value = datePicker.value;
-    textInput.dispatchEvent(new Event("input", { bubbles: true }));
+  function handleFormComboboxClick(event) {
+    const option = event.target.closest("[data-request-form-value]");
+    if (option) {
+      const combobox = option.closest("[data-request-form-combobox]");
+      const field = combobox.dataset.requestFormCombobox === "status" ? fields.status : fields.priority;
+      field.value = option.dataset.requestFormValue;
+      syncFormComboboxes();
+      closeFormComboboxes();
+      combobox.querySelector(".request-form-combobox-toggle").focus();
+      return;
+    }
+    const toggle = event.target.closest(".request-form-combobox-toggle");
+    if (!toggle) return;
+    const flyout = toggle.nextElementSibling;
+    const opening = flyout.hidden;
+    closeFormComboboxes();
+    flyout.hidden = !opening;
+    toggle.setAttribute("aria-expanded", String(opening));
+    if (opening) flyout.querySelector('[aria-selected="true"]')?.focus();
+  }
+
+  function handleFormComboboxKeydown(event) {
+    if (event.key === "Escape") {
+      closeFormComboboxes();
+      closeCalendars();
+      return;
+    }
+    const option = event.target.closest("[data-request-form-value]");
+    if (!option || !["ArrowDown", "ArrowUp"].includes(event.key)) return;
+    event.preventDefault();
+    const options = [...option.parentElement.querySelectorAll("[data-request-form-value]")];
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    options[(options.indexOf(option) + direction + options.length) % options.length].focus();
+  }
+
+  function closeFormComboboxes() {
+    form.querySelectorAll(".request-form-combobox-flyout:not([hidden])").forEach((flyout) => {
+      flyout.hidden = true;
+      flyout.previousElementSibling.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function handleFilterComboboxClick(event) {
+    const option = event.target.closest("[data-request-filter-value]");
+    if (option) {
+      const combobox = option.closest("[data-request-filter-combobox]");
+      const field = combobox.querySelector("input[type='hidden']");
+      field.value = option.dataset.requestFilterValue;
+      combobox.querySelector("[data-request-filter-label]").textContent = option.textContent.trim();
+      combobox.querySelectorAll("[data-request-filter-value]").forEach((item) => {
+        item.setAttribute("aria-selected", String(item === option));
+      });
+      closeFilterComboboxes();
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+    const toggle = event.target.closest(".request-filter-combobox-toggle");
+    if (!toggle) return;
+    const flyout = toggle.nextElementSibling;
+    const opening = flyout.hidden;
+    closeFilterComboboxes();
+    flyout.hidden = !opening;
+    toggle.setAttribute("aria-expanded", String(opening));
+  }
+
+  function closeFilterComboboxes() {
+    document.querySelectorAll(".request-filter-combobox-flyout:not([hidden])").forEach((flyout) => {
+      flyout.hidden = true;
+      flyout.previousElementSibling.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function handleCalendarClick(event) {
+    const toggle = event.target.closest("[data-request-calendar]");
+    if (toggle) {
+      const kind = toggle.dataset.requestCalendar;
+      const flyout = calendarParts(kind).flyout;
+      const opening = flyout.hidden;
+      closeCalendars();
+      if (opening) openCalendar(kind);
+      return;
+    }
+    const action = event.target.closest("[data-request-calendar-action]");
+    if (!action) return;
+    const flyout = action.closest("[data-request-calendar-flyout]");
+    const kind = flyout.dataset.requestCalendarFlyout;
+    if (action.dataset.requestCalendarAction === "select") {
+      const { input } = calendarParts(kind);
+      input.value = action.dataset.date;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      closeCalendars();
+      input.focus();
+      return;
+    }
+    if (action.dataset.requestCalendarAction === "today") {
+      renderCalendar(kind, new Date());
+      return;
+    }
+    const visible = parseCalendarMonth(flyout.dataset.visibleMonth);
+    visible.setMonth(visible.getMonth() + (action.dataset.requestCalendarAction === "next" ? 1 : -1));
+    renderCalendar(kind, visible);
+  }
+
+  function calendarParts(kind) {
+    return kind === "response"
+      ? { input: fields.responseDate, toggle: fields.responseDatePicker, flyout: fields.responseDateFlyout }
+      : { input: fields.requestDate, toggle: fields.requestDatePicker, flyout: fields.requestDateFlyout };
+  }
+
+  function openCalendar(kind) {
+    const { input, toggle } = calendarParts(kind);
+    const visible = isValidIsoDate(input.value) ? dateFromIso(input.value) : new Date();
+    renderCalendar(kind, visible);
+    toggle.setAttribute("aria-expanded", "true");
+  }
+
+  function renderCalendar(kind, visibleDate) {
+    const { input, flyout } = calendarParts(kind);
+    const year = visibleDate.getFullYear();
+    const month = visibleDate.getMonth();
+    const first = new Date(year, month, 1);
+    const start = new Date(year, month, 1 - first.getDay());
+    const today = isoFromDate(new Date());
+    const selected = isValidIsoDate(input.value) ? input.value : "";
+    flyout.dataset.visibleMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
+    flyout.innerHTML = `
+      <span class="request-calendar-header">
+        <strong>${new Intl.DateTimeFormat("es-EC", { month: "long", year: "numeric" }).format(first)}</strong>
+        <span>
+          <button type="button" data-request-calendar-action="previous" aria-label="Mes anterior"><span class="font-icon" aria-hidden="true">&#xE70E;</span></button>
+          <button type="button" data-request-calendar-action="next" aria-label="Mes siguiente"><span class="font-icon" aria-hidden="true">&#xE70D;</span></button>
+        </span>
+      </span>
+      <span class="request-calendar-weekdays" aria-hidden="true">
+        ${["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"].map((day) => `<span>${day}</span>`).join("")}
+      </span>
+      <span class="request-calendar-days">
+        ${Array.from({ length: 42 }, (_, index) => {
+          const date = new Date(start);
+          date.setDate(start.getDate() + index);
+          const iso = isoFromDate(date);
+          const classes = [date.getMonth() === month ? "" : "outside", iso === today ? "today" : "", iso === selected ? "selected" : ""].filter(Boolean).join(" ");
+          return `<button type="button" class="${classes}" data-request-calendar-action="select" data-date="${iso}" aria-label="${iso}" aria-selected="${iso === selected}">${date.getDate()}</button>`;
+        }).join("")}
+      </span>
+      <button class="request-calendar-today" type="button" data-request-calendar-action="today">Ir a hoy</button>`;
+    flyout.hidden = false;
+  }
+
+  function closeCalendars() {
+    form.querySelectorAll("[data-request-calendar-flyout]:not([hidden])").forEach((flyout) => { flyout.hidden = true; });
+    form.querySelectorAll("[data-request-calendar]").forEach((toggle) => toggle.setAttribute("aria-expanded", "false"));
+  }
+
+  function parseCalendarMonth(value) {
+    const [year, month] = value.split("-").map(Number);
+    return new Date(year, month - 1, 1);
+  }
+
+  function dateFromIso(value) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function isoFromDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
   function syncDateValidity() {
@@ -393,13 +561,13 @@
 
   function boardColumnTemplate(status, columnRecords) {
     return `
-      <section class="diary-board-column ${boardStatusClass(status)}" data-request-board-status="${escapeHtml(status)}">
+      <section class="request-board-column ${boardStatusClass(status)}" data-request-board-status="${escapeHtml(status)}">
         <header><div><i aria-hidden="true"></i><strong>${escapeHtml(status)}</strong><span>${columnRecords.length}</span></div></header>
-        <div class="diary-board-cards">
+        <div class="request-board-cards">
           ${columnRecords.map(boardCardTemplate).join("")}
-          ${columnRecords.length ? "" : '<p class="diary-board-empty">Sin solicitudes en este estado</p>'}
+          ${columnRecords.length ? "" : '<p class="request-board-empty">Sin solicitudes en este estado</p>'}
         </div>
-        <button class="diary-board-add" type="button" data-request-board-action="add" data-status="${escapeHtml(status)}">
+        <button class="request-board-add" type="button" data-request-board-action="add" data-status="${escapeHtml(status)}">
           <span class="font-icon" aria-hidden="true">&#xE710;</span><span>Agregar solicitud</span>
         </button>
       </section>`;
@@ -407,8 +575,8 @@
 
   function boardCardTemplate(record) {
     return `
-      <article class="diary-board-card request-board-card" data-request-id="${record.id}" tabindex="0">
-        <div class="diary-board-card-meta">
+      <article class="request-board-card" data-request-id="${record.id}" tabindex="0">
+        <div class="request-board-card-meta">
           <span>N.° ${requestNumber(record.id)} · ${escapeHtml(record.requestDocument || "Sin documento")}</span>
         </div>
         <h2>${escapeHtml(record.requester)}</h2>
@@ -443,10 +611,10 @@
     if (!pointerDrag.moved) {
       pointerDrag.moved = true;
       pointerDrag.card.classList.add("dragging");
-      document.body.classList.add("diary-card-dragging");
+      document.body.classList.add("request-card-dragging");
       pointerDrag.ghost = createBoardDragGhost(pointerDrag);
       pointerDrag.placeholder = document.createElement("div");
-      pointerDrag.placeholder.className = "diary-board-drop-placeholder";
+      pointerDrag.placeholder.className = "request-board-drop-placeholder";
     }
     event.preventDefault();
     positionBoardDragGhost(pointerDrag, event.clientX, event.clientY);
@@ -455,7 +623,7 @@
     pointerDrag.target = column && statusBoard.contains(column) ? column : null;
     if (pointerDrag.target) {
       pointerDrag.target.classList.add("drag-over");
-      pointerDrag.target.querySelector(".diary-board-cards")?.append(pointerDrag.placeholder);
+      pointerDrag.target.querySelector(".request-board-cards")?.append(pointerDrag.placeholder);
     } else pointerDrag.placeholder.remove();
   }
 
@@ -484,13 +652,13 @@
     pointerDrag?.ghost?.remove();
     pointerDrag?.placeholder?.remove();
     pointerDrag = null;
-    document.body.classList.remove("diary-card-dragging");
+    document.body.classList.remove("request-card-dragging");
     statusBoard.querySelectorAll(".dragging, .drag-over").forEach((item) => item.classList.remove("dragging", "drag-over"));
   }
 
   function createBoardDragGhost(drag) {
     const ghost = drag.card.cloneNode(true);
-    ghost.className = "diary-board-drag-ghost";
+    ghost.className = "request-board-drag-ghost";
     ghost.removeAttribute("data-request-id");
     ghost.removeAttribute("tabindex");
     ghost.style.width = `${drag.card.getBoundingClientRect().width}px`;
@@ -542,6 +710,9 @@
   function dismissContextMenu(event) {
     if (!contextMenu.hidden && !contextMenu.contains(event.target)) closeContextMenu();
     if (!event.target.closest(".request-choice-control")) closeQuickChoiceMenus();
+    if (!event.target.closest(".request-form-combobox")) closeFormComboboxes();
+    if (!event.target.closest(".request-filter-combobox")) closeFilterComboboxes();
+    if (!event.target.closest(".request-date-input")) closeCalendars();
   }
 
   function closeContextMenu() {

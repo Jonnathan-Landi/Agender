@@ -274,23 +274,35 @@
                 <div class="request-filter-panel" id="request-filter-panel">
                   <label>
                     <span>Prioridad</span>
-                    <select id="request-filter">
-                      <option value="">Todas</option>
-                      <option>Alta</option>
-                      <option>Media</option>
-                      <option>Baja</option>
-                    </select>
+                    <span class="request-filter-combobox" data-request-filter-combobox>
+                      <button type="button" class="request-filter-combobox-toggle" aria-haspopup="listbox" aria-expanded="false">
+                        <span data-request-filter-label>Todas</span><span class="font-icon" aria-hidden="true">&#xE70D;</span>
+                      </button>
+                      <span class="request-filter-combobox-flyout" role="listbox" hidden>
+                        <button type="button" role="option" aria-selected="true" data-request-filter-value="">Todas</button>
+                        <button type="button" role="option" data-request-filter-value="Alta">Alta</button>
+                        <button type="button" role="option" data-request-filter-value="Media">Media</button>
+                        <button type="button" role="option" data-request-filter-value="Baja">Baja</button>
+                      </span>
+                      <input id="request-filter" type="hidden" value="">
+                    </span>
                   </label>
                   <label>
                     <span>Estado</span>
-                    <select id="status-filter">
-                      <option value="">Todos</option>
-                      <option>Recibido</option>
-                      <option>En formalización</option>
-                      <option>Despachado por Quipux</option>
-                      <option>Entregado</option>
-                      <option>Archivado</option>
-                    </select>
+                    <span class="request-filter-combobox" data-request-filter-combobox>
+                      <button type="button" class="request-filter-combobox-toggle" aria-haspopup="listbox" aria-expanded="false">
+                        <span data-request-filter-label>Todos</span><span class="font-icon" aria-hidden="true">&#xE70D;</span>
+                      </button>
+                      <span class="request-filter-combobox-flyout" role="listbox" hidden>
+                        <button type="button" role="option" aria-selected="true" data-request-filter-value="">Todos</button>
+                        <button type="button" role="option" data-request-filter-value="Recibido">Recibido</button>
+                        <button type="button" role="option" data-request-filter-value="En formalización">En formalización</button>
+                        <button type="button" role="option" data-request-filter-value="Despachado por Quipux">Despachado por Quipux</button>
+                        <button type="button" role="option" data-request-filter-value="Entregado">Entregado</button>
+                        <button type="button" role="option" data-request-filter-value="Archivado">Archivado</button>
+                      </span>
+                      <input id="status-filter" type="hidden" value="">
+                    </span>
                   </label>
                 </div>
               </div>
@@ -301,18 +313,18 @@
             </div>
           </header>
 
-          <nav class="diary-view-tabs request-view-tabs" aria-label="Vistas de Solicitud de datos">
-            <button class="diary-view-tab active" type="button" data-request-view="list" aria-selected="true">
+          <nav class="request-view-tabs" aria-label="Vistas de Solicitud de datos">
+            <button class="request-view-tab active" type="button" data-request-view="list" aria-selected="true">
               <span class="font-icon" aria-hidden="true">&#xE8A5;</span>
               <span>Solicitudes</span>
             </button>
-            <button class="diary-view-tab" type="button" data-request-view="board" aria-selected="false">
+            <button class="request-view-tab" type="button" data-request-view="board" aria-selected="false">
               <span class="font-icon" aria-hidden="true">&#xE80A;</span>
               <span>Tablero de solicitudes</span>
             </button>
           </nav>
 
-          <section class="diary-mode-panel active" id="request-list-view">
+          <section class="request-mode-panel active" id="request-list-view">
           <section class="table-panel" aria-label="Tabla de solicitudes">
             <div class="table-wrap">
               <table>
@@ -341,10 +353,10 @@
           </section>
           </section>
 
-          <section class="diary-mode-panel diary-board-panel" id="request-board-view" aria-label="Tablero de solicitudes">
-            <div class="diary-board request-board" id="request-status-board"></div>
+          <section class="request-mode-panel request-board-panel" id="request-board-view" aria-label="Tablero de solicitudes">
+            <div class="request-board" id="request-status-board"></div>
           </section>
-          <div class="diary-board-context-menu" id="request-context-menu" role="menu" hidden>
+          <div class="request-context-menu" id="request-context-menu" role="menu" hidden>
             <button type="button" role="menuitem" data-request-menu-action="edit">
               <span class="font-icon" aria-hidden="true">&#xE70F;</span><span>Editar</span>
             </button>
@@ -915,7 +927,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.12.1.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.12.2.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -970,16 +982,18 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.12.1</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.12.2</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.12.1</strong>
+                <strong class="news-version-number">1.12.2</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
                   <h2>Nuevas funcionalidades</h2>
                   <ul>
+                    <li>El formulario de Solicitud de datos incorpora calendarios, listas desplegables y controles rediseñados con una experiencia visual inspirada en WinUI 3.</li>
+                    <li>Los campos de texto evitan sugerencias guardadas del navegador y habilitan la corrección ortográfica en español.</li>
                     <li>Solicitud de datos incorpora el registro completo, numeración automática por fecha y vistas de tabla y tablero.</li>
                     <li>Los documentos de solicitud, respuesta y anexos PDF se guardan localmente y se sincronizan con OneDrive en segundo plano.</li>
                     <li>Los PDF pueden consultarse dentro de Agender o abrirse desde su carpeta local mediante el menú contextual.</li>
@@ -990,6 +1004,8 @@
                 <section class="news-note-section">
                   <h2>Correcciones</h2>
                   <ul>
+                    <li>El modo «Mantener Agender en segundo plano» conserva ahora su configuración y reutiliza el proceso activo para una reapertura inmediata.</li>
+                    <li>Se corrigió el puente nativo que impedía aplicar el valor del interruptor de inicio rápido.</li>
                     <li>El guardado de solicitudes ya no espera a que finalice la transferencia a OneDrive.</li>
                     <li>El visor PDF prioriza la copia local, transmite el archivo directamente y conserva caché privada.</li>
                     <li>Al eliminar una solicitud se limpian sus documentos y, cuando corresponde, su carpeta local y remota.</li>
@@ -1249,13 +1265,16 @@
     </dialog>
 
     <dialog id="request-dialog">
-      <form method="dialog" class="request-form" id="request-form">
+      <form method="dialog" class="request-form" id="request-form" autocomplete="off" lang="es">
         <header>
           <div>
             <p class="eyebrow">Solicitud</p>
             <h2 id="dialog-title">Nueva solicitud</h2>
           </div>
-          <button class="icon-button" value="cancel" type="button" data-dialog-close="request-dialog" aria-label="Cerrar">x</button>
+          <button class="icon-button request-dialog-close" value="cancel" type="button"
+            data-dialog-close="request-dialog" aria-label="Cerrar">
+            <span class="font-icon" aria-hidden="true">&#xE711;</span>
+          </button>
         </header>
 
         <input type="hidden" id="record-id">
@@ -1265,12 +1284,12 @@
             <div class="request-form-grid request-form-grid-primary">
               <label>
                 <span>Nombre del solicitante</span>
-                <input id="requester" required>
+                <input id="requester" autocomplete="off" spellcheck="true" required>
               </label>
               <label>
                 <span>N.° de documento de solicitud</span>
                 <span class="request-document-input">
-                  <input id="request-document" required>
+                  <input id="request-document" autocomplete="off" spellcheck="false" required>
                   <button class="button secondary request-pdf-picker" type="button" data-request-file-picker="request"
                     title="Adjuntar PDF de solicitud" aria-label="Adjuntar PDF de solicitud">
                     <span class="font-icon" aria-hidden="true">&#xEA90;</span>
@@ -1282,30 +1301,45 @@
                 <span>Fecha de solicitud</span>
                 <span class="request-date-input">
                   <input id="request-date" type="text" inputmode="numeric" maxlength="10"
-                    placeholder="AAAA-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" required>
-                  <span class="request-calendar-button" title="Seleccionar fecha">
+                    placeholder="AAAA-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" autocomplete="off" required>
+                  <button class="request-calendar-button" type="button" data-request-calendar="request"
+                    title="Seleccionar fecha" aria-label="Seleccionar fecha de solicitud" aria-expanded="false">
                     <span class="font-icon" aria-hidden="true">&#xE787;</span>
-                    <input id="request-date-picker" type="date" tabindex="-1" aria-label="Seleccionar fecha de solicitud">
-                  </span>
+                  </button>
+                  <span class="request-calendar-flyout" data-request-calendar-flyout="request" hidden></span>
                 </span>
               </label>
               <label class="request-priority-field">
                 <span>Prioridad</span>
-                <select id="request-priority" required>
-                  <option>Alta</option>
-                  <option selected>Media</option>
-                  <option>Baja</option>
-                </select>
+                <span class="request-form-combobox" data-request-form-combobox="priority">
+                  <button type="button" class="request-form-combobox-toggle" aria-haspopup="listbox" aria-expanded="false">
+                    <span data-request-form-combobox-value>Media</span>
+                    <span class="font-icon" aria-hidden="true">&#xE70D;</span>
+                  </button>
+                  <span class="request-form-combobox-flyout" role="listbox" hidden>
+                    <button type="button" role="option" data-request-form-value="Alta">Alta</button>
+                    <button type="button" role="option" data-request-form-value="Media">Media</button>
+                    <button type="button" role="option" data-request-form-value="Baja">Baja</button>
+                  </span>
+                  <input id="request-priority" type="hidden" value="Media">
+                </span>
               </label>
               <label class="request-status-field">
                 <span>Estado</span>
-                <select id="status" required>
-                  <option>Recibido</option>
-                  <option>En formalización</option>
-                  <option>Despachado por Quipux</option>
-                  <option>Entregado</option>
-                  <option>Archivado</option>
-                </select>
+                <span class="request-form-combobox" data-request-form-combobox="status">
+                  <button type="button" class="request-form-combobox-toggle" aria-haspopup="listbox" aria-expanded="false">
+                    <span data-request-form-combobox-value>Recibido</span>
+                    <span class="font-icon" aria-hidden="true">&#xE70D;</span>
+                  </button>
+                  <span class="request-form-combobox-flyout" role="listbox" hidden>
+                    <button type="button" role="option" data-request-form-value="Recibido">Recibido</button>
+                    <button type="button" role="option" data-request-form-value="En formalización">En formalización</button>
+                    <button type="button" role="option" data-request-form-value="Despachado por Quipux">Despachado por Quipux</button>
+                    <button type="button" role="option" data-request-form-value="Entregado">Entregado</button>
+                    <button type="button" role="option" data-request-form-value="Archivado">Archivado</button>
+                  </span>
+                  <input id="status" type="hidden" value="Recibido">
+                </span>
               </label>
             </div>
           </fieldset>
@@ -1315,11 +1349,11 @@
             <div class="request-form-grid">
               <label>
                 <span>Objetivo de la solicitud</span>
-                <textarea id="request-objective" rows="4" required></textarea>
+                <textarea id="request-objective" rows="4" autocomplete="off" spellcheck="true" required></textarea>
               </label>
               <label>
                 <span>Información solicitada</span>
-                <textarea id="requested-information" rows="4" required></textarea>
+                <textarea id="requested-information" rows="4" autocomplete="off" spellcheck="true" required></textarea>
               </label>
             </div>
           </fieldset>
@@ -1331,17 +1365,18 @@
                 <span>Fecha de respuesta</span>
                 <span class="request-date-input">
                   <input id="response-date" type="text" inputmode="numeric" maxlength="10"
-                    placeholder="AAAA-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}">
-                  <span class="request-calendar-button" title="Seleccionar fecha">
+                    placeholder="AAAA-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" autocomplete="off">
+                  <button class="request-calendar-button" type="button" data-request-calendar="response"
+                    title="Seleccionar fecha" aria-label="Seleccionar fecha de respuesta" aria-expanded="false">
                     <span class="font-icon" aria-hidden="true">&#xE787;</span>
-                    <input id="response-date-picker" type="date" tabindex="-1" aria-label="Seleccionar fecha de respuesta">
-                  </span>
+                  </button>
+                  <span class="request-calendar-flyout" data-request-calendar-flyout="response" hidden></span>
                 </span>
               </label>
               <label>
                 <span>N.° de documento de respuesta</span>
                 <span class="request-document-input">
-                  <input id="response-document">
+                  <input id="response-document" autocomplete="off" spellcheck="false">
                   <button class="button secondary request-pdf-picker" type="button" data-request-file-picker="response"
                     title="Adjuntar PDF de respuesta" aria-label="Adjuntar PDF de respuesta">
                     <span class="font-icon" aria-hidden="true">&#xEA90;</span>
@@ -1351,14 +1386,16 @@
               </label>
               <label class="wide">
                 <span>Observaciones <small>(opcional)</small></span>
-                <textarea id="request-observations" rows="3"></textarea>
+                <textarea id="request-observations" rows="3" autocomplete="off" spellcheck="true"></textarea>
               </label>
               <div class="wide request-additional-files">
                 <div>
                   <strong>Documentos adicionales</strong>
                   <small>Puedes adjuntar varios archivos PDF.</small>
                 </div>
-                <button class="button secondary" type="button" data-request-file-picker="additional">Agregar PDF</button>
+                <button class="button secondary" type="button" data-request-file-picker="additional">
+                  <span class="font-icon" aria-hidden="true">&#xE710;</span><span>Agregar PDF</span>
+                </button>
                 <input id="additional-pdfs" type="file" accept="application/pdf,.pdf" multiple hidden>
               </div>
             </div>
@@ -1377,6 +1414,7 @@
     <dialog id="request-delete-dialog" aria-labelledby="request-delete-title">
       <form method="dialog" class="request-form" id="request-delete-form">
         <header>
+          <span class="request-delete-icon font-icon" aria-hidden="true">&#xE74D;</span>
           <div>
             <p class="eyebrow">Solicitud de datos</p>
             <h2 id="request-delete-title">Eliminar solicitud</h2>
@@ -1394,7 +1432,9 @@
       <div class="request-pdf-viewer">
         <header>
           <h2 id="request-pdf-title">Documento PDF</h2>
-          <button class="icon-button" type="button" id="request-pdf-close" aria-label="Cerrar visor">x</button>
+          <button class="icon-button" type="button" id="request-pdf-close" aria-label="Cerrar visor">
+            <span class="font-icon" aria-hidden="true">&#xE711;</span>
+          </button>
         </header>
         <iframe id="request-pdf-frame" title="Visor de documento PDF"></iframe>
       </div>

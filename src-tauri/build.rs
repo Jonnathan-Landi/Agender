@@ -5,6 +5,7 @@ fn main() {
             "get_update_download_status",
             "download_update",
             "install_update",
+            "get_background_mode",
             "set_background_mode",
         ]),
     ))
