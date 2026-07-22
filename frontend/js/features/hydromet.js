@@ -20,8 +20,11 @@
   let mapPopupVariables;
   let completenessRecords = {};
   const syncingSources = new Set();
+  const stationSnapshots = new Map();
+  const lastFullSyncAt = new Map();
+  const FULL_SYNC_INTERVAL_MS = 15 * 60 * 1000;
   let qcMethods = {};
-  let selectedSource = localStorage.getItem("agender.hydromet.source") === "quality" ? "quality" : "raw";
+  let selectedSource = "raw";
 
   const averageExcludedVariables = new Set(["TIMESTAMP", "RECORD"]);
   const qcOptions = ["None", "V1", "V2", "V3"];
@@ -41,6 +44,9 @@
   };
 
   function initHydromet() {
+    localStorage.removeItem("agender.hydromet.inventory.raw");
+    localStorage.removeItem("agender.hydromet.inventory.quality");
+    localStorage.removeItem("agender.hydromet.source");
     const preferredSource = loadJson(profileStorageKey, {}).hydrometSource;
     if (preferredSource === "raw" || preferredSource === "quality") selectedSource = preferredSource;
     qcMethods = normalizeQcMethods(loadJson(qcStorageKey, {}));
@@ -62,11 +68,11 @@
     updateSourceSwitch();
     const cached = restoreStationSnapshot(selectedSource);
     if (!cached) renderHydromet();
-    updateConnectionStatus(`${sourceLabel()} · ${cached ? "inventario disponible · " : ""}actualizando…`, "server");
-    syncLocalStations();
+    updateConnectionStatus(`${sourceLabel()} · cargando inventario guardado…`, "server");
+    loadStationSnapshot(selectedSource).finally(scheduleFullSync);
     setInterval(() => {
       if (!document.hidden) syncLocalStations();
-    }, 5 * 60 * 1000);
+    }, FULL_SYNC_INTERVAL_MS);
   }
 
   function bindEvents() {
@@ -74,7 +80,9 @@
     document.querySelector("#hydromet-filter-panel").addEventListener("click", handleMultiSelectClick);
     document.querySelector("#hydromet-filter-panel").addEventListener("change", handleMultiSelectChange);
     hydrometFilterToggle.addEventListener("click", toggleHydrometFilterMenu);
-    document.querySelector("#hydromet-connection-status").addEventListener("click", syncLocalStations);
+    document.querySelector("#hydromet-connection-status").addEventListener("click", () => {
+      syncLocalStations({ force: true });
+    });
     document.querySelector("#hydromet-batch-download").addEventListener("click", () => {
       window.NotasViewer.openBatchDownload(
         getFilteredHydrometStations(),
@@ -152,7 +160,6 @@
     const preferredSource = loadJson(profileStorageKey, {}).hydrometSource;
     if (!["raw", "quality"].includes(preferredSource) || preferredSource === selectedSource) return;
     selectedSource = preferredSource;
-    localStorage.setItem("agender.hydromet.source", selectedSource);
     updateSourceSwitch();
     if (!restoreStationSnapshot(selectedSource)) {
       hydrometStations = [];
@@ -160,13 +167,12 @@
       fillHydrometFilters();
       renderHydromet();
     }
-    syncLocalStations();
+    loadStationSnapshot(selectedSource).finally(() => syncLocalStations());
   }
 
   function selectSource(source) {
     if (source === selectedSource) return;
     selectedSource = source;
-    localStorage.setItem("agender.hydromet.source", source);
     window.NotasStorage.updateJson(profileStorageKey, { hydrometSource: source });
     updateSourceSwitch();
     if (!restoreStationSnapshot(source)) {
@@ -176,7 +182,7 @@
       renderHydromet();
     }
     updateConnectionStatus(`${sourceLabel()} · inventario disponible · actualizando…`, "server");
-    syncLocalStations();
+    loadStationSnapshot(source).finally(() => syncLocalStations());
   }
 
   function updateSourceSwitch() {
@@ -380,25 +386,42 @@
     renderHydrometMetrics(filtered);
   }
 
-  async function syncLocalStations() {
+  function scheduleFullSync() {
+    const run = () => syncLocalStations();
+    if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 2500 });
+    else setTimeout(run, 1200);
+  }
+
+  async function loadStationSnapshot(source) {
+    try {
+      const response = await fetch(`/api/local-data?source=${source}&refresh=false`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store"
+      });
+      if (!response.ok) return false;
+      applyStationPayload(await response.json(), source);
+      if (selectedSource === source) {
+        updateConnectionStatus(`${sourceLabel(source)} · inventario disponible`, "server");
+      }
+      return true;
+    } catch (error) {
+      console.warn("No fue posible cargar el último inventario", error);
+      return false;
+    }
+  }
+
+  async function syncLocalStations({ force = false } = {}) {
     const source = selectedSource;
     if (syncingSources.has(source)) return;
+    const elapsed = Date.now() - (lastFullSyncAt.get(source) || 0);
+    if (!force && elapsed < FULL_SYNC_INTERVAL_MS) return;
     syncingSources.add(source);
     updateConnectionStatus(`${sourceLabel(source)} · actualizando…`, "server");
     try {
-      try {
-        const snapshotResponse = await fetch(`/api/local-data?source=${source}&refresh=false`, {
-          headers: { Accept: "application/json" },
-          cache: "no-store"
-        });
-        if (snapshotResponse.ok) applyStationPayload(await snapshotResponse.json(), source);
-      } catch (snapshotError) {
-        console.warn("No fue posible cargar el último inventario", snapshotError);
-      }
-
       const response = await fetch(`/api/local-data?source=${source}&refresh=true`, { headers: { Accept: "application/json" }, cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
+      lastFullSyncAt.set(source, Date.now());
       applyStationPayload(payload, source);
       const updated = payload.generatedAt ? new Date(payload.generatedAt) : new Date();
       const time = new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit" }).format(updated);
@@ -436,22 +459,14 @@
   }
 
   function restoreStationSnapshot(source) {
-    try {
-      const payload = JSON.parse(localStorage.getItem(`agender.hydromet.inventory.${source}`));
-      if (!payload || !Array.isArray(payload.data)) return false;
-      applyStationPayload(payload, source);
-      return true;
-    } catch {
-      return false;
-    }
+    const payload = stationSnapshots.get(source);
+    if (!payload || !Array.isArray(payload.data)) return false;
+    applyStationPayload(payload, source);
+    return true;
   }
 
   function cacheStationSnapshot(source, payload) {
-    try {
-      localStorage.setItem(`agender.hydromet.inventory.${source}`, JSON.stringify(payload));
-    } catch (error) {
-      console.warn("No fue posible conservar el inventario hidrometeorológico", error);
-    }
+    stationSnapshots.set(source, payload);
   }
 
   function sourceLabel(source = selectedSource) {

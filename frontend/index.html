@@ -15,9 +15,17 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/controls.css">
+    <link rel="stylesheet" href="css/responsive.css">
   </head>
   <body>
+    <div class="startup-screen" id="startup-screen" role="status" aria-live="polite">
+      <img src="assets/agender-logo.svg" alt="">
+      <strong>Agender</strong>
+      <span>Preparando tu espacio…</span>
+    </div>
     <div class="app-shell nav-expanded" id="app-shell">
       <aside class="nav-pane" aria-label="Navegacion principal">
         <div class="pane-top">
@@ -242,8 +250,8 @@
             <h1 id="requests-title">Solicitud de datos</h1>
             <section class="requests-summary" aria-label="Resumen de solicitudes">
               <div><span>Total</span><strong id="metric-total">0</strong></div>
-              <div><span>Pendientes</span><strong id="metric-pending">0</strong></div>
-              <div><span>Aceptadas</span><strong id="metric-accepted">0</strong></div>
+              <div><span>Recibidas</span><strong id="metric-received">0</strong></div>
+              <div><span>En formalización</span><strong id="metric-formalizing">0</strong></div>
               <div><span>Entregadas</span><strong id="metric-delivered">0</strong></div>
             </section>
             <button class="button primary compact-button request-new-button" type="button" id="new-request">
@@ -259,19 +267,18 @@
                 </span>
               </label>
               <div class="request-filter-menu" id="request-filter-menu">
-                <button class="button secondary compact-button request-filter-toggle" type="button" id="request-filter-toggle" aria-expanded="false" aria-controls="request-filter-panel">
+                <button class="button secondary compact-button" type="button" id="request-filter-toggle" aria-expanded="false" aria-controls="request-filter-panel">
                   <span class="font-icon" aria-hidden="true">&#xE71C;</span>
                   <span>Filtro</span>
                 </button>
                 <div class="request-filter-panel" id="request-filter-panel">
                   <label>
-                    <span>Solicitud</span>
+                    <span>Prioridad</span>
                     <select id="request-filter">
                       <option value="">Todas</option>
-                      <option>Aceptado</option>
-                      <option>Rechazado</option>
-                      <option>Pendiente</option>
-                      <option>En revision</option>
+                      <option>Alta</option>
+                      <option>Media</option>
+                      <option>Baja</option>
                     </select>
                   </label>
                   <label>
@@ -279,34 +286,49 @@
                     <select id="status-filter">
                       <option value="">Todos</option>
                       <option>Recibido</option>
-                      <option>En proceso</option>
+                      <option>En formalización</option>
+                      <option>Despachado por Quipux</option>
                       <option>Entregado</option>
                       <option>Archivado</option>
                     </select>
                   </label>
                 </div>
               </div>
-              <button class="button secondary compact-button" type="button" id="export-csv">
+              <button class="button secondary compact-button" type="button" id="export-excel">
                 <span class="font-icon" aria-hidden="true">&#xE74E;</span>
                 <span>Exportar</span>
               </button>
             </div>
           </header>
 
+          <nav class="diary-view-tabs request-view-tabs" aria-label="Vistas de Solicitud de datos">
+            <button class="diary-view-tab active" type="button" data-request-view="list" aria-selected="true">
+              <span class="font-icon" aria-hidden="true">&#xE8A5;</span>
+              <span>Solicitudes</span>
+            </button>
+            <button class="diary-view-tab" type="button" data-request-view="board" aria-selected="false">
+              <span class="font-icon" aria-hidden="true">&#xE80A;</span>
+              <span>Tablero de solicitudes</span>
+            </button>
+          </nav>
+
+          <section class="diary-mode-panel active" id="request-list-view">
           <section class="table-panel" aria-label="Tabla de solicitudes">
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Solicitante</th>
-                    <th>Nro. Referencia</th>
-                    <th>Fecha solicitud</th>
-                    <th>Datos solicitados</th>
-                    <th>Objetivo de solicitud</th>
-                    <th>Solicitud</th>
+                    <th>N.°</th>
+                    <th>Nombre del<br>solicitante</th>
+                    <th>N.° de documento<br>de solicitud</th>
+                    <th>Fecha de<br>solicitud</th>
+                    <th>Objetivo de<br>la solicitud</th>
+                    <th>Información<br>solicitada</th>
                     <th>Estado</th>
-                    <th>Fecha entrega</th>
-                    <th>Acciones</th>
+                    <th>Prioridad</th>
+                    <th>Fecha de<br>respuesta</th>
+                    <th>N.° de documento<br>de respuesta</th>
+                    <th>Observaciones</th>
                   </tr>
                 </thead>
                 <tbody id="requests-body"></tbody>
@@ -317,6 +339,22 @@
               </div>
             </div>
           </section>
+          </section>
+
+          <section class="diary-mode-panel diary-board-panel" id="request-board-view" aria-label="Tablero de solicitudes">
+            <div class="diary-board request-board" id="request-status-board"></div>
+          </section>
+          <div class="diary-board-context-menu" id="request-context-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-request-menu-action="edit">
+              <span class="font-icon" aria-hidden="true">&#xE70F;</span><span>Editar</span>
+            </button>
+            <button type="button" role="menuitem" data-request-menu-action="open-folder">
+              <span class="font-icon" aria-hidden="true">&#xED25;</span><span>Ver carpeta</span>
+            </button>
+            <button class="danger" type="button" role="menuitem" data-request-menu-action="delete">
+              <span class="font-icon" aria-hidden="true">&#xE74D;</span><span>Eliminar</span>
+            </button>
+          </div>
         </section>
 
         <section class="view" id="diary-view" aria-labelledby="diary-title">
@@ -784,6 +822,19 @@
                   <label><input type="radio" name="application-theme" value="system" data-theme-option="system"><span>Usar la configuración del sistema</span></label>
                 </div>
               </details>
+              <h2 class="settings-group-title">Inicio rápido</h2>
+              <section class="settings-card">
+                <span class="settings-card-icon font-icon" aria-hidden="true">&#xE823;</span>
+                <div>
+                  <h2>Mantener Agender en segundo plano</h2>
+                  <p>Al cerrar la ventana, conserva la sesión activa para que la próxima apertura sea inmediata.</p>
+                  <label class="subfolder-option">
+                    <input id="keep-running-background" type="checkbox">
+                    <span class="toggle-switch" aria-hidden="true"></span>
+                    <span><strong>Activar inicio rápido</strong><small>Puedes recuperar la ventana desde el icono de Agender o abriendo la aplicación nuevamente.</small></span>
+                  </label>
+                </div>
+              </section>
             </section>
 
             <section class="settings-page" data-settings-panel="paths">
@@ -864,7 +915,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.11.9.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.12.0.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -919,34 +970,32 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.11.9</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.12.0</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.11.9</strong>
+                <strong class="news-version-number">1.12.0</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
                   <h2>Nuevas funcionalidades</h2>
                   <ul>
-                    <li>Se incorporó Reportes con los submódulos Calidad del agua y Red hidrometeorológica.</li>
-                    <li>Se migró el reporte de Calidad del agua a Tauri con edición, guardado e impresión.</li>
-                    <li>Se agregó al Diario el Plan diario y un Tablero de estados con tarjetas movibles.</li>
-                    <li>El tablero permite mover tarjetas entre estados, cambiar prioridades directamente y administrar tareas mediante un menú contextual.</li>
-                    <li>Generar licencia ahora funciona como una vista completa y admite permisos separados por reporte.</li>
+                    <li>Solicitud de datos incorpora el registro completo, numeración automática por fecha y vistas de tabla y tablero.</li>
+                    <li>Los documentos de solicitud, respuesta y anexos PDF se guardan localmente y se sincronizan con OneDrive en segundo plano.</li>
+                    <li>Los PDF pueden consultarse dentro de Agender o abrirse desde su carpeta local mediante el menú contextual.</li>
+                    <li>La tabla de solicitudes se exporta íntegramente a Excel en la ubicación elegida por el usuario.</li>
+                    <li>Una misma licencia de usuario puede utilizarse en varias instalaciones autorizadas y mantener sus datos sincronizados.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
                   <h2>Correcciones</h2>
                   <ul>
-                    <li>Se eliminó el parpadeo provocado por la recarga completa después de sincronizar con OneDrive.</li>
-                    <li>Los cambios remotos ahora actualizan las vistas abiertas sin reiniciar la aplicación.</li>
-                    <li>Se corrigió la restauración de la pestaña activa durante cambios de sesión y licencia.</li>
-                    <li>Cambiar la prioridad desde el tablero conserva la posición manual de la tarea.</li>
-                    <li>Los controles de prioridad ahora utilizan el chevrón y el desplegable visual de WinUI 3.</li>
-                    <li>La eliminación de tareas utiliza una confirmación integrada en Agender y ya no muestra mensajes del servidor local.</li>
-                    <li>Se aislaron los datos de Calidad del agua para que no se sincronicen con OneDrive.</li>
-                    <li>Se retiraron dependencias, controles, estilos obsoletos y artefactos heredados de Electron y módulos descartados.</li>
+                    <li>El guardado de solicitudes ya no espera a que finalice la transferencia a OneDrive.</li>
+                    <li>El visor PDF prioriza la copia local, transmite el archivo directamente y conserva caché privada.</li>
+                    <li>Al eliminar una solicitud se limpian sus documentos y, cuando corresponde, su carpeta local y remota.</li>
+                    <li>Las fechas utilizan el formato AAAA-MM-DD y recuperan el selector de calendario.</li>
+                    <li>Se redujo el ancho de la tabla, se reemplazó la columna Acciones por un menú contextual y se actualizaron los controles al estilo WinUI 3.</li>
+                    <li>Se corrigieron el cierre del icono de bandeja, la sincronización del inventario y la recuperación de módulos y permisos.</li>
                   </ul>
                 </section>
               </div>
@@ -1210,49 +1259,112 @@
         </header>
 
         <input type="hidden" id="record-id">
-        <div class="form-grid">
-          <label>
-            <span>Solicitante</span>
-            <input id="requester" required>
-          </label>
-          <label>
-            <span>Nro. Referencia</span>
-            <input id="reference">
-          </label>
-          <label>
-            <span>Fecha solicitud</span>
-            <input id="request-date" type="date" required>
-          </label>
-          <label>
-            <span>Fecha entrega</span>
-            <input id="delivery-date" type="date">
-          </label>
-          <label>
-            <span>Solicitud</span>
-            <select id="request-result">
-              <option>Aceptado</option>
-              <option>Pendiente</option>
-              <option>En revision</option>
-              <option>Rechazado</option>
-            </select>
-          </label>
-          <label>
-            <span>Estado</span>
-            <select id="status">
-              <option>Recibido</option>
-              <option>En proceso</option>
-              <option>Entregado</option>
-              <option>Archivado</option>
-            </select>
-          </label>
-          <label class="wide">
-            <span>Datos solicitados</span>
-            <textarea id="requested-data" rows="4" required></textarea>
-          </label>
-          <label class="wide">
-            <span>Objetivo de solicitud</span>
-            <textarea id="request-objective" rows="5" required></textarea>
-          </label>
+        <div class="request-form-sections">
+          <fieldset class="request-form-section">
+            <legend>Datos de la solicitud</legend>
+            <div class="request-form-grid request-form-grid-primary">
+              <label>
+                <span>Nombre del solicitante</span>
+                <input id="requester" required>
+              </label>
+              <label>
+                <span>N.° de documento de solicitud</span>
+                <span class="request-document-input">
+                  <input id="request-document" required>
+                  <button class="button secondary request-pdf-picker" type="button" data-request-file-picker="request"
+                    title="Adjuntar PDF de solicitud" aria-label="Adjuntar PDF de solicitud">
+                    <span class="font-icon" aria-hidden="true">&#xEA90;</span>
+                  </button>
+                </span>
+                <input id="request-pdf" type="file" accept="application/pdf,.pdf" hidden>
+              </label>
+              <label>
+                <span>Fecha de solicitud</span>
+                <span class="request-date-input">
+                  <input id="request-date" type="text" inputmode="numeric" maxlength="10"
+                    placeholder="AAAA-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" required>
+                  <span class="request-calendar-button" title="Seleccionar fecha">
+                    <span class="font-icon" aria-hidden="true">&#xE787;</span>
+                    <input id="request-date-picker" type="date" tabindex="-1" aria-label="Seleccionar fecha de solicitud">
+                  </span>
+                </span>
+              </label>
+              <label class="request-priority-field">
+                <span>Prioridad</span>
+                <select id="request-priority" required>
+                  <option>Alta</option>
+                  <option selected>Media</option>
+                  <option>Baja</option>
+                </select>
+              </label>
+              <label class="request-status-field">
+                <span>Estado</span>
+                <select id="status" required>
+                  <option>Recibido</option>
+                  <option>En formalización</option>
+                  <option>Despachado por Quipux</option>
+                  <option>Entregado</option>
+                  <option>Archivado</option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="request-form-section">
+            <legend>Detalle solicitado</legend>
+            <div class="request-form-grid">
+              <label>
+                <span>Objetivo de la solicitud</span>
+                <textarea id="request-objective" rows="4" required></textarea>
+              </label>
+              <label>
+                <span>Información solicitada</span>
+                <textarea id="requested-information" rows="4" required></textarea>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="request-form-section request-response-section">
+            <legend>Respuesta <small>(se completa posteriormente)</small></legend>
+            <div class="request-form-grid">
+              <label>
+                <span>Fecha de respuesta</span>
+                <span class="request-date-input">
+                  <input id="response-date" type="text" inputmode="numeric" maxlength="10"
+                    placeholder="AAAA-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}">
+                  <span class="request-calendar-button" title="Seleccionar fecha">
+                    <span class="font-icon" aria-hidden="true">&#xE787;</span>
+                    <input id="response-date-picker" type="date" tabindex="-1" aria-label="Seleccionar fecha de respuesta">
+                  </span>
+                </span>
+              </label>
+              <label>
+                <span>N.° de documento de respuesta</span>
+                <span class="request-document-input">
+                  <input id="response-document">
+                  <button class="button secondary request-pdf-picker" type="button" data-request-file-picker="response"
+                    title="Adjuntar PDF de respuesta" aria-label="Adjuntar PDF de respuesta">
+                    <span class="font-icon" aria-hidden="true">&#xEA90;</span>
+                  </button>
+                </span>
+                <input id="response-pdf" type="file" accept="application/pdf,.pdf" hidden>
+              </label>
+              <label class="wide">
+                <span>Observaciones <small>(opcional)</small></span>
+                <textarea id="request-observations" rows="3"></textarea>
+              </label>
+              <div class="wide request-additional-files">
+                <div>
+                  <strong>Documentos adicionales</strong>
+                  <small>Puedes adjuntar varios archivos PDF.</small>
+                </div>
+                <button class="button secondary" type="button" data-request-file-picker="additional">Agregar PDF</button>
+                <input id="additional-pdfs" type="file" accept="application/pdf,.pdf" multiple hidden>
+              </div>
+            </div>
+          </fieldset>
+          <div class="request-attachment-list" id="request-attachment-list"></div>
+          <p class="request-attachment-message" id="request-attachment-message" role="status"></p>
         </div>
 
         <footer>
@@ -1260,6 +1372,32 @@
           <button class="button primary" value="save" type="submit">Guardar</button>
         </footer>
       </form>
+    </dialog>
+
+    <dialog id="request-delete-dialog" aria-labelledby="request-delete-title">
+      <form method="dialog" class="request-form" id="request-delete-form">
+        <header>
+          <div>
+            <p class="eyebrow">Solicitud de datos</p>
+            <h2 id="request-delete-title">Eliminar solicitud</h2>
+          </div>
+        </header>
+        <p id="request-delete-message">Esta acción no se puede deshacer.</p>
+        <footer>
+          <button class="button secondary" type="button" id="request-delete-cancel">Cancelar</button>
+          <button class="button danger" type="submit">Eliminar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="request-pdf-dialog" class="request-pdf-dialog" aria-labelledby="request-pdf-title">
+      <div class="request-pdf-viewer">
+        <header>
+          <h2 id="request-pdf-title">Documento PDF</h2>
+          <button class="icon-button" type="button" id="request-pdf-close" aria-label="Cerrar visor">x</button>
+        </header>
+        <iframe id="request-pdf-frame" title="Visor de documento PDF"></iframe>
+      </div>
     </dialog>
 
     <dialog id="water-quality-settings-dialog" class="water-quality-settings-dialog" aria-labelledby="water-quality-settings-title">
@@ -1377,13 +1515,8 @@
     <script src="js/core/storage.js"></script>
     <script src="js/core/sync.js"></script>
     <script src="js/core/theme.js"></script>
-    <script src="js/core/settings.js"></script>
     <script src="js/core/navigation.js"></script>
     <script src="js/core/login.js"></script>
-    <script src="js/core/license-admin.js"></script>
-    <script src="js/features/requests.js"></script>
-    <script src="js/features/diary.js"></script>
-    <script src="js/features/agenda.js"></script>
     <div class="station-context-menu" id="station-context-menu" role="menu" hidden>
       <div class="station-context-heading">
         <span class="station-context-station-icon font-icon" aria-hidden="true">&#xE80F;</span>
@@ -1587,10 +1720,6 @@
       </section>
     </div>
 
-    <script src="js/features/viewer.js"></script>
-    <script src="js/features/hydromet-map.js"></script>
-    <script src="js/features/hydromet.js"></script>
-    <script src="js/features/water-quality-report.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>

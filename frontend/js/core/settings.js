@@ -16,6 +16,7 @@
     "quality-onedrive-url": "qualityOneDriveUrl"
   };
   const activeCloudProvider = "onedrive";
+  const backgroundModeKey = "agender.system.keep-running";
   let cloudStatus = {};
   let cloudLoginPoll = null;
   let updateDownloadPhase = "idle";
@@ -24,6 +25,7 @@
 
   function initSettings() {
     renderAgenderAccount();
+    initBackgroundMode();
     document.querySelectorAll("[data-settings-page]").forEach((button) => {
       button.addEventListener("click", () => showPage(button.dataset.settingsPage));
     });
@@ -65,6 +67,25 @@
     window.addEventListener("agender:sync-status", handleSyncStatus);
     loadCloudStatus();
     restoreUpdateDownload();
+  }
+
+  function initBackgroundMode() {
+    const checkbox = document.querySelector("#keep-running-background");
+    const enabled = localStorage.getItem(backgroundModeKey) === "true";
+    checkbox.checked = enabled;
+    applyBackgroundMode(enabled);
+    checkbox.addEventListener("change", () => {
+      localStorage.setItem(backgroundModeKey, String(checkbox.checked));
+      applyBackgroundMode(checkbox.checked);
+    });
+  }
+
+  async function applyBackgroundMode(enabled) {
+    try {
+      await tauriInvoke("set_background_mode", { enabled: Boolean(enabled) });
+    } catch {
+      // El navegador de desarrollo no posee integración con la bandeja del sistema.
+    }
   }
 
   function renderAgenderAccount() {

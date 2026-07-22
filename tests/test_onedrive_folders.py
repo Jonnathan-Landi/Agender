@@ -35,7 +35,10 @@ class OneDriveFolderTests(TestCase):
                 patch("backend.onedrive_folders.REMOTE_CACHE_ROOT", Path(temporary)),
                 patch("backend.onedrive_folders._access_token", return_value="token"),
                 patch("backend.onedrive_folders._json_request", side_effect=graph),
-                patch("backend.onedrive_folders._bytes_request", return_value=b"data") as download,
+                patch(
+                    "backend.onedrive_folders.download_to_file",
+                    side_effect=lambda _url, target, **_kwargs: target.write_bytes(b"data"),
+                ) as download,
             ):
                 root, first = materialize_source(user, settings, "raw")
                 _root, second = materialize_source(user, settings, "raw")

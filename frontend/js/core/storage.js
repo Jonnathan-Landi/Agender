@@ -11,6 +11,7 @@
     "agender.reports.water-quality.preferences"
   ];
   const pending = new Map();
+  const values = new Map();
 
   async function init() {
     const response = await fetch("/api/user-data", { cache: "no-store" });
@@ -22,14 +23,18 @@
       const localKey = scopedKey(key);
       const queued = readLocal(pendingKey(key));
       if (queued.found) {
+        values.set(key, queued.value);
         await persist(key, queued.value, JSON.stringify(queued.value));
-        localStorage.setItem(localKey, JSON.stringify(queued.value));
       } else if (Object.prototype.hasOwnProperty.call(serverData, key)) {
-        localStorage.setItem(localKey, JSON.stringify(serverData[key]));
+        values.set(key, serverData[key]);
       } else {
         const localValue = readLocal(localKey);
-        if (localValue.found) await persist(key, localValue.value, JSON.stringify(localValue.value));
+        if (localValue.found) {
+          values.set(key, localValue.value);
+          await persist(key, localValue.value, JSON.stringify(localValue.value));
+        }
       }
+      localStorage.removeItem(localKey);
     });
     await Promise.all(migrations);
   }
@@ -43,10 +48,9 @@
     supportedKeys.forEach((key) => {
       if (!Object.prototype.hasOwnProperty.call(serverData, key)) return;
       if (readLocal(pendingKey(key)).found) return;
-      const localKey = scopedKey(key);
       const serialized = JSON.stringify(serverData[key]);
-      if (localStorage.getItem(localKey) === serialized) return;
-      localStorage.setItem(localKey, serialized);
+      if (values.has(key) && JSON.stringify(values.get(key)) === serialized) return;
+      values.set(key, serverData[key]);
       changedKeys.push(key);
     });
     if (changedKeys.length) {
@@ -58,17 +62,13 @@
   }
 
   function loadJson(key, fallback) {
-    try {
-      const value = JSON.parse(localStorage.getItem(scopedKey(key)));
-      return value === null ? fallback : value;
-    } catch (error) {
-      return fallback;
-    }
+    const value = values.get(key);
+    return value === undefined || value === null ? fallback : value;
   }
 
   function saveJson(key, value, options = {}) {
     const serialized = JSON.stringify(value);
-    localStorage.setItem(scopedKey(key), serialized);
+    values.set(key, value);
     localStorage.setItem(pendingKey(key), serialized);
     const previous = pending.get(key) || Promise.resolve();
     const request = previous

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import secrets
+import threading
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
@@ -24,6 +27,8 @@ SYNC_FORMAT = "agender.sync"
 SYNC_VERSION = 1
 DEVICE_ID_FILE = APP_DATA_DIR / "device-id"
 MAX_SYNC_ATTEMPTS = 4
+_document_cache: dict[tuple[str, bytes], tuple[str, dict[str, Any]]] = {}
+_document_cache_lock = threading.Lock()
 
 
 def synchronize_onedrive(user: dict[str, Any]) -> dict[str, Any]:
@@ -46,6 +51,7 @@ def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
     device_id = _device_id()
     user_key = cloud_profile_id(user)
     file_name = cloud_profile_filename(SYNC_FILE_PREFIX, user)
+    cache_key = _cache_key(token, file_name)
     conflicts = 0
 
     for _attempt in range(MAX_SYNC_ATTEMPTS):
@@ -54,8 +60,22 @@ def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
         local_user = _local_document(user, device_id)
         merged_user, attempt_conflicts = _merge_user(local_user, remote_user)
         conflicts += attempt_conflicts
+        needs_upload = not exists or merged_user != remote_user
         remote["users"][user_key] = merged_user
         remote.update({"format": SYNC_FORMAT, "version": SYNC_VERSION})
+
+        if not needs_upload:
+            remote_applied = _apply_merged_user(user, merged_user)
+            now = datetime.now(UTC).isoformat()
+            return {
+                "ok": True,
+                "busy": False,
+                "uploaded": False,
+                "remoteApplied": remote_applied,
+                "conflicts": conflicts,
+                "syncedAt": now,
+                "modifiedAt": now,
+            }
 
         content = json.dumps(remote, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         try:
@@ -66,6 +86,10 @@ def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
             raise
 
         remote_applied = _apply_merged_user(user, merged_user)
+        uploaded_etag = str(upload.get("eTag") or upload.get("etag") or "")
+        if uploaded_etag:
+            with _document_cache_lock:
+                _document_cache[cache_key] = (uploaded_etag, deepcopy(remote))
         now = datetime.now(UTC).isoformat()
         return {
             "ok": True,
@@ -80,14 +104,22 @@ def _synchronize_locked(user: dict[str, Any]) -> dict[str, Any]:
 
 
 def _download_document(access_token: str, file_name: str) -> tuple[dict[str, Any], str, bool]:
+    cache_key = _cache_key(access_token, file_name)
     base = f"https://graph.microsoft.com/v1.0/me/drive/special/approot:/{file_name}"
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
         metadata = _json_request(f"{base}?$select=id,eTag,lastModifiedDateTime", headers=headers)
     except CloudHttpError as error:
         if error.code == 404:
+            with _document_cache_lock:
+                _document_cache.pop(cache_key, None)
             return _empty_document(), "", False
         raise
+    etag = str(metadata.get("eTag") or "")
+    with _document_cache_lock:
+        cached = _document_cache.get(cache_key)
+        if cached and cached[0] == etag:
+            return deepcopy(cached[1]), etag, True
     content = _bytes_request(f"{base}:/content", headers=headers)
     try:
         document = json.loads(content.decode("utf-8"))
@@ -98,7 +130,14 @@ def _download_document(access_token: str, file_name: str) -> tuple[dict[str, Any
     if document.get("version") != SYNC_VERSION:
         raise ValueError("La versión del archivo de sincronización no es compatible.")
     document.setdefault("users", {})
-    return document, str(metadata.get("eTag") or ""), True
+    with _document_cache_lock:
+        _document_cache[cache_key] = (etag, deepcopy(document))
+    return document, etag, True
+
+
+def _cache_key(access_token: str, file_name: str) -> tuple[str, bytes]:
+    """Aísla la caché por cuenta sin conservar el token de acceso en memoria."""
+    return file_name, hashlib.sha256(access_token.encode("utf-8")).digest()
 
 
 def _upload_document(

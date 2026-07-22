@@ -28,10 +28,11 @@ class IndexerTests(TestCase):
                 first = synchronize("raw", str(FIXTURES / "raw"), recursive=True)
                 second = synchronize("raw", str(FIXTURES / "raw"), recursive=True)
 
-        self.assertEqual(2, first["fileCount"])
-        self.assertEqual(2, first["sync"]["processed"])
+        self.assertEqual(1, first["fileCount"])
+        self.assertEqual(2, first["ignoredFileCount"])
+        self.assertEqual(1, first["sync"]["processed"])
         self.assertEqual(0, second["sync"]["processed"])
-        self.assertEqual(2, second["sync"]["reused"])
+        self.assertEqual(1, second["sync"]["reused"])
 
     def test_snapshot_returns_catalog_and_last_inventory_without_scanning_source(self) -> None:
         with TemporaryDirectory() as cache:
@@ -42,5 +43,5 @@ class IndexerTests(TestCase):
         stations = {station["code"]: station for station in result["data"]}
         self.assertTrue(result["snapshot"])
         self.assertEqual(43, len(stations))
-        self.assertEqual(2, result["fileCount"])
+        self.assertEqual(1, result["fileCount"])
         self.assertEqual("2026-01-01", stations["LIM_ChicoSoldados"]["start"])

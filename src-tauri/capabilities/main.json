@@ -10,6 +10,7 @@
     "allow-check-for-update",
     "allow-get-update-download-status",
     "allow-download-update",
-    "allow-install-update"
+    "allow-install-update",
+    "allow-set-background-mode"
   ]
 }

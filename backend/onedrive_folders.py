@@ -9,7 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from .cloud_account import _access_token, _bytes_request, _json_request
+from .cloud_account import _access_token, _json_request, download_to_file
 from .config import APP_DATA_DIR, read_json, write_json_atomic
 
 REMOTE_DATA_EXTENSIONS = {".csv", ".dat", ".txt", ".xlsx", ".parquet"}
@@ -74,13 +74,13 @@ def _materialize_remote(
             reused += 1
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
-            content = _bytes_request(
+            temporary = target.with_suffix(f"{target.suffix}.download")
+            download_to_file(
                 f"https://graph.microsoft.com/v1.0/drives/{urllib.parse.quote(str(drive_id), safe='')}"
                 f"/items/{urllib.parse.quote(str(item['id']), safe='')}/content",
+                temporary,
                 headers={"Authorization": f"Bearer {token}"},
             )
-            temporary = target.with_suffix(f"{target.suffix}.download")
-            temporary.write_bytes(content)
             temporary.replace(target)
             downloaded += 1
         current[relative] = fingerprint

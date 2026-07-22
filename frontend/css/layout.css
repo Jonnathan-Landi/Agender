@@ -272,3 +272,24 @@ h2 {
 .app-shell.nav-collapsed .nav-group-toggle {
   display: flex;
 }
+.startup-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  background: var(--bg, #f3f3f3);
+  color: var(--ink, #1b1b1b);
+  transition: opacity 160ms ease;
+}
+
+.startup-screen img {
+  width: 64px;
+  height: 64px;
+}
+
+.startup-screen strong { font-size: 22px; }
+.startup-screen span { color: var(--muted, #666); font-size: 13px; }
+.startup-screen.is-complete { opacity: 0; pointer-events: none; }

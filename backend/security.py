@@ -6,8 +6,9 @@ import json
 import os
 import secrets
 import sqlite3
+import subprocess
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -39,11 +40,23 @@ PROGRAM_DATA = PROGRAM_DATA_ROOT / "Agender"
 LICENSE_PATHS = (APP_DATA_DIR / "license.json", PROGRAM_DATA / "license.json", Path.cwd() / "license.json")
 PRIVATE_KEY_PATHS = (
     APP_DATA_DIR / "authority" / "license_private_key.pem",
-    Path.cwd() / "license-authority" / "license_private_key.pem",
 )
 password_hasher = PasswordHasher()
 _sessions: dict[str, tuple[int, datetime]] = {}
 _lock = Lock()
+SESSION_ABSOLUTE_TTL = timedelta(hours=24)
+SESSION_IDLE_TTL = timedelta(hours=1)
+LOGIN_FAILURE_WINDOW = timedelta(minutes=5)
+LOGIN_LOCKOUT = timedelta(minutes=15)
+LOGIN_MAX_FAILURES = 5
+_login_failures: dict[str, list[datetime]] = {}
+_login_blocked_until: dict[str, datetime] = {}
+
+
+class LoginRateLimited(ValueError):
+    def __init__(self, retry_after: int):
+        super().__init__("Demasiados intentos. Inténtalo de nuevo más tarde")
+        self.retry_after = max(1, retry_after)
 
 
 def _connect() -> sqlite3.Connection:
@@ -67,6 +80,10 @@ def _connect() -> sqlite3.Connection:
         token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )""")
+    session_columns = {row[1] for row in connection.execute("PRAGMA table_info(sessions)")}
+    if "last_seen_at" not in session_columns:
+        connection.execute("ALTER TABLE sessions ADD COLUMN last_seen_at TEXT")
+        connection.execute("UPDATE sessions SET last_seen_at=created_at WHERE last_seen_at IS NULL")
     connection.execute("""CREATE TABLE IF NOT EXISTS user_data (
         user_id INTEGER NOT NULL, data_key TEXT NOT NULL, value_json TEXT NOT NULL,
         updated_at TEXT NOT NULL, PRIMARY KEY(user_id, data_key),
@@ -164,10 +181,9 @@ def install_license(content: bytes, username: str, temporary_password: str) -> d
             (normalized_username,),
         ).fetchone()
     if existing:
-        if payload.get("licenseId") != existing["license_id"]:
-            raise ValueError("La licencia pertenece a otra instalación")
+        same_license = payload.get("licenseId") == existing["license_id"]
         current_revision = int(existing["license_revision"] or 1)
-        if payload["revision"] <= current_revision:
+        if same_license and payload["revision"] <= current_revision:
             raise ValueError(f"La revisión debe ser superior a {current_revision}")
 
     _write_license_atomic(content)
@@ -190,18 +206,16 @@ def replace_license(content: bytes, token: str | None) -> dict[str, Any]:
             (user["id"],),
         ).fetchone()
     current_license_id = row["license_id"] if row else None
-    if payload.get("licenseId") != current_license_id:
-        raise ValueError("La licencia pertenece a otra instalación")
     current_revision = int(row["license_revision"] or 1) if row else 1
     new_revision = int(payload.get("revision") or 1)
-    if new_revision <= current_revision:
+    if payload.get("licenseId") == current_license_id and new_revision <= current_revision:
         raise ValueError(f"La revisión debe ser superior a {current_revision}")
 
     _write_license_atomic(content)
     with database() as connection:
         connection.execute(
-            "UPDATE users SET license_revision=? WHERE id=?",
-            (new_revision, user["id"]),
+            "UPDATE users SET license_id=?,license_revision=? WHERE id=?",
+            (payload.get("licenseId"), new_revision, user["id"]),
         )
     return current_user(token) or user
 
@@ -240,25 +254,69 @@ def _provision_user(license_data: dict[str, Any], must_change: bool = False) -> 
         )
 
 
+def _check_login_rate(normalized_username: str, now: datetime) -> None:
+    with _lock:
+        blocked_until = _login_blocked_until.get(normalized_username)
+        if blocked_until and blocked_until > now:
+            raise LoginRateLimited(int((blocked_until - now).total_seconds()) + 1)
+        _login_blocked_until.pop(normalized_username, None)
+        cutoff = now - LOGIN_FAILURE_WINDOW
+        recent = [attempt for attempt in _login_failures.get(normalized_username, []) if attempt > cutoff]
+        if recent:
+            _login_failures[normalized_username] = recent
+        else:
+            _login_failures.pop(normalized_username, None)
+
+
+def _record_login_failure(normalized_username: str, now: datetime) -> None:
+    with _lock:
+        cutoff = now - LOGIN_FAILURE_WINDOW
+        attempts = [attempt for attempt in _login_failures.get(normalized_username, []) if attempt > cutoff]
+        attempts.append(now)
+        if len(attempts) >= LOGIN_MAX_FAILURES:
+            _login_failures.pop(normalized_username, None)
+            _login_blocked_until[normalized_username] = now + LOGIN_LOCKOUT
+        else:
+            _login_failures[normalized_username] = attempts
+
+
+def _clear_login_failures(normalized_username: str) -> None:
+    with _lock:
+        _login_failures.pop(normalized_username, None)
+        _login_blocked_until.pop(normalized_username, None)
+
+
+def _create_session(connection: sqlite3.Connection, user_id: int, now: datetime) -> str:
+    token = secrets.token_urlsafe(32)
+    timestamp = now.isoformat()
+    connection.execute(
+        "INSERT INTO sessions(token_hash,user_id,created_at,last_seen_at) VALUES(?,?,?,?)",
+        (_token_hash(token), user_id, timestamp, timestamp),
+    )
+    return token
+
+
 def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
     license_data = read_license()
     if not license_data["valid"]:
         return None
+    normalized_username = username.strip().casefold()
+    now = datetime.now(UTC)
+    _check_login_rate(normalized_username, now)
     with database() as connection:
         row = connection.execute("SELECT * FROM users WHERE username=? AND enabled=1", (username.strip(),)).fetchone()
     if not row:
         password_hasher.hash(password)  # reduce timing difference
+        _record_login_failure(normalized_username, now)
         return None
     try:
         password_hasher.verify(row["password_hash"], password)
     except (VerifyMismatchError, InvalidHashError):
+        _record_login_failure(normalized_username, now)
         return None
-    token = secrets.token_urlsafe(32)
+    _clear_login_failures(normalized_username)
     with database() as connection:
-        connection.execute(
-            "INSERT INTO sessions(token_hash,user_id,created_at) VALUES(?,?,?)",
-            (_token_hash(token), row["id"], datetime.now(UTC).isoformat()),
-        )
+        token = _create_session(connection, row["id"], now)
     return token, user_payload(row, license_data)
 
 
@@ -268,13 +326,28 @@ def current_user(token: str | None) -> dict[str, Any] | None:
     license_data = read_license()
     if not license_data.get("valid"):
         return None
+    now = datetime.now(UTC)
+    token_hash = _token_hash(token)
     with database() as connection:
         row = connection.execute(
-            "SELECT users.* FROM sessions "
+            "SELECT users.*,sessions.created_at AS session_created_at,"
+            "sessions.last_seen_at AS session_last_seen_at FROM sessions "
             "JOIN users ON users.id=sessions.user_id "
             "WHERE sessions.token_hash=? AND users.enabled=1",
-            (_token_hash(token),),
+            (token_hash,),
         ).fetchone()
+        if not row:
+            return None
+        try:
+            created_at = datetime.fromisoformat(row["session_created_at"])
+            last_seen_at = datetime.fromisoformat(row["session_last_seen_at"] or row["session_created_at"])
+        except (TypeError, ValueError):
+            connection.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
+            return None
+        if now - created_at > SESSION_ABSOLUTE_TTL or now - last_seen_at > SESSION_IDLE_TTL:
+            connection.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
+            return None
+        connection.execute("UPDATE sessions SET last_seen_at=? WHERE token_hash=?", (now.isoformat(), token_hash))
     return user_payload(row, license_data) if row else None
 
 
@@ -288,7 +361,7 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def change_password(token: str | None, new_password: str) -> dict[str, Any]:
+def change_password(token: str | None, new_password: str) -> tuple[str, dict[str, Any]]:
     user = current_user(token)
     if not user:
         raise ValueError("Sesión no válida")
@@ -299,7 +372,10 @@ def change_password(token: str | None, new_password: str) -> dict[str, Any]:
             "UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?",
             (password_hasher.hash(new_password), user["id"]),
         )
-    return current_user(token) or user
+        connection.execute("DELETE FROM sessions WHERE user_id=?", (user["id"],))
+        new_token = _create_session(connection, user["id"], datetime.now(UTC))
+        row = connection.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+    return new_token, user_payload(row, read_license())
 
 
 def user_payload(row: sqlite3.Row, license_data: dict[str, Any]) -> dict[str, Any]:
@@ -395,3 +471,25 @@ def install_authority_key(content: bytes) -> None:
     target = APP_DATA_DIR / "authority" / "license_private_key.pem"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
+    if os.name == "nt":
+        identity = "\\".join(
+            value for value in (os.environ.get("USERDOMAIN"), os.environ.get("USERNAME")) if value
+        )
+        try:
+            subprocess.run(
+                [
+                    "icacls",
+                    str(target),
+                    "/inheritance:r",
+                    "/grant:r",
+                    f"{identity}:(F)",
+                    "*S-1-5-18:(F)",
+                    "*S-1-5-32-544:(F)",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError) as error:
+            target.unlink(missing_ok=True)
+            raise ValueError("No fue posible proteger la clave privada en este equipo") from error

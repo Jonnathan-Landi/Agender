@@ -8,10 +8,10 @@ from typing import Any
 
 from .catalog import load_station_catalog, normalize_station_code
 from .config import CACHE_DIR, read_json, write_json_atomic
-from .readers import QualityReader, RawReader
-
 DATA_EXTENSIONS = {".csv", ".dat", ".txt"}
 CACHE_VERSION = 1
+CHECKPOINT_INTERVAL_SECONDS = 3
+CHECKPOINT_FILE_INTERVAL = 10
 _locks = {"raw": threading.Lock(), "quality": threading.Lock()}
 
 
@@ -50,6 +50,8 @@ def inventory_snapshot(source: str) -> dict[str, Any]:
 
 
 def synchronize(source: str, root_value: str, recursive: bool = True) -> dict[str, Any]:
+    from .readers import QualityReader, RawReader
+
     started = time.perf_counter()
     if source not in _locks:
         raise ValueError("La fuente seleccionada no es válida.")
@@ -74,6 +76,7 @@ def synchronize(source: str, root_value: str, recursive: bool = True) -> dict[st
         warnings: list[str] = []
         processed = 0
         reused = 0
+        last_checkpoint = time.monotonic()
         reader = RawReader() if source == "raw" else QualityReader()
         eligible_files = []
         for relative, file_path, fingerprint in files:
@@ -98,7 +101,13 @@ def synchronize(source: str, root_value: str, recursive: bool = True) -> dict[st
                 entries[relative] = reader.read(file_path, relative, fingerprint)
                 entries[relative]["station"] = metadata["code"]
                 processed += 1
-                _save_checkpoint(cache_path, source, root, recursive, entries)
+                checkpoint_due = (
+                    processed % CHECKPOINT_FILE_INTERVAL == 0
+                    or time.monotonic() - last_checkpoint >= CHECKPOINT_INTERVAL_SECONDS
+                )
+                if checkpoint_due:
+                    _save_checkpoint(cache_path, source, root, recursive, entries)
+                    last_checkpoint = time.monotonic()
             except Exception as error:
                 warnings.append(f"No se pudo procesar {relative}: {error}")
 

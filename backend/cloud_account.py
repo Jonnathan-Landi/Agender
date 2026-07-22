@@ -9,11 +9,13 @@ import hashlib
 import json
 import os
 import secrets
+import shutil
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from .config import APP_DATA_DIR, read_json, write_json_atomic
@@ -29,7 +31,7 @@ PROVIDERS = {
         "label": "OneDrive",
         "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        "scopes": "offline_access User.Read Files.ReadWrite Files.ReadWrite.AppFolder",
+        "scopes": "offline_access User.Read Files.Read Files.ReadWrite.AppFolder",
     },
 }
 
@@ -208,6 +210,19 @@ def _bytes_request(
         opener = urllib.request.build_opener(_SafeRedirectHandler())
         with opener.open(request, timeout=30) as response:
             return response.read()
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise CloudHttpError(error.code, detail) from error
+    except urllib.error.URLError as error:
+        raise ValueError(f"No fue posible conectar con la nube: {error.reason}") from error
+
+
+def download_to_file(url: str, target: Path, headers: dict[str, str] | None = None) -> None:
+    request = urllib.request.Request(url, headers=headers or {}, method="GET")
+    try:
+        opener = urllib.request.build_opener(_SafeRedirectHandler())
+        with opener.open(request, timeout=120) as response, target.open("wb") as output:
+            shutil.copyfileobj(response, output, length=1024 * 1024)
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise CloudHttpError(error.code, detail) from error

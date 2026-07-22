@@ -148,7 +148,17 @@ class CloudMergeTests(unittest.TestCase):
                 side_effect=[(empty.copy(), "one", True), (empty.copy(), "two", True)],
             ) as download,
             patch("backend.cloud_sync._upload_document", side_effect=upload),
-            patch("backend.cloud_sync._local_document", return_value={"collections": {}}),
+            patch(
+                "backend.cloud_sync._local_document",
+                return_value={
+                    "collections": {
+                        "agenda": {
+                            "kind": "list",
+                            "records": {"one": {"updatedAt": "2026-01-01", "value": {"id": "one"}}},
+                        }
+                    }
+                },
+            ),
             patch("backend.cloud_sync._apply_merged_user", return_value=0),
             patch("backend.cloud_sync.set_sync_result"),
         ):
@@ -156,6 +166,25 @@ class CloudMergeTests(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(download.call_count, 2)
+
+    def test_unchanged_document_is_not_uploaded_again(self) -> None:
+        document = {"format": "agender.sync", "version": 1, "users": {"profile": {"collections": {}}}}
+        user = {"id": 77, "username": "sync-user", "modules": []}
+
+        with (
+            patch("backend.cloud_sync._access_token", return_value="token"),
+            patch("backend.cloud_sync._device_id", return_value="device"),
+            patch("backend.cloud_sync.cloud_profile_id", return_value="profile"),
+            patch("backend.cloud_sync._download_document", return_value=(document, "etag", True)),
+            patch("backend.cloud_sync._upload_document") as upload,
+            patch("backend.cloud_sync._local_document", return_value={"collections": {}}),
+            patch("backend.cloud_sync._apply_merged_user", return_value=0),
+            patch("backend.cloud_sync.set_sync_result"),
+        ):
+            result = synchronize_onedrive(user)
+
+        self.assertFalse(result["uploaded"])
+        upload.assert_not_called()
 
 
 class TombstoneTests(unittest.TestCase):

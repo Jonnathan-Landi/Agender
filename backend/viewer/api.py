@@ -12,8 +12,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-WORKER_THREADS = max(1, (os.cpu_count() or 2) - 2)
-os.environ.setdefault("POLARS_MAX_THREADS", str(WORKER_THREADS))
+WORKER_THREADS = max(1, int(os.environ.get("AGENDER_WORKER_THREADS", "4")))
 
 import duckdb
 import polars as pl
@@ -42,7 +41,8 @@ CACHE_ROOT = APP_ROOT / "data" / "cache"
 CACHE_ROOT.mkdir(parents=True, exist_ok=True)
 CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 CACHE_MAX_SESSIONS = 32
-_duckdb_state = threading.local()
+_duckdb_lock = threading.Lock()
+_duckdb_connection: duckdb.DuckDBPyConnection | None = None
 
 
 EXCLUDED_COLUMNS = {"record", "year", "id", "idx", "index", "row", "timestamp"}
@@ -113,7 +113,7 @@ class BatchExportRequest(BaseModel):
     custom_unit: str | None = None
 
 
-app = FastAPI(title="Agender Viewer API", version="1.11.9")
+app = FastAPI(title="Agender Viewer API", version="1.12.0")
 
 
 def session_dir(session_id: str) -> Path:
@@ -535,12 +535,12 @@ def read_input_file(path: Path) -> pl.DataFrame:
 
 
 def duckdb_query(sql: str, params: list[Any] | None = None) -> list[tuple[Any, ...]]:
-    connection = getattr(_duckdb_state, "connection", None)
-    if connection is None:
-        connection = duckdb.connect(database=":memory:")
-        connection.execute(f"PRAGMA threads={WORKER_THREADS}")
-        _duckdb_state.connection = connection
-    return connection.execute(sql, params or []).fetchall()
+    global _duckdb_connection
+    with _duckdb_lock:
+        if _duckdb_connection is None:
+            _duckdb_connection = duckdb.connect(database=":memory:")
+            _duckdb_connection.execute(f"PRAGMA threads={WORKER_THREADS}")
+        return _duckdb_connection.execute(sql, params or []).fetchall()
 
 
 def stats_payload(total: int, records: int) -> dict[str, Any]:

@@ -2,6 +2,8 @@ import { STORAGE_KEY } from "./data.js";
 import { ensureParameterUnits, setGraphImage } from "./state.js";
 import { restoreCustomParameterRows, restoreParameterRows, serializeCustomParameterRows, serializeParameterRows } from "./table-rows.js";
 
+let standaloneConfig = null;
+
 function getReportConfigElements() {
   return {
     editableElements: Array.from(document.querySelectorAll(".editable-text-target"))
@@ -99,7 +101,7 @@ export async function saveConfig() {
     if (storage) {
       await storage.saveJson(STORAGE_KEY, config, { notify: false });
     } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      standaloneConfig = config;
     }
     return {
       ok: true,
@@ -120,7 +122,7 @@ export function loadConfig() {
     const stagedConfig = window.parent?.NotasWaterQualitySession?.initialConfig;
     const config = stagedConfig || (storage
       ? storage.loadJson(STORAGE_KEY, null)
-      : JSON.parse(localStorage.getItem(STORAGE_KEY))
+      : standaloneConfig
     );
     if (!config) return;
     const { editableElements, tiHeaderEditableElements, stationSelects, tlpSelects, dateInputs, graphImages } = getReportConfigElements();

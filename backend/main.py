@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import html
 import json
+import os
+import subprocess
+import sys
 import webbrowser
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
+import anyio.to_thread
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .cloud_account import (
     cloud_status,
@@ -25,6 +31,7 @@ from .desktop_dialogs import choose_directory
 from .lazy_asgi import LazyAsgiApp
 from .onedrive_folders import materialize_source
 from .security import (
+    LoginRateLimited,
     auth_status,
     change_password,
     current_user,
@@ -39,16 +46,89 @@ from .user_data import read_user_data, write_user_data
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
-app = FastAPI(title="Agender", docs_url=None, redoc_url=None)
+
+
+@asynccontextmanager
+async def lifespan(_application: FastAPI):
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 8
+    yield
+
+
+app = FastAPI(title="Agender", docs_url=None, redoc_url=None, lifespan=lifespan)
 viewer_app = LazyAsgiApp("backend.viewer.api", "app")
+SESSION_MAX_AGE_SECONDS = 24 * 60 * 60
+MAX_REQUEST_BYTES = 50 * 1024 * 1024
+MAX_LICENSE_BYTES = 1024 * 1024
+MAX_AUTHORITY_KEY_BYTES = 64 * 1024
+
+
+class RequestSizeLimitMiddleware:
+    def __init__(self, application, max_bytes: int):
+        self.application = application
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.application(scope, receive, send)
+            return
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            received += len(message.get("body", b""))
+            if received > self.max_bytes:
+                raise _RequestTooLarge
+            return message
+
+        try:
+            await self.application(scope, limited_receive, send)
+        except _RequestTooLarge:
+            response = Response(
+                content='{"detail":"La solicitud excede el tamaño permitido"}',
+                status_code=413,
+                media_type="application/json",
+            )
+            await response(scope, receive, send)
+
+
+class _RequestTooLarge(Exception):
+    pass
+
+
+app.add_middleware(RequestSizeLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
+
+
+async def _read_limited_upload(upload: UploadFile, maximum: int, label: str) -> bytes:
+    content = await upload.read(maximum + 1)
+    if len(content) > maximum:
+        raise HTTPException(status_code=413, detail=f"{label} excede el tamaño permitido")
+    return content
 
 
 @app.middleware("http")
 async def enforce_module_access(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_REQUEST_BYTES:
+                return Response(
+                    content='{"detail":"La solicitud excede el tamaño permitido"}',
+                    status_code=413,
+                    media_type="application/json",
+                )
+        except ValueError:
+            return Response(
+                content='{"detail":"Content-Length no válido"}',
+                status_code=400,
+                media_type="application/json",
+            )
     path = request.url.path
     required = None
     if path.startswith("/api/local-data"):
         required = "hydromet"
+    elif path.startswith("/api/requests"):
+        required = "requests"
     elif path.startswith("/api/settings") or path.startswith("/api/select-directory"):
         required = "settings"
     elif path.startswith("/viewer-api"):
@@ -92,12 +172,12 @@ class DirectoryRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=1024)
 
 
 class PasswordChangeRequest(BaseModel):
-    password: str
+    password: str = Field(min_length=10, max_length=1024)
 
 
 class UserDataValue(BaseModel):
@@ -137,11 +217,26 @@ def get_auth_status(request: Request) -> dict[str, object]:
 
 @app.post("/api/auth/login")
 def post_login(credentials: LoginRequest, response: Response) -> dict[str, object]:
-    result = login(credentials.username, credentials.password)
+    try:
+        result = login(credentials.username, credentials.password)
+    except LoginRateLimited as error:
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
     if not result:
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
     token, user = result
-    response.set_cookie("agender_session", token, httponly=True, samesite="strict", secure=False, max_age=315360000)
+    response.set_cookie(
+        "agender_session",
+        token,
+        httponly=True,
+        samesite="strict",
+        secure=False,
+        max_age=SESSION_MAX_AGE_SECONDS,
+        path="/",
+    )
     return {"user": user}
 
 
@@ -149,30 +244,58 @@ def post_login(credentials: LoginRequest, response: Response) -> dict[str, objec
 async def activate_license(
     response: Response, username: str = Form(...), password: str = Form(...), license: UploadFile = File(...)
 ) -> dict[str, object]:
+    if not 1 <= len(username) <= 128 or not 1 <= len(password) <= 1024:
+        raise HTTPException(status_code=422, detail="Usuario o contraseña fuera del tamaño permitido")
     try:
-        install_license(await license.read(), username, password)
+        install_license(await _read_limited_upload(license, MAX_LICENSE_BYTES, "La licencia"), username, password)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    result = login(username, password)
+    try:
+        result = login(username, password)
+    except LoginRateLimited as error:
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
     if not result:
         raise HTTPException(status_code=401, detail="No fue posible activar el usuario")
     token, user = result
-    response.set_cookie("agender_session", token, httponly=True, samesite="strict", secure=False, max_age=315360000)
+    response.set_cookie(
+        "agender_session",
+        token,
+        httponly=True,
+        samesite="strict",
+        secure=False,
+        max_age=SESSION_MAX_AGE_SECONDS,
+        path="/",
+    )
     return {"user": user}
 
 
 @app.post("/api/auth/change-password")
-def post_change_password(request: Request, values: PasswordChangeRequest) -> dict[str, object]:
+def post_change_password(request: Request, response: Response, values: PasswordChangeRequest) -> dict[str, object]:
     try:
-        return {"user": change_password(request.cookies.get("agender_session"), values.password)}
+        token, user = change_password(request.cookies.get("agender_session"), values.password)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    response.set_cookie(
+        "agender_session",
+        token,
+        httponly=True,
+        samesite="strict",
+        secure=False,
+        max_age=SESSION_MAX_AGE_SECONDS,
+        path="/",
+    )
+    return {"user": user}
 
 
 @app.put("/api/auth/license")
 async def put_current_license(request: Request, license: UploadFile = File(...)) -> dict[str, object]:
     try:
-        user = replace_license(await license.read(), request.cookies.get("agender_session"))
+        content = await _read_limited_upload(license, MAX_LICENSE_BYTES, "La licencia")
+        user = replace_license(content, request.cookies.get("agender_session"))
     except (ValueError, KeyError, json.JSONDecodeError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"user": user}
@@ -201,7 +324,8 @@ async def import_authority_key(request: Request, key: UploadFile = File(...)) ->
     if not user or user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Solo el administrador puede importar la autoridad")
     try:
-        install_authority_key(await key.read())
+        content = await _read_limited_upload(key, MAX_AUTHORITY_KEY_BYTES, "La clave de autoridad")
+        install_authority_key(content)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"ok": True}
@@ -261,9 +385,13 @@ def cloud_auth_callback(provider: str, request: Request) -> Response:
     try:
         account = finish_auth(provider, dict(request.query_params), str(request.base_url))
     except ValueError as error:
-        content = f"<html><body><h1>No fue posible conectar</h1><p>{error}</p></body></html>"
+        content = f"<html><body><h1>No fue posible conectar</h1><p>{html.escape(str(error))}</p></body></html>"
         return Response(content=content, media_type="text/html", status_code=400)
-    content = f"<html><body><h1>Cuenta conectada</h1><p>{account}</p><p>Ya puedes volver a Agender.</p></body></html>"
+    safe_account = html.escape(str(account))
+    content = (
+        f"<html><body><h1>Cuenta conectada</h1><p>{safe_account}</p>"
+        "<p>Ya puedes volver a Agender.</p></body></html>"
+    )
     return Response(content=content, media_type="text/html")
 
 
@@ -286,7 +414,13 @@ def put_onedrive_sync(payload: CloudSyncToggle, request: Request) -> dict[str, b
 @app.post("/api/cloud/onedrive/sync")
 def post_onedrive_sync(request: Request) -> dict[str, object]:
     try:
-        return synchronize_onedrive(_require_user(request))
+        user = _require_user(request)
+        result = synchronize_onedrive(user)
+        if "requests" in user.get("modules", []):
+            from .request_attachments import flush_pending_attachments
+
+            result.update(flush_pending_attachments(user))
+        return result
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -352,9 +486,47 @@ async def local_data(
 
 
 def _synchronize_inventory(source: str, root: str, recursive: bool) -> dict[str, Any]:
-    from .indexer import synchronize
-
-    return synchronize(source, root, recursive)
+    if getattr(sys, "frozen", False):
+        command = [sys.executable, "--index-worker"]
+    else:
+        command = [sys.executable, "-m", "backend", "--index-worker"]
+    command.extend(
+        [
+            "--source",
+            source,
+            "--root",
+            root,
+            "--recursive",
+            str(recursive).lower(),
+        ]
+    )
+    creation_flags = 0x08000000 if sys.platform == "win32" else 0
+    environment = os.environ.copy()
+    # A redirected Python stdout follows the Windows console code page unless it
+    # is pinned explicitly.  The worker prints JSON containing station names and
+    # paths, so an accented character could otherwise make the reader thread die
+    # before ``subprocess.run`` returns.
+    environment["PYTHONIOENCODING"] = "utf-8"
+    try:
+        process = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            env=environment,
+            timeout=60 * 60,
+            creationflags=creation_flags,
+        )
+        output = process.stdout.decode("utf-8-sig")
+        if not output.strip():
+            raise ValueError("El indexador no devolvió datos")
+        return json.loads(output)
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("La indexación superó el tiempo máximo permitido") from error
+    except (subprocess.CalledProcessError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        stderr = getattr(error, "stderr", b"") or b""
+        detail = stderr.decode("utf-8", errors="replace") if isinstance(stderr, bytes) else stderr
+        detail = detail or str(error)
+        raise ValueError(f"No fue posible actualizar el inventario: {detail.strip()}") from error
 
 
 def _inventory_snapshot(source: str) -> dict[str, Any]:
@@ -376,6 +548,104 @@ def export_hydromet_excel(payload: ExcelTableExport, request: Request) -> dict[s
         raise HTTPException(status_code=422, detail="La tabla no tiene una estructura válida")
 
     return export_inventory_excel(payload.headers, payload.rows, payload.filename)
+
+
+@app.post("/api/requests/export-excel")
+def export_requests_excel(payload: ExcelTableExport, request: Request) -> dict[str, object]:
+    from .hydromet_export import export_inventory_excel
+
+    user = _require_user(request)
+    if "requests" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    if not payload.headers or len(payload.headers) > 100:
+        raise HTTPException(status_code=422, detail="La tabla no contiene columnas válidas")
+    if len(payload.rows) > 100_000 or any(len(row) != len(payload.headers) for row in payload.rows):
+        raise HTTPException(status_code=422, detail="La tabla no tiene una estructura válida")
+
+    return export_inventory_excel(payload.headers, payload.rows, payload.filename)
+
+
+@app.post("/api/requests/{record_id}/attachments")
+async def upload_request_attachment(
+    record_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    role: str = Form(...),
+    pdf: UploadFile = File(...),
+) -> dict[str, object]:
+    from .request_attachments import MAX_PDF_BYTES, save_request_pdf_local, sync_request_pdf_to_onedrive
+
+    user = _require_user(request)
+    content = await _read_limited_upload(pdf, MAX_PDF_BYTES, "El PDF")
+    try:
+        attachment = await run_in_threadpool(
+            save_request_pdf_local,
+            user,
+            record_id,
+            role,
+            pdf.filename or "documento.pdf",
+            content,
+        )
+        background_tasks.add_task(sync_request_pdf_to_onedrive, user, attachment)
+        return {"attachment": attachment}
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/requests/{record_id}/attachments/{attachment_id}/content")
+async def view_request_attachment(record_id: str, attachment_id: str, request: Request) -> Response:
+    from .request_attachments import resolve_request_pdf
+
+    user = _require_user(request)
+    try:
+        path, filename = await run_in_threadpool(resolve_request_pdf, user, record_id, attachment_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=filename,
+        content_disposition_type="inline",
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
+@app.delete("/api/requests/{record_id}/documents")
+async def delete_request_documents(
+    record_id: str, request: Request, background_tasks: BackgroundTasks
+) -> dict[str, object]:
+    from .request_attachments import delete_request_documents_local, delete_request_documents_onedrive
+
+    user = _require_user(request)
+    try:
+        deletion = await run_in_threadpool(delete_request_documents_local, user, record_id)
+        background_tasks.add_task(delete_request_documents_onedrive, user, deletion)
+        return {"deleted": True, "folderDeleted": not deletion["shared"]}
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/requests/{record_id}/folder/open")
+async def open_request_documents_folder(record_id: str, request: Request) -> dict[str, object]:
+    from .request_attachments import open_request_folder
+
+    user = _require_user(request)
+    try:
+        path = await run_in_threadpool(open_request_folder, user, record_id)
+        return {"opened": True, "path": path}
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/reports/water-quality/export-pdf")

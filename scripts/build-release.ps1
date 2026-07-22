@@ -5,12 +5,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$privateKeyPath = Join-Path $projectRoot "updater-private.key"
+$privateKeyPath = Join-Path $env:APPDATA "Agender\secrets\updater-private.key"
 $venvPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
 
 if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
   if (-not (Test-Path -LiteralPath $privateKeyPath)) {
-    throw "Define TAURI_SIGNING_PRIVATE_KEY o coloca updater-private.key en la raíz para probar la release localmente."
+    throw "Define TAURI_SIGNING_PRIVATE_KEY o instala la clave en %APPDATA%\Agender\secrets\updater-private.key."
   }
   $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -LiteralPath $privateKeyPath -Raw
 }

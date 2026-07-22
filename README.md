@@ -111,12 +111,22 @@ control de calidad). El módulo está aislado en `backend/viewer` y
 Agender verifica licencias Ed25519 desde `C:\ProgramData\Agender\license.json`
 o `%APPDATA%\Agender\license.json`. Los usuarios se provisionan desde la
 licencia firmada y sus contraseñas se validan localmente mediante Argon2id.
+Las sesiones caducan tras una hora sin actividad o después de 24 horas y se
+revocan en todos los equipos locales cuando se cambia la contraseña.
 
 La clave privada de la autoridad no forma parte del instalador. Un administrador
 puede importarla desde **Generar licencia** y emitir allí licencias versión 2
-con permisos granulares y una revisión creciente. Para actualizar permisos se
-conservan el identificador y el usuario de la licencia anterior y se incrementa
-su revisión.
+con permisos granulares y una revisión creciente. Una misma licencia puede
+activarse en varias computadoras para el usuario provisionado. Al actualizar
+la misma licencia se conserva su identificador y se incrementa la revisión;
+una licencia nueva firmada también puede reemplazarla si pertenece al mismo
+usuario.
+
+En Windows, la autoridad importada se guarda en
+`%APPDATA%\Agender\authority\license_private_key.pem` con acceso restringido al
+usuario actual, Administradores y SYSTEM. La clave de firma del actualizador se
+mantiene por separado en `%APPDATA%\Agender\secrets\updater-private.key` para
+compilaciones locales; ninguna de las dos debe residir en el repositorio.
 
 La autoridad debe corresponder a
 `backend/security/license_public_key.pem`. Conserva una copia de seguridad

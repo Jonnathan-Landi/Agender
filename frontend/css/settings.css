@@ -158,6 +158,10 @@
   font-weight: 500;
 }
 
+.settings-expander + .settings-group-title {
+  margin-top: 24px;
+}
+
 .settings-expander {
   overflow: hidden;
   border: 1px solid var(--line);

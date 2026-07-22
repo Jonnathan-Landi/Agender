@@ -318,6 +318,7 @@
 
   window.NotasHydrometMap = {
     initHydrometMap,
+    refreshBasins: renderSubcuencas,
     renderStationPoints,
     setVisibleBasins
   };

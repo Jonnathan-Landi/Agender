@@ -1,5 +1,5 @@
 (function () {
-  const AUTO_INTERVAL_MS = 60000;
+  const AUTO_INTERVAL_MS = 5 * 60 * 1000;
   const SAVE_DEBOUNCE_MS = 5000;
   let enabled = false;
   let connected = false;

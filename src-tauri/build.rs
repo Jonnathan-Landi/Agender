@@ -5,6 +5,7 @@ fn main() {
             "get_update_download_status",
             "download_update",
             "install_update",
+            "set_background_mode",
         ]),
     ))
     .expect("No fue posible generar el manifiesto de Tauri");
