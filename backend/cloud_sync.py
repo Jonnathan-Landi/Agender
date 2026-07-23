@@ -399,7 +399,3 @@ def _device_id() -> str:
     DEVICE_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
     DEVICE_ID_FILE.write_text(value, encoding="ascii")
     return value
-
-
-def _sync_user_key(user: dict[str, Any]) -> str:
-    return cloud_profile_id(user)

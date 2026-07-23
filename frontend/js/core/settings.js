@@ -145,8 +145,8 @@
       document.querySelector("#update-title").textContent = "Hay una actualización disponible";
       document.querySelector("#update-description").textContent = `Última comprobación: ${checkedAt}`;
       document.querySelector("#update-version").textContent = `Versión ${update.version}`;
-      document.querySelector("#update-date").textContent = update.date ? new Date(update.date).toLocaleDateString("es-CO") : "";
-      document.querySelector("#update-notes").textContent = update.body || "Incluye mejoras y correcciones para Agender.";
+      document.querySelector("#update-date").textContent = formatUpdateDate(update.date);
+      document.querySelector("#update-notes").textContent = repairMojibake(update.body) || "Incluye mejoras y correcciones para Agender.";
       available.hidden = false;
       setUpdateMessage("");
       await restoreUpdateDownload(update.version);
@@ -159,6 +159,22 @@
 
   function formatLastCheck(date) {
     return `hoy, ${date.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
+  }
+
+  function formatUpdateDate(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("es-CO");
+  }
+
+  function repairMojibake(value) {
+    if (typeof value !== "string" || !/[ÃÂ]/.test(value)) return value;
+    try {
+      const bytes = Uint8Array.from(value, (character) => character.charCodeAt(0));
+      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      return value;
+    }
   }
 
   function handleUpdateAction() {

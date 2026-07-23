@@ -2,6 +2,8 @@
   const STORAGE_KEY = "agender.request.records";
   const STATUSES = ["Recibido", "En formalización", "Despachado por Quipux", "Entregado", "Archivado"];
   const PRIORITIES = ["Alta", "Media", "Baja"];
+  const USER_TYPES = ["Externo", "Interno"];
+  const BOARD_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
   const { escapeHtml } = window.NotasUtils;
   const { loadJson, saveJson } = window.NotasStorage;
 
@@ -21,6 +23,8 @@
   let deleteRecordId = "";
   let pointerDrag = null;
   let suppressBoardClick = false;
+  let currentPage = 1;
+  let pageSize = 10;
   let pendingFiles = { request: [], response: [], additional: [] };
 
   function initRequests() {
@@ -35,6 +39,7 @@
       requestedInformation: document.querySelector("#requested-information"),
       status: document.querySelector("#status"),
       priority: document.querySelector("#request-priority"),
+      userType: document.querySelector("#request-user-type"),
       responseDate: document.querySelector("#response-date"),
       responseDatePicker: document.querySelector('[data-request-calendar="response"]'),
       responseDateFlyout: document.querySelector('[data-request-calendar-flyout="response"]'),
@@ -63,9 +68,12 @@
     const filterToggle = document.querySelector("#request-filter-toggle");
     window.NotasUI.initDismissibleMenu({ menu: filterMenu, toggle: filterToggle });
     filterMenu.addEventListener("click", handleFilterComboboxClick);
-    searchInput.addEventListener("input", render);
-    priorityFilter.addEventListener("change", render);
-    statusFilter.addEventListener("change", render);
+    searchInput.addEventListener("input", resetPageAndRender);
+    priorityFilter.addEventListener("change", resetPageAndRender);
+    statusFilter.addEventListener("change", resetPageAndRender);
+    document.querySelector(".requests-summary").addEventListener("click", handleStatusTabClick);
+    document.querySelector("#request-pagination-pages").addEventListener("click", handlePaginationClick);
+    document.querySelector("#request-page-size").addEventListener("change", handlePageSizeChange);
     document.querySelectorAll("[data-request-view]").forEach((button) => {
       button.addEventListener("click", () => selectRequestView(button.dataset.requestView));
     });
@@ -139,6 +147,7 @@
     fields.requestedInformation.value = record ? record.requestedInformation : "";
     fields.status.value = record ? record.status : defaults.status || "Recibido";
     fields.priority.value = record ? record.priority : "Media";
+    fields.userType.value = record ? record.userType : "Externo";
     fields.responseDate.value = record ? record.responseDate : "";
     fields.responseDocument.value = record ? record.responseDocument : "";
     fields.observations.value = record ? record.observations : "";
@@ -154,6 +163,7 @@
 
   function readForm() {
     const existing = records.find((item) => item.id === fields.id.value);
+    const status = fields.status.value;
     return {
       id: fields.id.value,
       requester: fields.requester.value.trim(),
@@ -161,14 +171,16 @@
       requestDate: fields.requestDate.value,
       objective: fields.objective.value.trim(),
       requestedInformation: fields.requestedInformation.value.trim(),
-      status: fields.status.value,
+      status,
       priority: fields.priority.value,
+      userType: fields.userType.value,
       responseDate: fields.responseDate.value,
       responseDocument: fields.responseDocument.value.trim(),
       observations: fields.observations.value.trim(),
       attachments: existing?.attachments || [],
       ...(existing?.attachmentFolder ? { attachmentFolder: existing.attachmentFolder } : {}),
-      ...(existing?.updatedAt ? { updatedAt: existing.updatedAt } : {})
+      ...(existing?.updatedAt ? { updatedAt: existing.updatedAt } : {}),
+      ...statusTimestamp(existing, status)
     };
   }
 
@@ -182,13 +194,26 @@
       requestedInformation: record.requestedInformation || "",
       status: normalizeStatus(record.status),
       priority: PRIORITIES.includes(record.priority) ? record.priority : "Media",
+      userType: USER_TYPES.includes(record.userType) ? record.userType : "Externo",
       responseDate: record.responseDate || "",
       responseDocument: record.responseDocument || "",
       observations: record.observations || "",
       attachments: Array.isArray(record.attachments) ? record.attachments.filter(validAttachment) : [],
       ...(record.attachmentFolder ? { attachmentFolder: record.attachmentFolder } : {}),
-      ...(record.updatedAt ? { updatedAt: record.updatedAt } : {})
+      ...(record.updatedAt ? { updatedAt: record.updatedAt } : {}),
+      ...(record.statusChangedAt ? { statusChangedAt: record.statusChangedAt } : {})
     };
+  }
+
+  function statusTimestamp(existing, status) {
+    if (existing?.status === status && existing.statusChangedAt) return { statusChangedAt: existing.statusChangedAt };
+    return { statusChangedAt: new Date().toISOString() };
+  }
+
+  function isExpiredBoardRecord(record) {
+    if (record.status !== "Entregado") return false;
+    const changedAt = new Date(record.statusChangedAt || record.updatedAt || "").getTime();
+    return Number.isFinite(changedAt) && Date.now() - changedAt > BOARD_RETENTION_MS;
   }
 
   function syncResponseDocumentRequirement() {
@@ -197,7 +222,7 @@
 
   function syncFormComboboxes() {
     form.querySelectorAll("[data-request-form-combobox]").forEach((combobox) => {
-      const field = combobox.dataset.requestFormCombobox === "status" ? fields.status : fields.priority;
+      const field = fields[combobox.dataset.requestFormCombobox];
       combobox.querySelector("[data-request-form-combobox-value]").textContent = field.value;
       combobox.querySelectorAll("[data-request-form-value]").forEach((option) => {
         option.setAttribute("aria-selected", String(option.dataset.requestFormValue === field.value));
@@ -209,7 +234,7 @@
     const option = event.target.closest("[data-request-form-value]");
     if (option) {
       const combobox = option.closest("[data-request-form-combobox]");
-      const field = combobox.dataset.requestFormCombobox === "status" ? fields.status : fields.priority;
+      const field = fields[combobox.dataset.requestFormCombobox];
       field.value = option.dataset.requestFormValue;
       syncFormComboboxes();
       closeFormComboboxes();
@@ -517,6 +542,7 @@
         record.requestedInformation,
         record.status,
         record.priority,
+        record.userType,
         record.responseDate,
         record.responseDocument,
         record.observations
@@ -527,10 +553,75 @@
         (!status || record.status === status);
     });
 
-    body.innerHTML = filtered.map((record) => rowTemplate(record, requestNumber(record.id))).join("");
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    currentPage = Math.min(currentPage, pageCount);
+    const start = (currentPage - 1) * pageSize;
+    const pageRecords = filtered.slice(start, start + pageSize);
+
+    body.innerHTML = pageRecords.map((record) => rowTemplate(record, requestNumber(record.id))).join("");
     emptyState.classList.toggle("visible", filtered.length === 0);
     updateMetrics();
+    renderStatusTabs();
+    renderPagination(filtered.length, start, pageRecords.length);
     renderStatusBoard();
+  }
+
+  function resetPageAndRender() {
+    currentPage = 1;
+    render();
+  }
+
+  function handleStatusTabClick(event) {
+    const tab = event.target.closest("[data-request-status-tab]");
+    if (!tab) return;
+    statusFilter.value = tab.dataset.requestStatusTab;
+    syncStatusFilterCombobox();
+    resetPageAndRender();
+  }
+
+  function syncStatusFilterCombobox() {
+    const combobox = statusFilter.closest("[data-request-filter-combobox]");
+    const option = [...combobox.querySelectorAll("[data-request-filter-value]")]
+      .find((item) => item.dataset.requestFilterValue === statusFilter.value);
+    if (!option) return;
+    combobox.querySelector("[data-request-filter-label]").textContent = option.textContent.trim();
+    combobox.querySelectorAll("[data-request-filter-value]").forEach((item) => {
+      item.setAttribute("aria-selected", String(item === option));
+    });
+  }
+
+  function renderStatusTabs() {
+    document.querySelectorAll("[data-request-status-tab]").forEach((tab) => {
+      const active = tab.dataset.requestStatusTab === statusFilter.value;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-pressed", String(active));
+    });
+  }
+
+  function renderPagination(total, start, visibleCount) {
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const first = total ? start + 1 : 0;
+    const last = start + visibleCount;
+    document.querySelector("#request-pagination-summary").textContent =
+      `Mostrando ${first} a ${last} de ${total} solicitudes`;
+    const pages = Array.from({ length: pageCount }, (_, index) => index + 1);
+    document.querySelector("#request-pagination-pages").innerHTML = `
+      <button type="button" data-request-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""} aria-label="Página anterior">‹</button>
+      ${pages.map((page) => `<button type="button" data-request-page="${page}" class="${page === currentPage ? "active" : ""}" aria-current="${page === currentPage ? "page" : "false"}">${page}</button>`).join("")}
+      <button type="button" data-request-page="${currentPage + 1}" ${currentPage === pageCount ? "disabled" : ""} aria-label="Página siguiente">›</button>`;
+  }
+
+  function handlePaginationClick(event) {
+    const button = event.target.closest("[data-request-page]");
+    if (!button || button.disabled) return;
+    currentPage = Number(button.dataset.requestPage);
+    render();
+    document.querySelector("#request-list-view .table-wrap").scrollTop = 0;
+  }
+
+  function handlePageSizeChange(event) {
+    pageSize = Number(event.target.value) || 10;
+    resetPageAndRender();
   }
 
   function selectRequestView(view) {
@@ -542,6 +633,7 @@
     });
     document.querySelector("#request-list-view").classList.toggle("active", activeView === "list");
     document.querySelector("#request-board-view").classList.toggle("active", activeView === "board");
+    document.querySelector(".requests-summary").hidden = activeView !== "list";
   }
 
   function renderStatusBoard() {
@@ -549,9 +641,10 @@
     const priority = priorityFilter.value;
     const visibleRecords = sortedRecords().filter((record) => {
       const searchable = [record.requester, record.requestDocument, record.requestDate, record.requestedInformation,
-        record.objective, record.status, record.priority, record.responseDate, record.responseDocument,
+        record.objective, record.status, record.priority, record.userType, record.responseDate, record.responseDocument,
         record.observations].join(" ").toLowerCase();
-      return (!query || searchable.includes(query)) && (!priority || record.priority === priority);
+      return (!query || searchable.includes(query)) && (!priority || record.priority === priority) &&
+        !isExpiredBoardRecord(record);
     });
     statusBoard.innerHTML = STATUSES.map((status) => {
       const columnRecords = visibleRecords.filter((record) => record.status === status);
@@ -638,6 +731,7 @@
     const record = records.find((item) => item.id === id);
     if (moved && target && record && record.status !== target.dataset.requestBoardStatus) {
       record.status = target.dataset.requestBoardStatus;
+      record.statusChangedAt = new Date().toISOString();
       saveRecords();
       render();
     }
@@ -769,7 +863,7 @@
         <td class="date-cell">${formatIsoDate(record.requestDate)}</td>
         <td class="text-cell">${escapeHtml(record.objective)}</td>
         <td class="text-cell">${escapeHtml(record.requestedInformation)}</td>
-        <td class="request-choice-cell">${choiceControlTemplate(record, "status", STATUSES)}</td>
+        <td class="request-choice-cell">${choiceControlTemplate(record)}</td>
         <td>${escapeHtml(record.priority)}</td>
         <td class="date-cell">${formatIsoDate(record.responseDate)}</td>
         <td>${documentCellTemplate(record, "response", record.responseDocument)}</td>
@@ -810,22 +904,21 @@
     document.querySelector("#request-pdf-dialog").close();
   }
 
-  function choiceControlTemplate(record, field, values) {
+  function choiceControlTemplate(record) {
     const current = record.status;
-    const label = "Estado";
     return `
       <div class="request-choice-control">
-        <button class="request-choice-toggle ${choiceClass(field, current)}" type="button"
+        <button class="request-choice-toggle ${choiceClass(current)}" type="button"
           data-request-choice-toggle aria-haspopup="menu" aria-expanded="false"
-          aria-label="Cambiar ${label.toLowerCase()} de ${escapeHtml(record.requester)}">
+          title="${escapeHtml(current)}"
+          aria-label="Cambiar estado de ${escapeHtml(record.requester)}">
           <span>${escapeHtml(current)}</span><span class="font-icon" aria-hidden="true">&#xE70D;</span>
         </button>
         <div class="request-choice-menu" role="menu" hidden>
-          ${values.map((value) => `
+          ${STATUSES.map((value) => `
             <button type="button" role="menuitemradio" aria-checked="${current === value}"
-              data-request-choice-id="${record.id}" data-request-choice-field="${field}"
-              data-request-choice-value="${escapeHtml(value)}">
-              <i class="${choiceClass(field, value)}" aria-hidden="true"></i><span>${escapeHtml(value)}</span>
+              data-request-choice-id="${record.id}" data-request-choice-value="${escapeHtml(value)}">
+              <i class="${choiceClass(value)}" aria-hidden="true"></i><span>${escapeHtml(value)}</span>
             </button>
           `).join("")}
         </div>
@@ -846,9 +939,10 @@
     const option = event.target.closest("[data-request-choice-value]");
     if (!option) return;
     const record = records.find((item) => item.id === option.dataset.requestChoiceId);
-    const field = option.dataset.requestChoiceField;
-    if (!record || field !== "status") return;
+    if (!record) return;
+    if (record.status === option.dataset.requestChoiceValue) return;
     record.status = option.dataset.requestChoiceValue;
+    record.statusChangedAt = new Date().toISOString();
     saveRecords();
     render();
   }
@@ -871,7 +965,7 @@
     menu.style.top = `${top}px`;
   }
 
-  function choiceClass(field, value) {
+  function choiceClass(value) {
     return {
       Recibido: "choice-received",
       "En formalización": "choice-formalizing",
@@ -885,7 +979,9 @@
     document.querySelector("#metric-total").textContent = records.length;
     document.querySelector("#metric-received").textContent = records.filter((item) => item.status === "Recibido").length;
     document.querySelector("#metric-formalizing").textContent = records.filter((item) => item.status === "En formalización").length;
+    document.querySelector("#metric-dispatched").textContent = records.filter((item) => item.status === "Despachado por Quipux").length;
     document.querySelector("#metric-delivered").textContent = records.filter((item) => item.status === "Entregado").length;
+    document.querySelector("#metric-archived").textContent = records.filter((item) => item.status === "Archivado").length;
   }
 
   async function exportExcel() {
@@ -898,6 +994,7 @@
       "Información solicitada",
       "Estado",
       "Prioridad",
+      "Usuario",
       "Fecha de respuesta",
       "N.° de documento de respuesta",
       "Observaciones"
@@ -911,6 +1008,7 @@
       record.requestedInformation,
       record.status,
       record.priority,
+      record.userType,
       record.responseDate,
       record.responseDocument,
       record.observations

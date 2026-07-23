@@ -14,102 +14,9 @@
     </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body class="embedded-viewer">
+  <body>
     <main class="app-shell">
-      <header class="app-titlebar">
-        <div class="titlebar-brand">
-          <div class="titlebar-logo" aria-hidden="true">
-            <img src="../assets/agender-logo.svg" alt="" />
-          </div>
-          <strong>Agender Viewer</strong>
-        </div>
-        <div class="titlebar-drag-region">
-          <span class="titlebar-app-name"></span>
-        </div>
-        <div class="window-controls">
-          <button id="settingsOpenBtn" class="window-button settings-window-button" type="button" title="Configuración" aria-label="Configuración" aria-expanded="false">
-            <svg class="settings-glyph" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9.8 3.4 10.4 2h3.2l.6 1.4 1.7.7 1.4-.6 2.2 2.2-.6 1.4.7 1.7 1.4.6v3.2l-1.4.6-.7 1.7.6 1.4-2.2 2.2-1.4-.6-1.7.7-.6 1.4h-3.2l-.6-1.4-1.7-.7-1.4.6-2.2-2.2.6-1.4-.7-1.7L3 12.6V9.4l1.4-.6.7-1.7-.6-1.4 2.2-2.2 1.4.6 1.7-.7Z" />
-              <circle cx="12" cy="11" r="3.25" />
-            </svg>
-          </button>
-          <button id="windowMinimizeBtn" class="window-button" type="button" title="Minimizar" aria-label="Minimizar">
-            <span aria-hidden="true">─</span>
-          </button>
-          <button id="windowMaximizeBtn" class="window-button" type="button" title="Maximizar" aria-label="Maximizar">
-            <span aria-hidden="true">□</span>
-          </button>
-          <button id="windowCloseBtn" class="window-button close-button" type="button" title="Cerrar" aria-label="Cerrar">
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </header>
-
-      <section id="settingsFlyout" class="settings-overlay" aria-label="Configuración" hidden>
-        <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-          <aside class="settings-sidebar">
-            <div class="settings-sidebar-title">
-              <button id="settingsBackBtn" class="settings-back-button" type="button" title="Volver" aria-label="Volver">
-                <span aria-hidden="true">‹</span>
-              </button>
-              <strong>Configuración</strong>
-            </div>
-
-            <div class="settings-profile-card">
-              <div class="settings-logo" aria-hidden="true">
-                <img src="../assets/agender-logo.svg" alt="" />
-              </div>
-              <div>
-                <strong>Agender</strong>
-                <span>Sistema de monitoreo</span>
-              </div>
-            </div>
-
-            <label class="settings-search">
-              <span>Buscar una opción de configuración</span>
-              <input type="search" aria-label="Buscar una opción de configuración" disabled />
-            </label>
-
-            <nav class="settings-nav" aria-label="Secciones de configuración">
-              <button class="settings-nav-item active" type="button">
-                <span class="settings-nav-icon">▣</span>
-                <span>Sistema</span>
-              </button>
-            </nav>
-          </aside>
-
-          <section class="settings-content">
-            <button id="settingsCloseBtn" class="settings-close-button" type="button" title="Cerrar configuración" aria-label="Cerrar configuración">
-              <span aria-hidden="true">×</span>
-            </button>
-
-            <h2 id="settingsTitle">Sistema</h2>
-            <div class="settings-card">
-              <div class="settings-card-icon">◐</div>
-              <div class="settings-card-copy">
-                <strong>Tema</strong>
-                <span>Ajusta la apariencia de la aplicación.</span>
-              </div>
-              <div class="theme-options" role="radiogroup" aria-label="Tema">
-                <label>
-                  <input type="radio" name="themeMode" value="system" />
-                  <span>Seguir sistema</span>
-                </label>
-                <label>
-                  <input type="radio" name="themeMode" value="light" />
-                  <span>Claro</span>
-                </label>
-                <label>
-                  <input type="radio" name="themeMode" value="dark" />
-                  <span>Oscuro</span>
-                </label>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section id="mainView" class="main-view">
+      <section class="main-view">
         <div id="variableTabsShell" class="variable-tabs-shell">
           <button id="tabScrollLeftBtn" class="tab-scroll-button" type="button" title="Mover pestañas a la izquierda" aria-label="Mover pestañas a la izquierda">
             <span aria-hidden="true">‹</span>
@@ -148,7 +55,7 @@
                     </select>
                   </label>
 
-                  <label id="yearControl" class="viewer-list-row" for="yearSelect">
+                  <label class="viewer-list-row" for="yearSelect">
                     <span class="viewer-row-label">Año</span>
                     <select id="yearSelect" class="form-select" disabled></select>
                   </label>
@@ -209,7 +116,7 @@
             </footer>
           </section>
         </section>
-        <div id="appStatus" class="app-status">
+        <div class="app-status">
           <span id="statusText">Listo para cargar datos ambientales.</span>
           <span id="progressPercent" class="progress-percent" hidden>0%</span>
           <div id="loadProgress" class="load-progress" hidden>

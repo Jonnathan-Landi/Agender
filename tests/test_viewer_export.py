@@ -9,7 +9,7 @@ from unittest.mock import patch
 from openpyxl import load_workbook
 from fastapi import HTTPException
 
-from backend.viewer.api import BatchExportRequest, ExportRequest, export_batch, export_data, ingest_file
+from backend.viewer.api import BatchExportRequest, ExportRequest, export_batch, export_data, get_data, ingest_file
 
 
 class ViewerExportTests(TestCase):
@@ -115,6 +115,25 @@ class ViewerExportTests(TestCase):
         self.assertEqual(["TIMESTAMP", "precipitacion"], rows[0])
         self.assertEqual("6.0", rows[1][1])
         self.assertIn('filename="EST001-2-hour.csv"', response.headers["content-disposition"])
+
+    def test_viewer_query_returns_aggregated_series_and_statistics(self) -> None:
+        with TemporaryDirectory() as root, patch("backend.viewer.api.CACHE_ROOT", Path(root) / "cache"):
+            (Path(root) / "cache").mkdir()
+            session = self._session(root)
+            result = get_data(
+                session_id=session.session_id,
+                variable="temperatura",
+                year=2026,
+                month=1,
+                day=1,
+                resolution="hour",
+                min_coverage=1,
+            )
+
+        self.assertEqual("promedio", result["aggregation"])
+        self.assertEqual(2, result["grouped_periods"])
+        self.assertEqual([21.0, 24.0], result["y"])
+        self.assertEqual(3, result["stats"]["records"])
 
     def test_export_can_be_saved_to_a_user_selected_destination(self) -> None:
         with TemporaryDirectory() as root, patch("backend.viewer.api.CACHE_ROOT", Path(root) / "cache"):

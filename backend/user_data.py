@@ -161,9 +161,5 @@ def _allowed_keys(user: dict[str, Any]) -> tuple[str, ...]:
     return tuple(key for key, module in DATA_MODULES.items() if module is None or module in modules)
 
 
-def allowed_data_keys(user: dict[str, Any]) -> tuple[str, ...]:
-    return _allowed_keys(user)
-
-
 def syncable_data_keys(user: dict[str, Any]) -> tuple[str, ...]:
     return tuple(key for key in _allowed_keys(user) if key not in LOCAL_ONLY_DATA_KEYS)

@@ -350,10 +350,6 @@
   font-size: 0.76rem;
 }
 
-.agenda-location-mark {
-  font-weight: 700;
-}
-
 .agenda-event.entrega {
   background: #8764b8;
   color: #fff;
@@ -399,4 +395,52 @@
 .agenda-delete-button {
   margin-right: auto;
   color: var(--danger);
+}
+
+@media (max-width: 900px) {
+  .agenda-toolbar {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agenda-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .agenda-side {
+    grid-template-columns: minmax(220px, 320px) minmax(220px, 1fr);
+  }
+
+  .agenda-month-controls {
+    justify-content: space-between;
+  }
+
+  .agenda-month-controls strong {
+    min-width: 0;
+    font-size: 1.15rem;
+  }
+
+  .agenda-shell {
+    overflow: auto;
+  }
+
+  .agenda-grid,
+  .agenda-weekdays {
+    min-width: 900px;
+  }
+
+  .agenda-grid {
+    min-height: 680px;
+  }
+
+  .mini-calendar-grid {
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 620px) {
+  .agenda-side {
+    grid-template-columns: 1fr;
+  }
 }

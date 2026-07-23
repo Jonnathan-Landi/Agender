@@ -41,11 +41,34 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn("renderStatusBoard();", self.controller)
         self.assertNotIn("agender.request.board", self.controller)
 
+    def test_delivered_cards_expire_only_from_the_board_after_two_days(self):
+        board_renderer = self.controller.split("function renderStatusBoard", 1)[1].split(
+            "function boardColumnTemplate", 1
+        )[0]
+        list_renderer = self.controller.split("function render()", 1)[1].split(
+            "function selectRequestView", 1
+        )[0]
+        self.assertIn("isExpiredBoardRecord(record)", board_renderer)
+        self.assertNotIn("isExpiredBoardRecord(record)", list_renderer)
+        self.assertIn('record.status !== "Entregado"', self.controller)
+        self.assertIn("2 * 24 * 60 * 60 * 1000", self.controller)
+        self.assertIn("record.statusChangedAt = new Date().toISOString()", self.controller)
+
     def test_columns_create_and_move_requests(self):
         self.assertIn('data-request-board-action="add"', self.controller)
         self.assertIn('data-request-board-status="${escapeHtml(status)}"', self.controller)
         self.assertIn('statusBoard.addEventListener("pointerdown", handleBoardPointerDown)', self.controller)
         self.assertIn('statusBoard.addEventListener("pointerup", handleBoardPointerUp)', self.controller)
+
+    def test_busy_board_columns_scroll_without_covering_the_add_button(self):
+        board = self.styles.split("#requests-view .request-board {", 1)[1].split("}", 1)[0]
+        cards = self.styles.split("#requests-view .request-board-cards {", 1)[1].split("}", 1)[0]
+        add = self.styles.split("#requests-view .request-board-add {", 1)[1].split("}", 1)[0]
+        self.assertIn("height: 100%", board)
+        self.assertIn("overflow-y: hidden", board)
+        self.assertIn("overflow-y: auto", cards)
+        self.assertIn("flex: 1", cards)
+        self.assertIn("flex: 0 0 auto", add)
 
     def test_context_menu_and_safe_delete_dialog(self):
         self.assertIn('id="request-context-menu"', self.document)
@@ -78,13 +101,47 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn('const PRIORITIES = ["Alta", "Media", "Baja"]', self.controller)
         self.assertIn("normalizeStatus", self.controller)
 
+    def test_summary_counts_every_request_status_with_matching_visuals(self):
+        for metric in ("received", "formalizing", "dispatched", "delivered", "archived"):
+            self.assertIn(f'id="metric-{metric}"', self.document)
+        self.assertIn('item.status === "Despachado por Quipux"', self.controller)
+        self.assertIn('item.status === "Archivado"', self.controller)
+
+    def test_status_summary_is_a_separate_interactive_filter_row(self):
+        self.assertIn('data-request-status-tab="Recibido"', self.document)
+        self.assertIn('data-request-status-tab="Entregado"', self.document)
+        self.assertIn("handleStatusTabClick", self.controller)
+        self.assertIn("renderStatusTabs", self.controller)
+        self.assertIn('document.querySelector(".requests-summary").hidden = activeView !== "list"', self.controller)
+        self.assertIn(".requests-summary[hidden]", self.styles)
+        self.assertNotIn("linear-gradient(135deg", self.styles)
+
+    def test_request_list_is_paginated_without_limiting_excel_export(self):
+        self.assertIn('id="request-pagination-pages"', self.document)
+        self.assertIn('id="request-page-size"', self.document)
+        self.assertIn("filtered.slice(start, start + pageSize)", self.controller)
+        export = self.controller.split("async function exportExcel", 1)[1]
+        self.assertIn("sortedRecords().map", export)
+        self.assertNotIn("pageRecords", export)
+
+    def test_sparse_request_tables_keep_theme_background_and_soft_pagination(self):
+        self.assertIn("#requests-view #request-list-view .table-wrap", self.styles)
+        self.assertIn("background: var(--panel)", self.styles)
+        pagination = self.styles.split(".request-pagination button.active", 1)[1].split("}", 1)[0]
+        self.assertIn("background: var(--accent-soft)", pagination)
+        self.assertNotIn("background: var(--accent);", pagination)
+
+    def test_request_heading_has_no_redundant_description(self):
+        heading = self.document.split('class="requests-heading"', 1)[1].split("</div>", 1)[0]
+        self.assertNotIn("Gestiona y realiza seguimiento", heading)
+
     def test_table_keeps_status_quick_choice(self):
         row_template = self.controller.split("function rowTemplate", 1)[1].split("function choiceControlTemplate", 1)[0]
         board_template = self.controller.split("function boardCardTemplate", 1)[1].split(
             "function handleBoardClick", 1
         )[0]
-        self.assertIn("choiceControlTemplate(record, \"status\", STATUSES)", row_template)
-        self.assertNotIn("choiceControlTemplate(record, \"status\", STATUSES)", board_template)
+        self.assertIn("choiceControlTemplate(record)", row_template)
+        self.assertNotIn("choiceControlTemplate(record)", board_template)
         self.assertIn("handleQuickChoice", self.controller)
         self.assertIn('record.status = option.dataset.requestChoiceValue', self.controller)
 
@@ -99,6 +156,28 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn("syncResponseDocumentRequirement", self.controller)
         self.assertIn("fields.responseDocument.required = Boolean(fields.responseDate.value)", self.controller)
 
+    def test_user_type_is_stored_and_exported_but_hidden_from_table(self):
+        self.assertIn('id="request-user-type"', self.document)
+        self.assertIn('data-request-form-value="Externo"', self.document)
+        self.assertIn('data-request-form-value="Interno"', self.document)
+        self.assertIn("userType: fields.userType.value", self.controller)
+        self.assertIn('userType: USER_TYPES.includes(record.userType) ? record.userType : "Externo"', self.controller)
+        row_template = self.controller.split("function rowTemplate", 1)[1].split(
+            "function documentCellTemplate", 1
+        )[0]
+        export = self.controller.split("async function exportExcel", 1)[1]
+        self.assertNotIn("escapeHtml(record.userType)", row_template)
+        table_header = self.document.split('<tbody id="requests-body">', 1)[0].rsplit("<thead>", 1)[1]
+        self.assertNotIn("<th>Usuario</th>", table_header)
+        self.assertIn('"Usuario"', export)
+        self.assertIn("record.userType", export)
+
+    def test_request_table_uses_more_available_vertical_space(self):
+        self.assertIn("#requests-view.active", self.styles)
+        self.assertIn("height: calc(100vh - 56px)", self.styles)
+        self.assertIn("#requests-view #request-list-view .table-panel", self.styles)
+        self.assertIn("max-height: none", self.styles)
+
     def test_numbers_follow_request_date_order(self):
         self.assertIn("function sortedRecords", self.controller)
         self.assertIn('(left.requestDate || "9999-12-31").localeCompare', self.controller)
@@ -108,6 +187,17 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn("Información<br>solicitada", self.document)
         self.assertIn("table-layout: fixed", self.styles)
         self.assertIn("min-width: 0", self.styles)
+
+    def test_objective_and_requested_information_receive_more_table_width(self):
+        self.assertIn("th:nth-child(5) { width: 15.5%; }", self.styles)
+        self.assertIn("th:nth-child(6) { width: 15.5%; }", self.styles)
+        self.assertIn("th:nth-child(7) { width: 7%; }", self.styles)
+        self.assertIn("th:nth-child(8) { width: 5%; }", self.styles)
+
+    def test_status_selector_is_fixed_and_truncates_long_labels(self):
+        self.assertIn("width: 104px", self.styles)
+        self.assertIn("text-overflow: ellipsis", self.styles)
+        self.assertIn('title="${escapeHtml(current)}"', self.controller)
 
     def test_obsolete_request_schema_is_removed(self):
         obsolete_fields = (

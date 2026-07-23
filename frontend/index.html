@@ -247,17 +247,9 @@
 
         <section class="view" id="requests-view" aria-labelledby="requests-title">
           <header class="toolbar requests-toolbar">
-            <h1 id="requests-title">Solicitud de datos</h1>
-            <section class="requests-summary" aria-label="Resumen de solicitudes">
-              <div><span>Total</span><strong id="metric-total">0</strong></div>
-              <div><span>Recibidas</span><strong id="metric-received">0</strong></div>
-              <div><span>En formalización</span><strong id="metric-formalizing">0</strong></div>
-              <div><span>Entregadas</span><strong id="metric-delivered">0</strong></div>
-            </section>
-            <button class="button primary compact-button request-new-button" type="button" id="new-request">
-              <span class="font-icon" aria-hidden="true">&#xE710;</span>
-              <span>Nueva solicitud</span>
-            </button>
+            <div class="requests-heading">
+              <h1 id="requests-title">Solicitud de datos</h1>
+            </div>
             <div class="toolbar-actions requests-actions">
               <label class="request-search">
                 <span class="visually-hidden">Buscar solicitudes</span>
@@ -310,6 +302,10 @@
                 <span class="font-icon" aria-hidden="true">&#xE74E;</span>
                 <span>Exportar</span>
               </button>
+              <button class="button primary compact-button request-new-button" type="button" id="new-request">
+                <span class="font-icon" aria-hidden="true">&#xE710;</span>
+                <span>Nueva solicitud</span>
+              </button>
             </div>
           </header>
 
@@ -323,6 +319,15 @@
               <span>Tablero de solicitudes</span>
             </button>
           </nav>
+
+          <section class="requests-summary" aria-label="Filtrar solicitudes por estado">
+            <button class="request-metric request-metric-total active" type="button" data-request-status-tab="" aria-pressed="true"><span>Todas</span><strong id="metric-total">0</strong></button>
+            <button class="request-metric" type="button" data-request-status-tab="Recibido" aria-pressed="false"><span>Recibidas</span><strong id="metric-received">0</strong></button>
+            <button class="request-metric" type="button" data-request-status-tab="En formalización" aria-pressed="false"><span>En formalización</span><strong id="metric-formalizing">0</strong></button>
+            <button class="request-metric" type="button" data-request-status-tab="Despachado por Quipux" aria-pressed="false"><span>Despachadas</span><strong id="metric-dispatched">0</strong></button>
+            <button class="request-metric" type="button" data-request-status-tab="Entregado" aria-pressed="false"><span>Entregadas</span><strong id="metric-delivered">0</strong></button>
+            <button class="request-metric" type="button" data-request-status-tab="Archivado" aria-pressed="false"><span>Archivadas</span><strong id="metric-archived">0</strong></button>
+          </section>
 
           <section class="request-mode-panel active" id="request-list-view">
           <section class="table-panel" aria-label="Tabla de solicitudes">
@@ -350,6 +355,17 @@
                 <span>Agrega la primera solicitud para comenzar el seguimiento.</span>
               </div>
             </div>
+            <footer class="request-pagination">
+              <span id="request-pagination-summary">Mostrando 0 solicitudes</span>
+              <nav id="request-pagination-pages" aria-label="Páginas de solicitudes"></nav>
+              <label><span class="visually-hidden">Solicitudes por página</span>
+                <select id="request-page-size" aria-label="Solicitudes por página">
+                  <option value="10">10 por página</option>
+                  <option value="20">20 por página</option>
+                  <option value="50">50 por página</option>
+                </select>
+              </label>
+            </footer>
           </section>
           </section>
 
@@ -371,7 +387,7 @@
 
         <section class="view" id="diary-view" aria-labelledby="diary-title">
           <header class="toolbar diary-toolbar">
-            <h1 id="diary-title">Diario</h1>
+            <h1 class="visually-hidden" id="diary-title">Diario</h1>
             <button class="button primary diary-compact-button" type="button" id="diary-new-task">
               <span class="font-icon" aria-hidden="true">&#xE710;</span>
               <span>Nueva tarea</span>
@@ -391,10 +407,6 @@
                 </button>
                 <div class="diary-filter-panel" id="diary-filter-panel">
                   <label>
-                    <span>Día</span>
-                    <input type="date" id="diary-date">
-                  </label>
-                  <label>
                     <span>Estado</span>
                     <select id="diary-status-filter">
                       <option value="">Todos</option>
@@ -406,7 +418,6 @@
                   </label>
                 </div>
               </div>
-              <button class="button secondary diary-compact-button" type="button" id="diary-today">Hoy</button>
             </div>
           </header>
 
@@ -426,11 +437,21 @@
               <div class="diary-main">
                 <section class="diary-task-panel" aria-label="Tareas del diario">
                   <div class="diary-list-head">
-                    <div>
-                      <span class="panel-eyebrow">Lista de trabajo</span>
-                      <strong id="diary-list-title">Hoy</strong>
+                    <div class="diary-list-heading">
+                      <span class="diary-list-eyebrow">Lista de trabajo</span>
+                      <div class="diary-date-selector">
+                        <button type="button" id="diary-date-trigger" title="Seleccionar fecha" aria-controls="diary-date">
+                          <span class="font-icon diary-date-icon" aria-hidden="true">&#xE787;</span>
+                          <strong id="diary-list-title">Hoy</strong>
+                          <span class="font-icon diary-date-chevron" aria-hidden="true">&#xE70D;</span>
+                        </button>
+                        <input type="date" id="diary-date" aria-label="Fecha de la lista de trabajo" tabindex="-1">
+                      </div>
                     </div>
                     <span id="diary-list-count">0 tareas</span>
+                  </div>
+                  <div class="diary-list-columns" aria-hidden="true">
+                    <span>Tarea</span><span>Categoría</span><span>Vencimiento</span><span>Estado</span><span>Progreso</span><span></span>
                   </div>
                   <div class="diary-task-list" id="diary-task-list"></div>
                   <div class="empty-state" id="diary-empty-state">
@@ -440,18 +461,29 @@
                 </section>
               </div>
 
-              <aside class="diary-side-panel" aria-label="Foco del día">
-                <section class="diary-focus">
-                  <span class="panel-eyebrow">Foco del día</span>
-                  <textarea id="diary-focus-note" rows="5" placeholder="Define el resultado principal que quieres lograr hoy"></textarea>
+              <aside class="diary-side-panel" aria-label="Resumen del diario">
+                <section class="diary-chart-card" aria-label="Tareas por estado">
+                  <header><span class="font-icon" aria-hidden="true">&#xE9D9;</span><strong>Tareas por estado</strong></header>
+                  <div class="diary-status-chart" id="diary-status-chart"><span><strong id="diary-chart-total">0</strong>tareas</span></div>
+                  <div class="diary-chart-legend" id="diary-chart-legend"></div>
                 </section>
 
-                <section class="diary-distribution" aria-label="Estado de todas las tareas">
-                  <span class="panel-eyebrow">Todas las tareas</span>
-                  <div class="diary-state-row"><span>Pendientes</span><strong id="diary-all-pending">0</strong></div>
-                  <div class="diary-state-row"><span>En proceso</span><strong id="diary-all-progress">0</strong></div>
-                  <div class="diary-state-row"><span>En espera</span><strong id="diary-all-waiting">0</strong></div>
-                  <div class="diary-state-row"><span>Finalizadas</span><strong id="diary-all-done">0</strong></div>
+                <section class="diary-upcoming-card">
+                  <header>
+                    <span class="font-icon" aria-hidden="true">&#xE787;</span>
+                    <strong>Próximos vencimientos</strong>
+                    <span class="diary-side-count" id="diary-upcoming-count">0</span>
+                  </header>
+                  <div class="diary-deadline-list" id="diary-upcoming-list"></div>
+                </section>
+
+                <section class="diary-overdue-card">
+                  <header>
+                    <span class="font-icon" aria-hidden="true">&#xE7BA;</span>
+                    <strong>Pendientes vencidas</strong>
+                    <span class="diary-side-count" id="diary-overdue-count">0</span>
+                  </header>
+                  <div class="diary-deadline-list" id="diary-overdue-list"></div>
                 </section>
               </aside>
             </section>
@@ -927,7 +959,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.12.3.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.13.1.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -982,38 +1014,43 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.12.3</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.13.1</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.12.3</strong>
+                <strong class="news-version-number">1.13.1</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
-                  <h2>Nuevas funcionalidades</h2>
+                  <h2>Solicitud de datos</h2>
                   <ul>
-                    <li>El formulario de Solicitud de datos incorpora calendarios, listas desplegables y controles rediseñados con una experiencia visual inspirada en WinUI 3.</li>
-                    <li>Los campos de texto evitan sugerencias guardadas del navegador y habilitan la corrección ortográfica en español.</li>
-                    <li>Solicitud de datos incorpora el registro completo, numeración automática por fecha y vistas de tabla y tablero.</li>
-                    <li>Los documentos de solicitud, respuesta y anexos PDF se guardan localmente y se sincronizan con OneDrive en segundo plano.</li>
-                    <li>Los PDF pueden consultarse dentro de Agender o abrirse desde su carpeta local mediante el menú contextual.</li>
-                    <li>La tabla de solicitudes se exporta íntegramente a Excel en la ubicación elegida por el usuario.</li>
-                    <li>Una misma licencia de usuario puede utilizarse en varias instalaciones autorizadas y mantener sus datos sincronizados.</li>
+                    <li>Nueva tabla compacta con navegación por estado, paginación, búsqueda, filtros y mejor aprovechamiento del espacio disponible.</li>
+                    <li>Nuevo tablero de solicitudes con columnas desplazables, tarjetas uniformes y desplazamiento independiente cuando existen muchos registros.</li>
+                    <li>Las solicitudes entregadas dejan de mostrarse en el tablero después de dos días, pero permanecen en la lista hasta que el usuario las elimine.</li>
+                    <li>Se incorporó el tipo de usuario Externo o Interno. El dato se conserva y se exporta a Excel sin recargar la tabla principal.</li>
+                    <li>La exportación Excel conserva todos los registros y todas las columnas, independientemente del filtro o la página visible.</li>
+                    <li>Los estados largos utilizan controles de ancho fijo y texto recortado para mantener estables las proporciones de la tabla.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Correcciones</h2>
+                  <h2>Plan diario</h2>
                   <ul>
-                    <li>Se corrigió la actualización de los inventarios de Datos crudos y Control de calidad cuando los nombres de estaciones contienen caracteres acentuados.</li>
-                    <li>Los errores de actualización del registro hidrometeorológico muestran ahora el motivo específico para facilitar su diagnóstico.</li>
-                    <li>El modo «Mantener Agender en segundo plano» conserva ahora su configuración y reutiliza el proceso activo para una reapertura inmediata.</li>
-                    <li>Se corrigió el puente nativo que impedía aplicar el valor del interruptor de inicio rápido.</li>
-                    <li>El guardado de solicitudes ya no espera a que finalice la transferencia a OneDrive.</li>
-                    <li>El visor PDF prioriza la copia local, transmite el archivo directamente y conserva caché privada.</li>
-                    <li>Al eliminar una solicitud se limpian sus documentos y, cuando corresponde, su carpeta local y remota.</li>
-                    <li>Las fechas utilizan el formato AAAA-MM-DD y recuperan el selector de calendario.</li>
-                    <li>Se redujo el ancho de la tabla, se reemplazó la columna Acciones por un menú contextual y se actualizaron los controles al estilo WinUI 3.</li>
-                    <li>Se corrigieron el cierre del icono de bandeja, la sincronización del inventario y la recuperación de módulos y permisos.</li>
+                    <li>Nuevo diseño de lista de trabajo con selector de fecha desde el encabezado, columnas de categoría, vencimiento, estado y progreso.</li>
+                    <li>Nuevo resumen lateral con gráfico ampliado de tareas por estado y listas detalladas de próximos vencimientos y tareas vencidas.</li>
+                    <li>El diseño se adapta a distintos anchos de pantalla sin deformar el gráfico ni superponer sus indicadores.</li>
+                    <li>Las tareas finalizadas dejan de mostrarse en el tablero después de dos días y continúan disponibles en el plan diario.</li>
+                    <li>Se eliminó el botón Hoy y los componentes del resumen diario anterior que ya no pertenecían al diseño actual.</li>
+                  </ul>
+                </section>
+                <section class="news-note-section">
+                  <h2>Estabilidad y mantenimiento</h2>
+                  <ul>
+                    <li>Se corrigieron textos dañados y fechas inválidas en la pantalla de actualizaciones.</li>
+                    <li>Se retiró del Viewer la interfaz de ventana antigua y sus estilos y controladores ocultos.</li>
+                    <li>Las consultas y estadísticas DuckDB del Viewer se aislaron del controlador HTTP para reducir acoplamiento y facilitar su mantenimiento.</li>
+                    <li>Se eliminaron funciones sin consumidores, selectores CSS huérfanos y reglas responsivas que interferían entre módulos.</li>
+                    <li>Se reforzaron las pruebas de Solicitudes, Diario, Viewer, exportaciones, versiones y arquitectura del frontend.</li>
+                    <li>Se alinearon la aplicación, el backend, las novedades y la configuración de publicación con la versión 1.13.1.</li>
                   </ul>
                 </section>
               </div>
@@ -1324,6 +1361,20 @@
                     <button type="button" role="option" data-request-form-value="Baja">Baja</button>
                   </span>
                   <input id="request-priority" type="hidden" value="Media">
+                </span>
+              </label>
+              <label class="request-user-type-field">
+                <span>Usuario</span>
+                <span class="request-form-combobox" data-request-form-combobox="userType">
+                  <button type="button" class="request-form-combobox-toggle" aria-haspopup="listbox" aria-expanded="false">
+                    <span data-request-form-combobox-value>Externo</span>
+                    <span class="font-icon" aria-hidden="true">&#xE70D;</span>
+                  </button>
+                  <span class="request-form-combobox-flyout" role="listbox" hidden>
+                    <button type="button" role="option" data-request-form-value="Externo">Externo</button>
+                    <button type="button" role="option" data-request-form-value="Interno">Interno</button>
+                  </span>
+                  <input id="request-user-type" type="hidden" value="Externo">
                 </span>
               </label>
               <label class="request-status-field">

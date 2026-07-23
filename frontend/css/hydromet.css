@@ -1519,6 +1519,78 @@
   font-size: 0.78rem;
 }
 
+@media (max-width: 900px) {
+  .hydromet-header {
+    display: flex;
+  }
+
+  .hydromet-title-group,
+  .hydromet-title-group h1,
+  .hydromet-filter-toggle,
+  .hydromet-search,
+  .tabs {
+    width: 100%;
+  }
+
+  .hydromet-summary {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .hydromet-summary > div {
+    justify-content: center;
+    padding: 0 6px;
+  }
+
+  .hydromet-commandbar,
+  .hydromet-filter-panel,
+  .map-layout,
+  .linked-filter-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hydromet-filter-panel,
+  .multi-select-flyout {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .multi-select-flyout {
+    margin-top: 5px;
+  }
+
+  .tab {
+    flex: 1;
+  }
+
+  .hydromet-table-wrap,
+  .map-layout {
+    max-height: none;
+  }
+
+  .map-layout {
+    height: auto;
+    min-height: 0;
+  }
+
+  .basin-map {
+    height: auto;
+    min-height: 360px;
+  }
+
+  .map-legend {
+    bottom: 12px;
+    left: 12px;
+  }
+}
+
 @media (min-width: 901px) {
   .workspace:has(.hydromet-view.active) {
     padding-bottom: 8px;
@@ -2354,6 +2426,23 @@ body.download-open {
 }
 
 @media (max-width: 620px) {
+  .map-legend {
+    width: min(250px, calc(100% - 24px));
+  }
+
+  .map-legend-items {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 0;
+  }
+
+  .hydromet-summary > div:nth-child(3) {
+    border-left: 0;
+  }
+
   .station-download-modal {
     padding: 10px;
   }

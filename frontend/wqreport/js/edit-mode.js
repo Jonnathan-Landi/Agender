@@ -45,7 +45,7 @@ export function applyEditMode(enabled = isEditModeEnabled(), toggle = null) {
     releaseEditableFocus();
   }
 
-  applyEditInheritance(undefined, document.getElementById("settings-edit-inheritance-toggle"));
+  applyEditInheritance();
 
   document.dispatchEvent(new CustomEvent("wqreport:editmodechange", {
     detail: { enabled }

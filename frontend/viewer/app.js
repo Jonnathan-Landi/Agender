@@ -30,8 +30,6 @@ const state = {
 };
 
 const el = {
-  mainView: document.getElementById("mainView"),
-  themeModeInputs: Array.from(document.querySelectorAll('input[name="themeMode"]')),
   fileName: document.getElementById("fileName"),
   fileProgress: document.getElementById("fileProgress"),
   fileProgressLabel: document.getElementById("fileProgressLabel"),
@@ -44,7 +42,6 @@ const el = {
   workspace: document.getElementById("viewerWorkspace"),
   panelToggleBtn: document.getElementById("panelToggleBtn"),
   plotModeSelect: document.getElementById("plotModeSelect"),
-  yearControl: document.getElementById("yearControl"),
   yearSelect: document.getElementById("yearSelect"),
   monthSelect: document.getElementById("monthSelect"),
   daySelect: document.getElementById("daySelect"),
@@ -52,7 +49,6 @@ const el = {
   coverageInput: document.getElementById("coverageInput"),
   chart: document.getElementById("chart"),
   chartTitle: document.getElementById("chartTitle"),
-  appStatus: document.getElementById("appStatus"),
   statusText: document.getElementById("statusText"),
   progressPercent: document.getElementById("progressPercent"),
   loadProgress: document.getElementById("loadProgress"),
@@ -137,19 +133,10 @@ function resolvedTheme() {
 
 function applyTheme() {
   document.documentElement.dataset.theme = resolvedTheme();
-  el.themeModeInputs.forEach((input) => {
-    input.checked = input.value === state.themeMode;
-  });
   if (state.lastPayload && window.Plotly) {
     Plotly.relayout(el.chart, chartThemeLayout());
     state.gpuRenderer?.redraw();
   }
-}
-
-function setThemeMode(mode) {
-  state.themeMode = mode;
-  localStorage.setItem("agender.system.theme", mode);
-  applyTheme();
 }
 
 function formatNumber(value) {
@@ -728,10 +715,6 @@ el.plotModeSelect.addEventListener("change", async () => {
   await loadSeries();
 });
 
-el.themeModeInputs.forEach((input) => {
-  input.addEventListener("change", () => setThemeMode(input.value));
-});
-
 window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
   if (state.themeMode === "system") applyTheme();
 });
@@ -762,7 +745,6 @@ async function initializeViewer() {
   await waitForApi();
   const station = launchParams.get("station");
   if (!station) return;
-  document.body.classList.add("embedded-viewer");
   try {
     await openStation(station, launchParams.get("source") === "quality" ? "quality" : "raw");
   } catch (error) {

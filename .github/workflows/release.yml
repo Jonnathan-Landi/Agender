@@ -89,7 +89,7 @@ jobs:
             --draft `
             --verify-tag `
             --title "Release Agender $($env:RELEASE_TAG.TrimStart('v'))" `
-            --notes "Se corrigió la actualización de los inventarios de Datos crudos y Control de calidad con caracteres acentuados, y se mejoró el detalle mostrado cuando una actualización falla."
+            --notes-file "release-notes/$env:RELEASE_TAG.md"
 
       - name: Comprobar la carga y publicar la actualización
         shell: powershell

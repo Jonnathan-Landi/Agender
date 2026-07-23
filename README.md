@@ -67,13 +67,13 @@ Los paquetes se firman para impedir que una descarga manipulada pueda instalarse
 2. Crea en GitHub Actions el secreto `TAURI_SIGNING_PRIVATE_KEY` con todo el contenido
    de ese archivo. La clave actual no tiene contraseña.
 3. Actualiza la misma versión SemVer en `src-tauri/tauri.conf.json` y `src-tauri/Cargo.toml`.
-   En la línea `1.11.x`, el tercer número identifica el acumulado de correcciones publicadas:
-   por ejemplo, seis correcciones corresponden a `1.11.6`.
+   En la línea `1.13.x`, el tercer número identifica el acumulado de correcciones publicadas:
+   por ejemplo, seis correcciones corresponden a `1.13.6`.
 4. Antes de crear la etiqueta, ejecuta localmente el mismo build y las mismas validaciones
    que usará GitHub Actions:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build-release.ps1 -ExpectedTag v1.3.0
+powershell -ExecutionPolicy Bypass -File scripts\build-release.ps1 -ExpectedTag v1.13.1
 ```
 
 El comando no publica nada. Comprueba las versiones, el backend empaquetado, el instalador
@@ -82,8 +82,8 @@ y su firma, y deja en `release-artifacts/` exactamente los archivos que se publi
 5. Si todo termina correctamente, confirma los cambios y publica la etiqueta:
 
 ```powershell
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.13.1
+git push origin v1.13.1
 ```
 
 GitHub Actions vuelve a construir y validar desde cero. Después carga los artefactos en una

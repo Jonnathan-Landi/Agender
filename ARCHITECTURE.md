@@ -12,6 +12,7 @@ Agender es una aplicación de escritorio local con tres capas:
 - `backend/main.py` compone rutas y middleware; la lógica debe vivir en módulos de dominio.
 - `backend/viewer/api.py` expone HTTP y coordina sesiones; no debe encargarse de formatos ni diálogos.
 - `backend/viewer/export_output.py` genera DAT, CSV y XLSX y administra destinos locales.
+- `backend/viewer/queries.py` concentra SQL, agregaciones y la conexión DuckDB del Viewer.
 - `backend/viewer/aggregations.py` define resoluciones y reglas de agregación de variables.
 - `backend/viewer/naming.py` concentra la normalización de nombres del Viewer.
 - `backend/desktop_dialogs.py` es el único adaptador para diálogos nativos de archivos y carpetas.
@@ -47,7 +48,8 @@ La migración debe ser gradual y conservar una aplicación ejecutable después d
 
 Estado actual:
 
-- `api.py`: sesiones, ingestión, consultas y rutas.
+- `api.py`: sesiones, ingestión y rutas.
+- `queries.py`: consultas, estadísticas y agregaciones DuckDB.
 - `export_output.py`: formatos, nombres y selección de destinos.
 - `aggregations.py`: resoluciones temporales y funciones de agregación.
 - `naming.py`: normalización de nombres y encabezados.
@@ -56,9 +58,8 @@ Siguientes extracciones:
 
 1. `sessions.py`: caché, metadatos y ciclo de vida de sesiones.
 2. `ingestion.py`: lectura, detección de timestamps y normalización.
-3. `queries.py`: agregaciones, estadísticas y consultas DuckDB.
-4. `exports.py`: modelos y coordinación de exportación individual y por lotes.
-5. `api.py`: únicamente rutas y traducción de errores HTTP.
+3. `exports.py`: modelos y coordinación de exportación individual y por lotes.
+4. `api.py`: únicamente rutas y traducción de errores HTTP.
 
 ### Frontend principal
 

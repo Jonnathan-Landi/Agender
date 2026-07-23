@@ -6,39 +6,6 @@
   align-items: flex-start;
 }
 
-.report-module-empty {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-height: min(520px, calc(100vh - 160px));
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 40px 24px;
-  background: var(--panel);
-  color: var(--muted);
-  text-align: center;
-}
-
-.report-module-empty .report-module-icon {
-  width: 54px;
-  height: 54px;
-  margin-bottom: 14px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 26px;
-}
-
-.report-module-empty strong {
-  color: var(--ink);
-  font-size: 1.12rem;
-}
-
-.report-module-empty p {
-  max-width: 480px;
-  margin: 7px 0 0;
-}
-
 .water-quality-workspace {
   height: calc(100vh - 132px);
   min-height: 620px;

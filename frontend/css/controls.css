@@ -26,15 +26,13 @@
 }
 
 .button.secondary:hover,
-.row-actions button:hover,
 .icon-button:hover {
   background: var(--subtle-hover);
   border-color: var(--line-strong);
 }
 
 .button:active,
-.icon-button:active,
-.row-actions button:active {
+.icon-button:active {
   transform: scale(0.98);
 }
 
@@ -161,56 +159,6 @@ tbody tr.selected td:first-child::before,
 
 .date-cell {
   white-space: nowrap;
-}
-
-.status-pill {
-  display: inline-flex;
-  justify-content: center;
-  min-width: 96px;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-weight: 600;
-  color: #1b1b1b;
-  border: 1px solid transparent;
-}
-
-.status-accepted,
-.status-delivered {
-  background: #dff6dd;
-  border-color: #bbe7b8;
-  color: #0f6c0f;
-}
-
-.status-pending,
-.status-review {
-  background: #fff4ce;
-  border-color: #f7e4a8;
-  color: #8a5a00;
-}
-
-.status-rejected {
-  background: #fde7e9;
-  border-color: #f5c2c7;
-  color: var(--danger);
-}
-
-.row-actions {
-  display: flex;
-  gap: 7px;
-}
-
-.row-actions button {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  min-height: 32px;
-  background: var(--control);
-  color: var(--ink);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.row-actions button.danger {
-  color: var(--danger);
 }
 
 .empty-state {
