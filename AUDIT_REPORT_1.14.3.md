@@ -36,6 +36,7 @@ nuevo reporte hidrometeorológico, no a artefactos generados.
 | Media aceptada | La sesión no caduca por inactividad | Requisito funcional explícito; logout, cambio de contraseña y licencia inválida la revocan | Pruebas de seguridad |
 | Baja | La cookie usa HTTP sin `Secure` | Aceptado porque el servicio solo usa loopback; `HttpOnly` y `SameSite=Strict` permanecen activos | Revisión de middleware y cookie |
 | Baja | `cargo-audit` no estaba instalado | Se intentó instalar dos veces; la compilación excedió el límite operativo. `Cargo.lock` sí se validó con Cargo | Limitación documentada |
+| Media aceptada | Dependabot reporta una falta de solidez en `glib < 0.20` | Es una dependencia transitiva de GTK 3 usada por Tauri únicamente en Linux; Agender compila y distribuye solo Windows. Tauri 2.11.5 todavía depende de GTK 0.18 y no existe una actualización compatible disponible | `cargo tree --target all -i glib@0.18.5` y consulta del advisory |
 
 La licencia conserva Ed25519, clave privada separada e ignorada, clave pública
 embebida y verificación de firma. Importar una licencia para reemisión no altera
@@ -44,6 +45,8 @@ validando vigencia y revisión.
 
 Las dependencias Python de ejecución y compilación se auditaron con
 `pip-audit 2.10.0`: no se reportaron vulnerabilidades conocidas.
+La alerta Rust anterior permanece documentada y no afecta al binario Windows;
+deberá reevaluarse cuando Tauri migre su backend Linux.
 
 ## Parte 3: rendimiento y distribución
 
