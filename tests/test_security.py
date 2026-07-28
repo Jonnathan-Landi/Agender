@@ -14,6 +14,53 @@ from backend import security
 
 
 class LicenseRevisionTests(TestCase):
+    def test_database_enforces_foreign_keys_and_waits_for_writers(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(security, "DB_PATH", root / "users.db"):
+                connection = security._connect()
+                try:
+                    self.assertEqual(1, connection.execute("PRAGMA foreign_keys").fetchone()[0])
+                    self.assertEqual(5000, connection.execute("PRAGMA busy_timeout").fetchone()[0])
+                finally:
+                    connection.close()
+
+    def test_signed_license_can_be_inspected_for_reissue(self) -> None:
+        with TemporaryDirectory() as directory:
+            _, private_key = self._configure_security(directory)
+            expired = (datetime.now(UTC).date() - timedelta(days=1)).isoformat()
+            content = self._license(
+                private_key,
+                7,
+                "CLIENTE-ANTERIOR",
+                expires_at=expired,
+                modules=["hydromet", "report-water-quality"],
+            )
+
+            imported = security.inspect_license_for_reissue(content)
+
+            self.assertEqual("CLIENTE-ANTERIOR", imported["licenseId"])
+            self.assertEqual("Cliente", imported["fullName"])
+            self.assertEqual("cliente", imported["username"])
+            self.assertEqual(expired, imported["expiresAt"])
+            self.assertEqual(7, imported["previousRevision"])
+            self.assertEqual(8, imported["revision"])
+            self.assertEqual(
+                ["hydromet", "report-water-quality"],
+                imported["modules"],
+            )
+            with self.assertRaisesRegex(ValueError, "expirado"):
+                security.validate_license_payload(json.loads(content))
+
+    def test_tampered_license_cannot_be_imported_for_reissue(self) -> None:
+        with TemporaryDirectory() as directory:
+            _, private_key = self._configure_security(directory)
+            payload = json.loads(self._license(private_key, 3))
+            payload["modules"] = ["hydromet"]
+
+            with self.assertRaisesRegex(ValueError, "firma.*no coincide"):
+                security.inspect_license_for_reissue(json.dumps(payload).encode())
+
     def test_legacy_report_permission_expands_to_both_submodules(self):
         modules = security._expand_module_access(["reports"])
         self.assertIn("report-water-quality", modules)
@@ -109,27 +156,20 @@ class LicenseRevisionTests(TestCase):
             self.assertEqual("ANALISTA-COMPARTIDA", row["license_id"])
             self.assertEqual(1, row["license_revision"])
 
-    def test_expired_and_idle_sessions_are_rejected(self) -> None:
+    def test_sessions_remain_valid_until_explicit_logout(self) -> None:
         with TemporaryDirectory() as directory:
             root, private_key = self._configure_security(directory)
             security.install_license(self._license(private_key, 1), "cliente", "clave-temporal-segura")
 
             token, _ = security.login("cliente", "clave-temporal-segura")
-            expired = (datetime.now(UTC) - security.SESSION_ABSOLUTE_TTL - timedelta(seconds=1)).isoformat()
+            old_timestamp = (datetime.now(UTC) - timedelta(days=3650)).isoformat()
             with security.database() as connection:
                 connection.execute(
                     "UPDATE sessions SET created_at=?,last_seen_at=? WHERE token_hash=?",
-                    (expired, datetime.now(UTC).isoformat(), security._token_hash(token)),
+                    (old_timestamp, old_timestamp, security._token_hash(token)),
                 )
-            self.assertIsNone(security.current_user(token))
-
-            token, _ = security.login("cliente", "clave-temporal-segura")
-            idle = (datetime.now(UTC) - security.SESSION_IDLE_TTL - timedelta(seconds=1)).isoformat()
-            with security.database() as connection:
-                connection.execute(
-                    "UPDATE sessions SET last_seen_at=? WHERE token_hash=?",
-                    (idle, security._token_hash(token)),
-                )
+            self.assertIsNotNone(security.current_user(token))
+            security.logout(token)
             self.assertIsNone(security.current_user(token))
             self.assertTrue(root.is_dir())
 
@@ -186,6 +226,9 @@ class LicenseRevisionTests(TestCase):
         private_key: Ed25519PrivateKey,
         revision: int,
         license_id: str = "CLIENTE-001",
+        *,
+        expires_at: str | None = None,
+        modules: list[str] | None = None,
     ) -> bytes:
         payload = {
             "version": 2,
@@ -193,8 +236,8 @@ class LicenseRevisionTests(TestCase):
             "licenseId": license_id,
             "customer": "Cliente",
             "issuedAt": datetime.now(UTC).date().isoformat(),
-            "expiresAt": None,
-            "modules": ["reports"],
+            "expiresAt": expires_at,
+            "modules": modules or ["reports"],
             "provision": {
                 "username": "cliente",
                 "passwordHash": PasswordHasher().hash("clave-temporal-segura"),

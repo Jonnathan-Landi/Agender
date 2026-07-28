@@ -1,0 +1,1805 @@
+.hydromet-report-view.active {
+  display: flex;
+  height: calc(100vh - 56px);
+  min-height: 0;
+  flex-direction: column;
+}
+
+.hydromet-report-toolbar {
+  flex: 0 0 auto;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hydromet-report-toolbar h1,
+.hydromet-report-toolbar p {
+  margin: 0;
+}
+
+.hydromet-report-toolbar h1 {
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+}
+
+.hydromet-report-toolbar p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.hydromet-report-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hydromet-report-toolbar-actions[hidden] {
+  display: none;
+}
+
+.hydromet-design-export-dialog {
+  width: min(560px, calc(100vw - 32px));
+  overflow: hidden;
+  color: var(--ink);
+}
+
+.hydromet-design-export-form {
+  margin: 0;
+}
+
+.hydromet-design-export-form > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding: 22px 24px 18px;
+}
+
+.hydromet-design-export-form > header .eyebrow,
+.hydromet-design-export-form > header h2,
+.hydromet-design-export-form > header p {
+  margin: 0;
+}
+
+.hydromet-design-export-form > header .eyebrow {
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hydromet-design-export-form > header h2 {
+  margin-top: 4px;
+  font-size: 1.18rem;
+}
+
+.hydromet-design-export-form > header p:last-child {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.hydromet-design-export-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  place-items: center;
+}
+
+.hydromet-design-export-close:hover {
+  background: var(--subtle-hover);
+  color: var(--ink);
+}
+
+.hydromet-design-export-body {
+  display: grid;
+  gap: 12px;
+  padding: 18px 24px 16px;
+}
+
+.hydromet-design-export-all,
+.hydromet-design-export-list label {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--control);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.hydromet-design-export-all:hover,
+.hydromet-design-export-list label:hover {
+  border-color: var(--line-strong);
+  background: var(--subtle-hover);
+}
+
+.hydromet-design-export-all input,
+.hydromet-design-export-list input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.hydromet-design-export-all > span,
+.hydromet-design-export-list label > span {
+  display: grid;
+  margin: 0;
+  gap: 1px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.hydromet-design-export-all small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+
+.hydromet-design-export-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hydromet-design-export-list label {
+  min-height: 40px;
+}
+
+.hydromet-design-export-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  padding: 10px 12px;
+  color: var(--muted);
+}
+
+.hydromet-design-export-note .font-icon {
+  color: var(--accent);
+}
+
+.hydromet-design-export-note p {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.hydromet-design-export-message {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.hydromet-design-export-message.is-error {
+  color: var(--danger);
+}
+
+.hydromet-design-export-form > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 14px 24px;
+}
+
+.hydromet-design-export-form[aria-busy="true"] input,
+.hydromet-design-export-form[aria-busy="true"] button:not(#hydromet-design-export-cancel) {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.hydromet-datetime-trigger {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--control);
+  padding: 5px 12px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hydromet-datetime-trigger:hover,
+.hydromet-datetime-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--subtle-hover);
+}
+
+.hydromet-datetime-trigger svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hydromet-datetime-trigger span {
+  display: grid;
+  gap: 1px;
+}
+
+.hydromet-datetime-trigger small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.hydromet-datetime-trigger strong {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.hydromet-report-count {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.hydromet-report-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 0 4px;
+}
+
+.hydromet-report-tab {
+  position: relative;
+  min-width: 104px;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  padding: 0 14px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hydromet-report-tab:hover {
+  background: var(--subtle-hover);
+  color: var(--ink);
+}
+
+.hydromet-report-tab.is-active {
+  color: var(--accent);
+}
+
+.hydromet-report-tab.is-active::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  content: "";
+}
+
+.hydromet-report-tab:focus-visible {
+  border-radius: 5px;
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.hydromet-report-tab-panel {
+  min-height: 0;
+  flex: 1;
+}
+
+.hydromet-report-tab-panel[hidden] {
+  display: none;
+}
+
+.hydromet-report-tab-panel.is-active {
+  display: flex;
+}
+
+.hydromet-graphics-workspace {
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
+  border: 1px dashed var(--line-strong);
+  border-radius: 9px;
+  background: var(--panel-soft);
+  padding: 0;
+}
+
+.hydromet-data-accordion {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+
+.hydromet-data-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding: 22px 26px;
+}
+
+.hydromet-data-accordion-header h2 {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 1.18rem;
+  font-weight: 700;
+}
+
+.hydromet-data-accordion-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.hydromet-data-item + .hydromet-data-item {
+  border-top: 1px solid var(--line);
+}
+
+.hydromet-data-trigger {
+  display: grid;
+  width: 100%;
+  min-height: 64px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 0 26px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+  grid-template-columns: 28px 1fr 22px;
+  gap: 12px;
+}
+
+.hydromet-data-trigger:hover,
+.hydromet-data-trigger[aria-expanded="true"] {
+  background: var(--subtle-hover);
+}
+
+.hydromet-data-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.hydromet-data-icon {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.hydromet-data-icon svg,
+.hydromet-data-chevron {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hydromet-data-chevron {
+  transition: transform 160ms ease;
+}
+
+.hydromet-data-trigger[aria-expanded="true"] .hydromet-data-chevron {
+  transform: rotate(90deg);
+}
+
+.hydromet-data-table-wrap {
+  width: min(calc(100% - 84px), 360px);
+  margin: 18px auto 26px;
+  overflow: hidden;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.hydromet-data-table-wrap.has-run-action {
+  width: min(calc(100% - 52px), 1180px);
+  align-items: start;
+  gap: 14px;
+  grid-template-areas:
+    "toolbar"
+    "table"
+    "footer";
+  grid-template-columns: minmax(0, 1fr);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.hydromet-data-table-wrap.has-run-action:not([hidden]) {
+  display: grid;
+}
+
+.hydromet-data-table-wrap.has-run-action > .hydromet-data-table {
+  grid-area: table;
+  overflow: hidden;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hydromet-data-panel[hidden] {
+  display: none;
+}
+
+.hydromet-rain-dashboard {
+  position: relative;
+  width: calc(100% - 24px);
+  max-width: none;
+  margin: 18px auto 28px;
+  color: var(--ink);
+}
+
+.hydromet-rain-dashboard:not([hidden]) {
+  display: block;
+}
+
+.hydromet-rain-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.hydromet-rain-dashboard-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.12rem;
+}
+
+.hydromet-rain-dashboard-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.hydromet-rain-filters {
+  display: grid;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+  grid-template-columns: 1.25fr repeat(2, minmax(125px, 0.8fr)) 1fr;
+  gap: 10px;
+}
+
+.hydromet-rain-filter {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.hydromet-rain-filter > span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.hydromet-rain-filter > strong,
+.hydromet-rain-filter > input {
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--control);
+  padding: 8px 10px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.hydromet-rain-dashboard-grid {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(520px, 1.2fr) minmax(440px, 1fr);
+  gap: 16px;
+}
+
+.hydromet-rain-table-card,
+.hydromet-rain-preview-card,
+.hydromet-rain-summary-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.hydromet-rain-table-card .hydromet-data-table {
+  counter-reset: rainfall-row;
+}
+
+.hydromet-rain-table-scroll {
+  height: 560px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.hydromet-rain-table-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.hydromet-rain-table-scroll .hydromet-data-table thead {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+}
+
+.hydromet-rain-table-card .hydromet-data-table tbody tr {
+  counter-increment: rainfall-row;
+}
+
+.hydromet-rain-table-card .hydromet-data-table tbody td:first-child::before {
+  display: inline-block;
+  width: 28px;
+  color: #777;
+  content: counter(rainfall-row);
+}
+
+.hydromet-rain-table-card .hydromet-data-table th:first-child,
+.hydromet-rain-table-card .hydromet-data-table td:first-child {
+  width: 56%;
+}
+
+.hydromet-rain-table-card .hydromet-data-table th:last-child,
+.hydromet-rain-table-card .hydromet-data-table td:last-child {
+  width: 44%;
+}
+
+.hydromet-rain-preview-column {
+  display: grid;
+  gap: 12px;
+}
+
+.hydromet-rain-preview-card > header,
+.hydromet-rain-summary-card > header {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+  font-size: 0.78rem;
+}
+
+.hydromet-rain-preview {
+  position: relative;
+  display: grid;
+  height: 468px;
+  place-items: center;
+  overflow: hidden;
+  background: #111820;
+}
+
+.hydromet-rain-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 560px;
+  object-fit: contain;
+}
+
+.hydromet-rain-preview img[hidden] {
+  display: none;
+}
+
+.hydromet-rain-preview p {
+  max-width: 260px;
+  margin: 0;
+  color: #aeb9c5;
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.hydromet-rain-summary {
+  display: grid;
+  padding: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hydromet-rain-summary > div {
+  display: grid;
+  min-height: 76px;
+  place-content: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--control);
+  text-align: center;
+  gap: 5px;
+}
+
+.hydromet-rain-summary span {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.hydromet-rain-summary strong {
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+.hydromet-rain-background-status {
+  min-height: 22px;
+  justify-content: flex-end;
+}
+
+.hydromet-rain-background-status .hydromet-params-popover {
+  position: fixed;
+}
+
+.hydromet-data-table [contenteditable="true"]:focus {
+  background: #e5f1fb;
+  box-shadow: inset 0 0 0 1px #0067c0;
+}
+
+.hydromet-data-table {
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  table-layout: fixed;
+}
+
+.hydromet-data-table th:first-child,
+.hydromet-data-table td:first-child {
+  width: 68%;
+}
+
+.hydromet-data-table th:last-child,
+.hydromet-data-table td:last-child {
+  width: 32%;
+  border-left: 1px solid #dedede;
+  text-align: center;
+}
+
+.hydromet-data-table th,
+.hydromet-data-table td {
+  height: 38px;
+  border-bottom: 1px solid #dedede;
+  padding: 6px 12px;
+  background: #fff;
+  color: #1b1b1b;
+  font-size: 0.8rem;
+  text-align: left;
+  outline: none;
+}
+
+.hydromet-data-table th {
+  background: #f1f1f1;
+  color: #555;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hydromet-data-table td:last-child {
+  background: #fafafa;
+  font-weight: 650;
+  cursor: text;
+}
+
+.hydromet-data-table tbody tr:hover td,
+.hydromet-data-table tbody tr:hover td:first-child {
+  background: #fff;
+  box-shadow: none;
+}
+
+.hydromet-data-table tbody tr:hover td:last-child {
+  background: #fafafa;
+}
+
+.hydromet-run-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  padding: 0 13px;
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.hydromet-run-button:hover {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+.hydromet-run-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, white);
+  outline-offset: 2px;
+}
+
+.hydromet-run-button svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.hydromet-run-button:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.hydromet-run-button.is-running svg {
+  animation: hydromet-run-pulse 900ms ease-in-out infinite alternate;
+}
+
+.hydromet-run-actions {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  grid-area: toolbar;
+}
+
+.hydromet-run-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hydromet-run-actions > .hydromet-run-status {
+  position: absolute;
+  right: 0;
+  bottom: -13px;
+  text-align: right;
+}
+
+.hydromet-rain-search {
+  display: flex;
+  width: min(100%, 420px);
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--control);
+  padding: 0 12px;
+  color: var(--muted);
+}
+
+.hydromet-rain-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.hydromet-rain-search svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.hydromet-rain-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.hydromet-rain-search input::placeholder {
+  color: var(--muted);
+}
+
+.hydromet-rain-table-footer {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  border: 1px solid #d8d8d8;
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  background: #fff;
+  padding: 0 14px;
+  color: #686868;
+  font-size: 0.72rem;
+  grid-area: footer;
+}
+
+.hydromet-data-table-wrap.has-run-action > .hydromet-data-table {
+  border-radius: 6px 6px 0 0;
+}
+
+.hydromet-params-button,
+.hydromet-clear-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--control);
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hydromet-params-button:hover,
+.hydromet-params-button[aria-expanded="true"],
+.hydromet-clear-button:hover {
+  border-color: var(--accent);
+  background: var(--subtle-hover);
+}
+
+.hydromet-params-button:focus-visible,
+.hydromet-clear-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, white);
+  outline-offset: 2px;
+}
+
+.hydromet-params-button svg,
+.hydromet-clear-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hydromet-clear-button {
+  color: var(--danger);
+}
+
+.hydromet-clear-button:hover {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, var(--control));
+}
+
+.hydromet-params-popover {
+  position: absolute;
+  z-index: 20;
+  top: 44px;
+  right: 0;
+  box-sizing: border-box;
+  width: min(330px, calc(100vw - 20px));
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+  color: var(--ink);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+body > .hydromet-params-popover {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+}
+
+.hydromet-params-popover[hidden] {
+  display: none;
+}
+
+.hydromet-params-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.hydromet-params-header strong {
+  font-size: 0.86rem;
+}
+
+.hydromet-params-header button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.hydromet-params-header button:hover {
+  background: var(--subtle-hover);
+  color: var(--ink);
+}
+
+.hydromet-params-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.hydromet-params-fields > label:not(.hydromet-params-check) {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.hydromet-params-fields input[type="number"] {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  padding: 0 8px;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+
+.hydromet-params-fields input[type="number"]:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+
+.hydromet-params-check {
+  position: relative;
+  display: grid;
+  min-height: 32px;
+  align-items: center;
+  justify-content: start;
+  gap: 9px;
+  grid-template-columns: 18px auto;
+  color: var(--ink);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.hydromet-params-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--control);
+  cursor: pointer;
+}
+
+.hydromet-params-check input:hover {
+  border-color: color-mix(in srgb, var(--ink) 60%, var(--line-strong));
+  background: var(--subtle-hover);
+}
+
+.hydromet-params-check input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.hydromet-params-check input:checked::after {
+  display: block;
+  width: 8px;
+  height: 4px;
+  margin: 4px 0 0 4px;
+  transform: rotate(-45deg);
+  border-bottom: 2px solid #fff;
+  border-left: 2px solid #fff;
+  content: "";
+}
+
+.hydromet-params-check input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.hydromet-params-reset {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.hydromet-params-reset:hover {
+  border-color: var(--line-strong);
+  background: var(--subtle-hover);
+  color: var(--ink);
+}
+
+.hydromet-run-status {
+  max-width: 132px;
+  min-height: 1.15em;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.hydromet-run-status.is-error {
+  color: var(--danger);
+}
+
+@keyframes hydromet-run-pulse {
+  from {
+    transform: scale(0.85);
+  }
+
+  to {
+    transform: scale(1.15);
+  }
+}
+
+.hydromet-data-table td:empty::before {
+  color: var(--muted);
+  content: attr(data-placeholder);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.hydromet-report-workspace {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 50% 0, color-mix(in srgb, var(--accent) 5%, transparent), transparent 36%),
+    var(--panel-soft);
+  padding: clamp(14px, 2vw, 26px);
+  scrollbar-gutter: stable;
+}
+
+.hydromet-report-stack {
+  display: grid;
+  width: min(100%, 1480px);
+  margin: 0 auto;
+  gap: clamp(16px, 2.2vw, 28px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hydromet-report-page {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent);
+  border-radius: 8px;
+  background: #e9e9e9;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+}
+
+.hydromet-report-page > .hydromet-report-template {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.hydromet-page-datetime {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  color: #fff;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 2.8cqw;
+  font-weight: 400;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 1px rgba(150, 75, 0, 0.2);
+}
+
+.hydromet-page-date,
+.hydromet-page-time {
+  position: absolute;
+  top: 15.25%;
+  white-space: nowrap;
+}
+
+.hydromet-page-date {
+  left: 13.5%;
+}
+
+.hydromet-page-time {
+  left: 52.6%;
+}
+
+.hydromet-flow-report-data {
+  position: absolute;
+  z-index: 3;
+  top: 33.1%;
+  left: 32.9%;
+  display: grid;
+  width: 40%;
+  height: 36.6%;
+  align-items: center;
+  grid-template-rows: repeat(4, 1fr);
+  pointer-events: none;
+}
+
+.hydromet-flow-report-row {
+  display: grid;
+  width: 100%;
+  height: 6.2cqw;
+  min-height: 0;
+  align-items: center;
+  overflow: hidden;
+  background: #747474;
+  color: #fff;
+  font-family: "Azo Sans", "Azo Sans 2", "Segoe UI", Arial, sans-serif;
+  font-size: 3.1cqw;
+  font-weight: 700;
+  line-height: 1;
+  grid-template-columns: 52.5% 47.5%;
+}
+
+.hydromet-flow-state {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.12em;
+}
+
+.hydromet-flow-value {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.hydromet-flow-report-row.is-normal {
+  background: #43ad2b;
+  color: #fff;
+}
+
+.hydromet-flow-report-row.is-prealert {
+  background: #ffb800;
+  color: #fff;
+}
+
+.hydromet-flow-report-row.is-alert {
+  background: #ff1717;
+  color: #111;
+}
+
+.hydromet-generated-map-slot {
+  position: absolute;
+  z-index: 2;
+  top: 20.5%;
+  left: 3.5%;
+  width: 93%;
+  height: 58.5%;
+  overflow: hidden;
+  background: #efefef;
+  clip-path: inset(0);
+  contain: layout paint;
+}
+
+.hydromet-generated-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.hydromet-generated-map[hidden] {
+  display: none;
+}
+
+.hydromet-generated-map-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 245, 245, 0.88);
+  color: #31363b;
+  font-size: 2.5cqw;
+  font-weight: 700;
+}
+
+.hydromet-generated-map-status[hidden] {
+  display: none;
+}
+
+.hydromet-image-slot {
+  position: absolute;
+  z-index: 2;
+  top: 21%;
+  left: 5%;
+  width: 90%;
+  height: 51.5%;
+  overflow: hidden;
+  border-radius: 2px;
+  outline: none;
+  clip-path: inset(0);
+  contain: layout paint;
+  isolation: isolate;
+}
+
+.hydromet-image-slot.is-drag-over {
+  box-shadow: inset 0 0 0 4px #ff8300;
+}
+
+.hydromet-inserted-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
+  object-fit: fill;
+  overflow: hidden;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.hydromet-inserted-image[hidden] {
+  display: none;
+}
+
+.hydromet-inserted-image.is-selected {
+  box-shadow: inset 0 0 0 4px #1489d8;
+}
+
+.hydromet-image-slot.is-cropping .hydromet-inserted-image {
+  box-shadow: none;
+}
+
+.hydromet-upload-zone {
+  position: absolute;
+  z-index: 2;
+  inset: 2.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, 1vw, 10px);
+  border: 2px dashed rgba(67, 73, 79, 0.5);
+  border-radius: 6px;
+  background: rgba(245, 245, 245, 0.84);
+  color: #3f454a;
+  font-size: clamp(0.56rem, 1.1vw, 0.82rem);
+  text-align: center;
+  transition: border-color 150ms ease, background 150ms ease, opacity 150ms ease;
+}
+
+.hydromet-image-slot:focus-visible .hydromet-upload-zone,
+.hydromet-image-slot.is-drag-over .hydromet-upload-zone {
+  border-color: #ff8300;
+  background: rgba(255, 247, 238, 0.94);
+}
+
+.hydromet-image-slot.has-image .hydromet-upload-zone,
+.hydromet-image-slot.is-cropping .hydromet-upload-zone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hydromet-upload-button {
+  display: inline-flex;
+  min-height: clamp(26px, 3.2vw, 38px);
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #ff8300;
+  padding: 0 clamp(8px, 1.4vw, 14px);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hydromet-upload-button:hover {
+  background: #e87400;
+}
+
+.hydromet-image-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.hydromet-upload-hint {
+  font-weight: 600;
+}
+
+.hydromet-date-picker {
+  position: fixed;
+  z-index: 30000;
+  width: min(470px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 24px 68px rgba(0, 0, 0, 0.32);
+}
+
+.hydromet-date-picker[hidden] {
+  display: none;
+}
+
+.hydromet-date-picker-header {
+  display: grid;
+  min-height: 50px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 0 12px;
+  grid-template-columns: 36px 1fr 36px;
+}
+
+.hydromet-date-picker-month {
+  font-size: 0.94rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.hydromet-date-picker-nav {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.hydromet-date-picker-nav:hover {
+  background: var(--subtle-hover);
+}
+
+.hydromet-date-picker-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px;
+}
+
+.hydromet-date-calendar {
+  border-right: 1px solid var(--line);
+  padding: 14px;
+}
+
+.hydromet-date-weekdays,
+.hydromet-date-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(30px, 1fr));
+  gap: 4px;
+}
+
+.hydromet-date-weekdays {
+  margin-bottom: 5px;
+}
+
+.hydromet-date-weekdays span {
+  display: flex;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.hydromet-date-day {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font: 0.78rem "Segoe UI", Arial, sans-serif;
+  cursor: pointer;
+}
+
+.hydromet-date-day:hover {
+  background: var(--subtle-hover);
+}
+
+.hydromet-date-day.is-muted {
+  color: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.hydromet-date-day.is-today {
+  border-color: var(--accent);
+}
+
+.hydromet-date-day.is-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: 700;
+}
+
+.hydromet-time-picker {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  background: var(--panel-soft);
+  padding: 18px 12px;
+}
+
+.hydromet-time-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hydromet-time-field select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  padding: 0 7px;
+  color: var(--ink);
+  font: 0.82rem "Segoe UI", Arial, sans-serif;
+}
+
+.hydromet-date-picker-footer {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding: 0 12px;
+}
+
+.hydromet-date-picker-footer button {
+  min-width: 76px;
+  min-height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--ink);
+  font: 0.78rem "Segoe UI", Arial, sans-serif;
+  cursor: pointer;
+}
+
+.hydromet-date-picker-footer button:hover {
+  background: var(--subtle-hover);
+}
+
+.hydromet-date-picker-footer [data-date-action="apply"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: 700;
+}
+
+.hydromet-image-menu {
+  position: fixed;
+  z-index: 10020;
+  min-width: 148px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 5px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+.hydromet-image-menu[hidden] {
+  display: none;
+}
+
+.hydromet-image-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 0 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hydromet-image-menu button:hover,
+.hydromet-image-menu button:focus-visible {
+  background: var(--subtle-hover);
+  outline: none;
+}
+
+.hydromet-image-menu button[data-hydromet-action="remove"] {
+  color: #e25e68;
+}
+
+.hydromet-crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: default;
+}
+
+.hydromet-crop-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px solid #fff;
+  outline: none;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.78),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.62);
+  cursor: move;
+}
+
+.hydromet-crop-box::before,
+.hydromet-crop-box::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
+.hydromet-crop-box::before {
+  inset: 33.333% 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.8);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.8);
+}
+
+.hydromet-crop-box::after {
+  inset: 0 33.333%;
+  border-right: 1px dashed rgba(255, 255, 255, 0.8);
+  border-left: 1px dashed rgba(255, 255, 255, 0.8);
+}
+
+.hydromet-crop-handle {
+  position: absolute;
+  z-index: 2;
+  width: clamp(9px, 1.2vw, 14px);
+  height: clamp(9px, 1.2vw, 14px);
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2f2f2f;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75);
+}
+
+.hydromet-crop-handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.hydromet-crop-handle-n { top: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.hydromet-crop-handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.hydromet-crop-handle-e { top: 50%; right: -7px; transform: translateY(-50%); cursor: ew-resize; }
+.hydromet-crop-handle-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.hydromet-crop-handle-s { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.hydromet-crop-handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.hydromet-crop-handle-w { top: 50%; left: -7px; transform: translateY(-50%); cursor: ew-resize; }
+
+.hydromet-crop-actions {
+  position: absolute;
+  z-index: 7;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.hydromet-crop-actions button {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 5px;
+  background: rgba(30, 32, 34, 0.9);
+  padding: 0 10px;
+  color: #fff;
+  font: inherit;
+  font-size: clamp(0.58rem, 1vw, 0.74rem);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hydromet-crop-actions button[data-crop-action="apply"] {
+  background: #1489d8;
+}
+
+@media print {
+  .hydromet-report-toolbar,
+  .hydromet-upload-zone,
+  .hydromet-date-picker,
+  .hydromet-image-menu,
+  .hydromet-crop-overlay {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .hydromet-rain-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-rain-preview {
+    height: auto;
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 760px) {
+  .hydromet-report-toolbar {
+    align-items: flex-start;
+  }
+
+  .hydromet-report-toolbar-actions {
+    width: 100%;
+  }
+
+  .hydromet-datetime-trigger {
+    flex: 1;
+  }
+
+  .hydromet-report-count {
+    display: none;
+  }
+
+  .hydromet-report-workspace {
+    padding: 10px;
+  }
+
+  .hydromet-report-stack {
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-report-page {
+    border-radius: 5px;
+  }
+
+  .hydromet-upload-zone {
+    flex-direction: column;
+  }
+
+  .hydromet-data-table-wrap {
+    width: calc(100% - 28px);
+    margin: 14px auto 20px;
+  }
+
+  .hydromet-data-table-wrap.has-run-action {
+    width: calc(100% - 28px);
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-run-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hydromet-rain-search {
+    width: 100%;
+  }
+
+  .hydromet-run-controls {
+    justify-content: flex-start;
+  }
+
+  .hydromet-rain-dashboard-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hydromet-rain-filters,
+  .hydromet-rain-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-rain-dashboard-grid {
+    gap: 10px;
+  }
+
+  .hydromet-rain-preview {
+    height: auto;
+    min-height: 300px;
+  }
+
+  .hydromet-rain-table-scroll {
+    height: 430px;
+  }
+
+  .hydromet-params-popover {
+    right: 0;
+    width: min(290px, calc(100vw - 44px));
+  }
+
+  .hydromet-data-accordion-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .hydromet-design-export-list {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-date-picker-content {
+    grid-template-columns: 1fr;
+  }
+
+  .hydromet-date-calendar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px;
+  }
+
+  .hydromet-time-picker {
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 12px;
+  }
+}

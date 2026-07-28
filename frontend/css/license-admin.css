@@ -61,6 +61,25 @@
   cursor: pointer;
 }
 
+.license-authority-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.license-previous-import {
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.license-previous-import .font-icon {
+  margin: 0;
+}
+
 .license-authority-import .font-icon {
   margin: 0;
   font-size: 18px;
@@ -171,6 +190,14 @@
   .license-authority-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .license-authority-actions {
+    width: 100%;
+  }
+
+  .license-previous-import {
+    flex: 1;
   }
 
   .license-admin-fields {

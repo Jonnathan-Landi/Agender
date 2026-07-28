@@ -6,6 +6,10 @@ from backend.server import create_server_socket
 
 
 class ServerSocketTests(unittest.TestCase):
+    def test_rejects_non_loopback_bind_address(self):
+        with self.assertRaisesRegex(ValueError, "loopback"):
+            create_server_socket("0.0.0.0")
+
     def test_ephemeral_ports_are_distinct_and_remain_reserved(self) -> None:
         first = create_server_socket("127.0.0.1")
         second = create_server_socket("127.0.0.1")

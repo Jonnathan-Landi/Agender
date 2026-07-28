@@ -44,8 +44,6 @@ PRIVATE_KEY_PATHS = (
 password_hasher = PasswordHasher()
 _sessions: dict[str, tuple[int, datetime]] = {}
 _lock = Lock()
-SESSION_ABSOLUTE_TTL = timedelta(hours=24)
-SESSION_IDLE_TTL = timedelta(hours=1)
 LOGIN_FAILURE_WINDOW = timedelta(minutes=5)
 LOGIN_LOCKOUT = timedelta(minutes=15)
 LOGIN_MAX_FAILURES = 5
@@ -63,6 +61,8 @@ def _connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys=ON")
+    connection.execute("PRAGMA busy_timeout=5000")
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("""CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -126,7 +126,7 @@ def canonical_license(payload: dict[str, Any]) -> bytes:
     return json.dumps(unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
-def validate_license_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def _verify_license_signature(payload: dict[str, Any]) -> None:
     try:
         signature = base64.b64decode(payload["signature"], validate=True)
         public_key = serialization.load_pem_public_key(PUBLIC_KEY_PATH.read_bytes())
@@ -137,6 +137,10 @@ def validate_license_payload(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Firma de licencia no válida") from error
     except Exception as error:
         raise ValueError("La firma de la licencia no coincide") from error
+
+
+def validate_license_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    _verify_license_signature(payload)
     expiry = payload.get("expiresAt")
     if expiry and datetime.fromisoformat(expiry).date() < datetime.now(UTC).date():
         raise ValueError("La licencia ha expirado")
@@ -151,6 +155,42 @@ def validate_license_payload(payload: dict[str, Any]) -> dict[str, Any]:
     payload["modules"] = sorted(_expand_module_access(payload.get("modules", [])))
     payload["valid"] = True
     return payload
+
+
+def inspect_license_for_reissue(content: bytes) -> dict[str, Any]:
+    """Read a signed license for editing without changing activation validation."""
+    try:
+        payload = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("El archivo no contiene una licencia JSON válida") from error
+    if not isinstance(payload, dict):
+        raise ValueError("El archivo no contiene una licencia válida")
+    _verify_license_signature(payload)
+    try:
+        revision = int(payload.get("revision") or 1)
+    except (TypeError, ValueError) as error:
+        raise ValueError("La revisión de la licencia no es válida") from error
+    if revision < 1:
+        raise ValueError("La revisión de la licencia debe ser mayor o igual a 1")
+    provision = payload.get("provision")
+    if not isinstance(provision, dict):
+        raise ValueError("La licencia no contiene datos de usuario")
+    selectable_modules = {
+        "hydromet",
+        "requests",
+        "diary",
+        "agenda",
+        *REPORT_MODULES,
+    }
+    return {
+        "licenseId": str(payload.get("licenseId") or ""),
+        "fullName": str(provision.get("fullName") or payload.get("customer") or ""),
+        "username": str(provision.get("username") or ""),
+        "expiresAt": payload.get("expiresAt"),
+        "revision": revision + 1,
+        "previousRevision": revision,
+        "modules": sorted(_expand_module_access(payload.get("modules") or []) & selectable_modules),
+    }
 
 
 def read_license() -> dict[str, Any]:
@@ -337,15 +377,6 @@ def current_user(token: str | None) -> dict[str, Any] | None:
             (token_hash,),
         ).fetchone()
         if not row:
-            return None
-        try:
-            created_at = datetime.fromisoformat(row["session_created_at"])
-            last_seen_at = datetime.fromisoformat(row["session_last_seen_at"] or row["session_created_at"])
-        except (TypeError, ValueError):
-            connection.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
-            return None
-        if now - created_at > SESSION_ABSOLUTE_TTL or now - last_seen_at > SESSION_IDLE_TTL:
-            connection.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
             return None
         connection.execute("UPDATE sessions SET last_seen_at=? WHERE token_hash=?", (now.isoformat(), token_hash))
     return user_payload(row, license_data) if row else None
