@@ -4,7 +4,6 @@ import csv
 import io
 import json
 import math
-import threading
 import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,6 +17,7 @@ from openpyxl import Workbook
 from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageFilter, ImageFont
 
 from .config import APP_DATA_DIR
+from .job_registry import JobRegistry
 
 ASSET_DIR = Path(__file__).resolve().parent / "data" / "hydromet_rain_map"
 BUFFER_PATH = ASSET_DIR / "buffer.geojson"
@@ -73,8 +73,7 @@ class Station:
     elevation: float | None
 
 
-_jobs: dict[str, dict[str, Any]] = {}
-_jobs_lock = threading.Lock()
+_jobs = JobRegistry()
 
 
 def station_names() -> tuple[str, ...]:
@@ -90,30 +89,29 @@ def create_rain_map_job(
     parameters: dict[str, Any] | None = None,
 ) -> str:
     job_id = uuid.uuid4().hex
-    with _jobs_lock:
-        _jobs[job_id] = {
-            "jobId": job_id,
-            "userId": int(user_id),
-            "status": "queued",
-            "message": "Mapa en cola",
-            "reportDate": report_date.isoformat(),
-            "startTime": start_time,
-            "endTime": end_time,
-            "observations": observations.copy(),
-            "parameters": (parameters or {}).copy(),
-            "imagePath": None,
-            "previewPath": None,
-            "workbookPath": None,
-            "error": None,
-        }
+    _jobs.add(job_id, {
+        "jobId": job_id,
+        "userId": int(user_id),
+        "status": "queued",
+        "message": "Mapa en cola",
+        "reportDate": report_date.isoformat(),
+        "startTime": start_time,
+        "endTime": end_time,
+        "observations": observations.copy(),
+        "parameters": (parameters or {}).copy(),
+        "imagePath": None,
+        "previewPath": None,
+        "workbookPath": None,
+        "error": None,
+    })
     return job_id
 
 
 def execute_rain_map_job(job_id: str) -> None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job:
         return
-    _update_job(job_id, status="running", message="Generando mapa de lluvias")
+    _jobs.update(job_id, status="running", message="Generando mapa de lluvias")
     try:
         report_date = date.fromisoformat(job["reportDate"])
         image_path, workbook_path, preview_path = generate_rain_map(
@@ -125,7 +123,7 @@ def execute_rain_map_job(job_id: str) -> None:
             observations=job["observations"],
             **job["parameters"],
         )
-        _update_job(
+        _jobs.update(
             job_id,
             status="completed",
             message="Mapa generado",
@@ -134,7 +132,7 @@ def execute_rain_map_job(job_id: str) -> None:
             workbookPath=str(workbook_path),
         )
     except Exception as error:
-        _update_job(
+        _jobs.update(
             job_id,
             status="failed",
             message="No se pudo generar el mapa",
@@ -143,7 +141,7 @@ def execute_rain_map_job(job_id: str) -> None:
 
 
 def rain_map_job(job_id: str, user_id: int) -> dict[str, Any] | None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job or job["userId"] != int(user_id):
         return None
     return {
@@ -156,7 +154,7 @@ def rain_map_job(job_id: str, user_id: int) -> dict[str, Any] | None:
 
 
 def rain_map_image(job_id: str, user_id: int) -> Path | None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job or job["userId"] != int(user_id) or job["status"] != "completed":
         return None
     image_path = Path(job["imagePath"])
@@ -168,7 +166,7 @@ def rain_map_image(job_id: str, user_id: int) -> Path | None:
 
 
 def rain_map_preview(job_id: str, user_id: int) -> Path | None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job or job["userId"] != int(user_id) or job["status"] != "completed":
         return None
     preview_path = Path(job["previewPath"])
@@ -244,18 +242,6 @@ def generate_rain_map(
     designed_map.convert("RGB").save(image_path, format="PNG", optimize=True)
     preview_map.convert("RGB").save(preview_path, format="PNG", optimize=True)
     return image_path, workbook_path, preview_path
-
-
-def _job_copy(job_id: str) -> dict[str, Any] | None:
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-        return job.copy() if job else None
-
-
-def _update_job(job_id: str, **values: Any) -> None:
-    with _jobs_lock:
-        if job_id in _jobs:
-            _jobs[job_id].update(values)
 
 
 def _load_stations() -> list[Station]:

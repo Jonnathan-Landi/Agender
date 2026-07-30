@@ -8,7 +8,7 @@ import subprocess
 import sys
 import webbrowser
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -223,7 +223,7 @@ class HydrometRainMapGeneration(BaseModel):
 
 
 class HydrometTemperatureMapGeneration(BaseModel):
-    reportDate: date
+    dateInterpolation: datetime
     startTime: str = Field(default="00:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     endTime: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     observations: dict[str, float | None]
@@ -727,6 +727,11 @@ def export_water_quality_pdf(payload: WaterQualityPdfExport, request: Request) -
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo guardar el PDF. Verifica los permisos de la ubicación y el espacio disponible.",
+        ) from error
 
 
 @app.post("/api/reports/hydromet-network/rain-map", status_code=202)
@@ -784,10 +789,14 @@ async def export_hydromet_designs(
             [report.model_dump() for report in payload.reports],
             payload.reportDate,
             payload.reportTime,
-            str(request.base_url),
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudieron guardar los diseños. Verifica los permisos de la carpeta y el espacio disponible.",
+        ) from error
 
 
 @app.get("/api/reports/hydromet-network/rain-map/{job_id}")
@@ -865,7 +874,7 @@ def start_hydromet_temperature_map(
             )
     job_id = create_temperature_map_job(
         user_id=user["id"],
-        report_date=payload.reportDate,
+        date_interpolation=payload.dateInterpolation,
         start_time=payload.startTime,
         end_time=payload.endTime,
         observations=payload.observations,

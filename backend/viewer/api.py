@@ -56,6 +56,12 @@ TIMESTAMP_CANDIDATES = (
 )
 WEAK_TIMESTAMP_CANDIDATES = ("time", "hora")
 TIMESTAMP_ALIASES = {*TIMESTAMP_CANDIDATES, *WEAK_TIMESTAMP_CANDIDATES}
+CANONICAL_TIMESTAMP_CANDIDATES = frozenset(
+    canonical_name(alias) for alias in TIMESTAMP_CANDIDATES
+)
+CANONICAL_TIMESTAMP_ALIASES = frozenset(
+    canonical_name(alias) for alias in TIMESTAMP_ALIASES
+)
 NUMERIC_DTYPES = {
     pl.Int8,
     pl.Int16,
@@ -107,7 +113,7 @@ class BatchExportRequest(BaseModel):
     custom_unit: str | None = None
 
 
-app = FastAPI(title="Agender Viewer API", version="1.14.3")
+app = FastAPI(title="Agender Viewer API", version="1.15.1")
 
 
 def session_dir(session_id: str) -> Path:
@@ -162,11 +168,11 @@ def require_session(session_id: str) -> dict[str, Any]:
 
 
 def is_timestamp_alias(name: str) -> bool:
-    return canonical_name(name) in {canonical_name(alias) for alias in TIMESTAMP_ALIASES}
+    return canonical_name(name) in CANONICAL_TIMESTAMP_ALIASES
 
 
 def is_strong_timestamp_alias(name: str) -> bool:
-    return canonical_name(name) in {canonical_name(alias) for alias in TIMESTAMP_CANDIDATES}
+    return canonical_name(name) in CANONICAL_TIMESTAMP_CANDIDATES
 
 
 def make_unique_columns(columns: list[str]) -> list[str]:

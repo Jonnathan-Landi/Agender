@@ -12,6 +12,9 @@ class HydrometReportIntegrationTests(TestCase):
         cls.app = (ROOT / "frontend/js/app.js").read_text(encoding="utf-8")
         cls.styles = (ROOT / "frontend/css/hydromet-report.css").read_text(encoding="utf-8")
         cls.feature = (ROOT / "frontend/js/features/hydromet-report.js").read_text(encoding="utf-8")
+        cls.export_feature = (
+            ROOT / "frontend/js/features/hydromet-design-export.js"
+        ).read_text(encoding="utf-8")
 
     def test_navigation_places_hydromet_report_below_water_quality(self) -> None:
         water_quality = self.document.index('data-view="report-water-quality"')
@@ -46,6 +49,10 @@ class HydrometReportIntegrationTests(TestCase):
     def test_module_style_is_loaded_only_with_its_permission(self) -> None:
         self.assertIn('modules.has("report-hydromet-network")', self.app)
         self.assertIn('loadStyleOnce("css/hydromet-report.css")', self.app)
+        export_loader = 'loadScriptOnce("js/features/hydromet-design-export.js")'
+        report_loader = 'loadScriptOnce("js/features/hydromet-report.js")'
+        self.assertLess(self.app.index(export_loader), self.app.index(report_loader))
+        self.assertIn(f"{export_loader}\n        .then(() => {report_loader})", self.app)
         self.assertIn('loadScriptOnce("js/features/hydromet-report.js")', self.app)
         self.assertIn("window.NotasHydrometReport.init()", self.app)
 
@@ -157,7 +164,8 @@ class HydrometReportIntegrationTests(TestCase):
         graphics = self.document[graphics_start:design_start]
         self.assertIn('data-hydromet-data-table="rainfall"', graphics)
         self.assertIn(">Lluvias</span>", graphics)
-        self.assertIn('type="date" data-hydromet-rain-date', graphics)
+        self.assertIn('placeholder="AAAA-MM-DD"', graphics)
+        self.assertIn("function parseCalendarDay", self.feature)
         for station in (
             "MataderoSayausi", "Sayausi", "Cebollar", "Totoracocha",
             "SoldadosPTAR", "YanuncayPucan", "Labrado", "Saucay", "Tixán",
@@ -261,6 +269,18 @@ class HydrometReportIntegrationTests(TestCase):
         self.assertIn("def generate_temperature_map(", generator)
         self.assertIn("COOL_STOPS", generator)
         self.assertIn("WARM_STOPS", generator)
+        self.assertIn('placeholder="AAAA-MM-DD HH:mm"', self.document)
+        self.assertIn("function parseCalendarDateTime", self.feature)
+        self.assertIn("dateInterpolation:", self.feature)
+        self.assertIn("dateInterpolation: datetime", main)
+        self.assertIn(
+            "fetch_ierse_temperature_observations(date_interpolation)",
+            generator,
+        )
+        self.assertNotIn(
+            "fetch_ierse_temperature_observations(report_date, end_time)",
+            generator,
+        )
 
     def test_design_export_selects_pages_and_saves_native_quality_jpegs(self) -> None:
         main = (ROOT / "backend/main.py").read_text(encoding="utf-8")
@@ -278,11 +298,17 @@ class HydrometReportIntegrationTests(TestCase):
             "indice-ultravioleta",
         ):
             self.assertIn(f'value="{report_format}" checked', self.document)
-            self.assertIn(f'"{report_format}"', self.feature)
-        self.assertIn("function serializeDesignForExport", self.feature)
-        self.assertIn("async function exportSelectedDesigns", self.feature)
-        self.assertIn('fetch("/api/reports/hydromet-network/export-designs"', self.feature)
-        self.assertIn("reportTime:", self.feature)
+            self.assertIn(f'"{report_format}"', self.export_feature)
+        self.assertIn("function serializeDesignForExport", self.export_feature)
+        self.assertIn("new URL(source, document.baseURI).href", self.export_feature)
+        self.assertIn(
+            'image.classList.contains("hydromet-report-template")',
+            self.export_feature,
+        )
+        self.assertIn('clonedImage.removeAttribute("src")', self.export_feature)
+        self.assertIn("NotasHydrometDesignExport", self.export_feature)
+        self.assertIn('fetch("/api/reports/hydromet-network/export-designs"', self.export_feature)
+        self.assertIn("reportTime:", self.export_feature)
         self.assertIn(".hydromet-design-export-dialog", self.styles)
         self.assertIn('@app.post("/api/reports/hydromet-network/export-designs")', main)
         self.assertIn("EXPORT_SIZE = 4167", exporter)

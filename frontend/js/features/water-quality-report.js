@@ -78,7 +78,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        const result = await response.json();
+        const result = await readApiResult(response);
         if (!response.ok) throw new Error(result.detail || "No se pudo exportar el PDF.");
         saveState.textContent = result.canceled ? "Exportación cancelada" : result.message;
       } catch (error) {
@@ -126,6 +126,20 @@
 
   function getBridge(frame) {
     return frame.contentWindow?.WQReportBridge || null;
+  }
+
+  async function readApiResult(response) {
+    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {
+        detail: response.ok
+          ? "El servidor devolvió una respuesta no válida."
+          : "El servidor no pudo completar la exportación con el motor integrado."
+      };
+    }
   }
 
   function syncFrameTheme(frame) {

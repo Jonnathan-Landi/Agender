@@ -10,6 +10,9 @@ venv/
 .coverage
 htmlcov/
 
+# Documentación interna y auditorías locales
+audit/
+
 # Compilaciones y artefactos generados
 build/
 dist/

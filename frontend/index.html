@@ -293,7 +293,14 @@
                     <div class="hydromet-rain-filters">
                       <label class="hydromet-rain-filter">
                         <span>Fecha del registro</span>
-                        <input type="date" data-hydromet-rain-date aria-label="Fecha del registro de lluvias">
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          placeholder="AAAA-MM-DD"
+                          pattern="\d{4}-\d{2}-\d{2}"
+                          data-hydromet-rain-date
+                          aria-label="Fecha del registro de lluvias, formato año-mes-día"
+                        >
                       </label>
                       <label class="hydromet-rain-filter">
                         <span>Hora inicial</span>
@@ -448,8 +455,15 @@
                     </header>
                     <div class="hydromet-rain-filters">
                       <label class="hydromet-rain-filter">
-                        <span>Fecha del registro</span>
-                        <input type="date" data-hydromet-temperature-date aria-label="Fecha del registro de temperaturas">
+                        <span>Fecha y hora del registro</span>
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          placeholder="AAAA-MM-DD HH:mm"
+                          pattern="\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d"
+                          data-hydromet-temperature-date
+                          aria-label="Fecha y hora del registro de temperaturas, formato año-mes-día hora:minuto"
+                        >
                       </label>
                       <label class="hydromet-rain-filter">
                         <span>Hora inicial</span>
@@ -1464,7 +1478,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.14.3.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.15.1.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -1519,36 +1533,35 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.14.3</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.15.1</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.14.3</strong>
+                <strong class="news-version-number">1.15.1</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
-                  <h2>Red hidrometeorológica</h2>
+                  <h2>Mapas hidrometeorológicos</h2>
                   <ul>
-                    <li>Nuevo espacio de reportes con registros de lluvia y temperatura, fechas y horas independientes y exportación de diseños.</li>
-                    <li>Los mapas de lluvia y temperatura incorporan interpolación, límites parroquiales, imagen satelital, escala, norte y rotulación mejorada.</li>
-                    <li>El diseño de temperatura aprovecha mejor el lienzo y presenta ejes, leyenda y nombres parroquiales con mayor legibilidad.</li>
+                    <li>Los mapas de lluvia y temperatura mantienen sus plantillas y mapas base en cualquier equipo.</li>
+                    <li>Temperatura consulta IERSE con la fecha y hora seleccionadas, independientemente del rango mostrado en el mapa.</li>
+                    <li>Los registros utilizan formatos estables: AAAA-MM-DD y AAAA-MM-DD HH:mm.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Licencias y sesión</h2>
+                  <h2>Exportaciones confiables</h2>
                   <ul>
-                    <li>El generador puede importar una licencia firmada anterior para completar sus datos y emitir una revisión superior.</li>
-                    <li>No se permite retroceder ni reutilizar el número de revisión de una licencia importada.</li>
-                    <li>La sesión permanece abierta hasta que el usuario la cierre, cambie su contraseña o la licencia deje de ser válida.</li>
+                    <li>Los seis diseños JPG componen su plantilla base localmente y conservan mapas, textos e imágenes editadas.</li>
+                    <li>Los reportes PDF y JPG utilizan el Chromium integrado y funcionan sin depender del navegador instalado.</li>
+                    <li>La exportación JPG evita transferir las plantillas en Base64, reduciendo memoria y tiempo de preparación.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Seguridad, rendimiento y mantenimiento</h2>
+                  <h2>Rendimiento y estabilidad</h2>
                   <ul>
-                    <li>El backend solo admite conexiones en la interfaz local y SQLite aplica integridad referencial y espera controlada ante escrituras simultáneas.</li>
-                    <li>Se retiraron recursos gráficos duplicados y se mantuvo la carga diferida de los módulos de mapas.</li>
-                    <li>Se corrigió la preparación del entorno de validación usado por GitHub Actions y se reforzaron las pruebas automatizadas.</li>
-                    <li>Aplicación, Viewer, novedades y proceso de publicación quedaron alineados con la versión 1.14.3.</li>
+                    <li>El arranque mantiene la carga diferida de los componentes pesados del Viewer y procesamiento hidrometeorológico.</li>
+                    <li>Los trabajos de mapas comparten un registro concurrente protegido y sin código duplicado.</li>
+                    <li>La validación del instalador prueba Chromium, inventario, API local, firma y recursos empaquetados.</li>
                   </ul>
                 </section>
               </div>

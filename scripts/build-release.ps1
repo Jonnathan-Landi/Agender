@@ -8,6 +8,8 @@ $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $privateKeyPath = Join-Path $env:APPDATA "Agender\secrets\updater-private.key"
 $venvPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
 
+. (Join-Path $PSScriptRoot "resolve-windows-sdk.ps1")
+
 if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
   if (-not (Test-Path -LiteralPath $privateKeyPath)) {
     throw "Define TAURI_SIGNING_PRIVATE_KEY o instala la clave en %APPDATA%\Agender\secrets\updater-private.key."

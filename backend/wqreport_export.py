@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import html
-import os
 import re
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+from .browser_render import chromium_browser, wait_for_images
 from .desktop_dialogs import choose_save_file
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -32,18 +33,19 @@ def export_report_pdf(
         raise ValueError("No se encontró la hoja de estilos de WQReport.")
 
     safe_name = _safe_file_name(suggested_file_name)
-    output = choose_save_file(
-        "Guardar reporte en PDF",
-        f"{safe_name}.pdf",
-        ".pdf",
-        [("PDF", "*.pdf")],
-    )
+    try:
+        output = choose_save_file(
+            "Guardar reporte en PDF",
+            f"{safe_name}.pdf",
+            ".pdf",
+            [("PDF", "*.pdf")],
+        )
+    except Exception as error:
+        raise ValueError(
+            "No se pudo abrir la ventana para guardar el PDF. Reinicia Agender y vuelve a intentarlo."
+        ) from error
     if output is None:
         return {"ok": False, "canceled": True, "message": "Exportación cancelada."}
-
-    edge = _find_edge()
-    if edge is None:
-        raise ValueError("No se encontró Microsoft Edge para generar el PDF.")
 
     resolved_height = max(REPORT_MIN_HEIGHT, min(int(page_height), 5000))
     document = _build_print_document(reports_html, resolved_height, assets_base_url)
@@ -51,36 +53,36 @@ def export_report_pdf(
     with tempfile.TemporaryDirectory(prefix="agender-wqreport-") as temporary:
         temporary_path = Path(temporary)
         html_path = temporary_path / "report.html"
-        profile_path = temporary_path / "edge-profile"
         temporary_pdf = temporary_path / "report.pdf"
         html_path.write_text(document, encoding="utf-8")
-
-        command = [
-            str(edge),
-            "--headless=new",
-            "--disable-gpu",
-            "--disable-extensions",
-            "--disable-javascript",
-            "--no-pdf-header-footer",
-            "--print-to-pdf-no-header",
-            f"--user-data-dir={profile_path}",
-            f"--print-to-pdf={temporary_pdf}",
-            html_path.as_uri(),
-        ]
-        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=90,
-            creationflags=creation_flags,
-            check=False,
-        )
-        if result.returncode != 0 or not temporary_pdf.is_file() or temporary_pdf.stat().st_size == 0:
-            detail = (result.stderr or result.stdout or "").strip()
-            raise ValueError(f"No se pudo generar el PDF.{f' {detail}' if detail else ''}")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(temporary_pdf, output)
+        try:
+            with chromium_browser() as browser:
+                page = browser.new_page(
+                    viewport={"width": REPORT_WIDTH, "height": resolved_height}
+                )
+                page.goto(html_path.as_uri(), wait_until="load", timeout=30_000)
+                wait_for_images(page)
+                page.pdf(
+                    path=str(temporary_pdf),
+                    width=f"{REPORT_WIDTH / CSS_PIXELS_PER_INCH}in",
+                    height=f"{resolved_height / CSS_PIXELS_PER_INCH}in",
+                    print_background=True,
+                    prefer_css_page_size=True,
+                    margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+                )
+        except PlaywrightTimeoutError as error:
+            raise ValueError(
+                "El motor de exportación tardó demasiado en preparar el PDF."
+            ) from error
+        if not temporary_pdf.is_file() or temporary_pdf.stat().st_size == 0:
+            raise ValueError("El motor de exportación no produjo un PDF válido.")
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(temporary_pdf, output)
+        except OSError as error:
+            raise ValueError(
+                "No se pudo guardar el PDF en la ubicación seleccionada. Verifica los permisos y el espacio disponible."
+            ) from error
 
     return {
         "ok": True,
@@ -93,17 +95,6 @@ def export_report_pdf(
 def _safe_file_name(value: str) -> str:
     cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", str(value or "")).strip()
     return cleaned or "Reporte_CA"
-
-
-def _find_edge() -> Path | None:
-    configured = os.environ.get("AGENDER_EDGE_PATH", "").strip()
-    candidates = [
-        Path(configured) if configured else None,
-        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft/Edge/Application/msedge.exe",
-        Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft/Edge/Application/msedge.exe",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft/Edge/Application/msedge.exe",
-    ]
-    return next((candidate for candidate in candidates if candidate and candidate.is_file()), None)
 
 
 def _sanitize_report_html(value: str) -> str:

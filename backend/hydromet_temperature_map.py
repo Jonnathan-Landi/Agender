@@ -4,28 +4,31 @@ import csv
 import io
 import json
 import math
-import threading
 import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from .config import APP_DATA_DIR
+from .job_registry import JobRegistry
 from .hydromet_rain_map import (
     MAP_SIZE,
     SPANISH_MONTHS,
     SPANISH_WEEKDAYS,
     _basemap,
+    _draw_dashed_line,
     _draw_logo,
     _fallback_basemap,
     _feature_bounds,
+    _feature_rings,
     _font,
     _grid_size,
+    _map_point,
     _polygon_mask,
 )
 
@@ -81,8 +84,7 @@ IERSE_STATION_ALIASES = {
 COOL_STOPS = ("#081D58", "#225EA8", "#1D91C0", "#7FCDBB", "#FFFFD9")
 WARM_STOPS = ("#FFFFCC", "#FED976", "#FD8D3C", "#E31A1C", "#800026")
 
-_jobs: dict[str, dict[str, Any]] = {}
-_jobs_lock = threading.Lock()
+_jobs = JobRegistry()
 
 
 def station_names() -> tuple[str, ...]:
@@ -95,53 +97,52 @@ def manual_station_names() -> tuple[str, ...]:
 
 def create_temperature_map_job(
     user_id: int,
-    report_date: date,
+    date_interpolation: datetime,
     start_time: str,
     end_time: str,
     observations: dict[str, float | None],
     parameters: dict[str, float | int] | None = None,
 ) -> str:
     job_id = uuid.uuid4().hex
-    with _jobs_lock:
-        _jobs[job_id] = {
-            "jobId": job_id,
-            "userId": int(user_id),
-            "status": "queued",
-            "message": "Mapa en cola",
-            "reportDate": report_date.isoformat(),
-            "startTime": start_time,
-            "endTime": end_time,
-            "observations": observations.copy(),
-            "parameters": (parameters or {}).copy(),
-            "imagePath": None,
-            "error": None,
-        }
+    _jobs.add(job_id, {
+        "jobId": job_id,
+        "userId": int(user_id),
+        "status": "queued",
+        "message": "Mapa en cola",
+        "dateInterpolation": date_interpolation.isoformat(),
+        "startTime": start_time,
+        "endTime": end_time,
+        "observations": observations.copy(),
+        "parameters": (parameters or {}).copy(),
+        "imagePath": None,
+        "error": None,
+    })
     return job_id
 
 
 def execute_temperature_map_job(job_id: str) -> None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job:
         return
-    _update_job(job_id, status="running", message="Generando mapa de temperaturas")
+    _jobs.update(job_id, status="running", message="Generando mapa de temperaturas")
     try:
         image_path = generate_temperature_map(
             user_id=job["userId"],
             job_id=job_id,
-            report_date=date.fromisoformat(job["reportDate"]),
+            date_interpolation=datetime.fromisoformat(job["dateInterpolation"]),
             start_time=job["startTime"],
             end_time=job["endTime"],
             observations=job["observations"],
             **job.get("parameters", {}),
         )
-        _update_job(
+        _jobs.update(
             job_id,
             status="completed",
             message="Mapa generado",
             imagePath=str(image_path),
         )
     except Exception as error:
-        _update_job(
+        _jobs.update(
             job_id,
             status="failed",
             message="No se pudo generar el mapa",
@@ -150,20 +151,20 @@ def execute_temperature_map_job(job_id: str) -> None:
 
 
 def temperature_map_job(job_id: str, user_id: int) -> dict[str, Any] | None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job or job["userId"] != int(user_id):
         return None
     return {
         "jobId": job["jobId"],
         "status": job["status"],
         "message": job["message"],
-        "reportDate": job["reportDate"],
+        "dateInterpolation": job["dateInterpolation"],
         "error": job["error"],
     }
 
 
 def temperature_map_image(job_id: str, user_id: int) -> Path | None:
-    job = _job_copy(job_id)
+    job = _jobs.get(job_id)
     if not job or job["userId"] != int(user_id) or job["status"] != "completed":
         return None
     image_path = Path(job["imagePath"])
@@ -178,7 +179,7 @@ def generate_temperature_map(
     *,
     user_id: int,
     job_id: str,
-    report_date: date,
+    date_interpolation: datetime,
     start_time: str,
     end_time: str,
     observations: dict[str, float | None],
@@ -196,7 +197,7 @@ def generate_temperature_map(
     remote = (
         remote_observations
         if remote_observations is not None
-        else fetch_ierse_temperature_observations(report_date, end_time)
+        else fetch_ierse_temperature_observations(date_interpolation)
     )
     corrected_remote = _correct_remote_observations(remote, manual_observations)
     combined_observations = {**corrected_remote, **manual_observations}
@@ -210,6 +211,7 @@ def generate_temperature_map(
 
     output_dir = REPORT_ROOT / str(user_id) / "jobs" / job_id / "out"
     output_dir.mkdir(parents=True, exist_ok=True)
+    report_date = date_interpolation.date()
     image_path = output_dir / f"temperatura_{report_date.isoformat()}.png"
 
     features = _load_temperature_buffer_features()
@@ -250,16 +252,15 @@ def generate_temperature_map(
 
 
 def fetch_ierse_temperature_observations(
-    report_date: date,
-    end_time: str,
+    date_interpolation: datetime,
     *,
     timeout_seconds: float = 90,
 ) -> dict[str, float]:
     payload = urllib.parse.urlencode(
         {
-            "year": str(report_date.year),
-            "month": f"{report_date.month:02d}",
-            "monthName": report_date.strftime("%B"),
+            "year": str(date_interpolation.year),
+            "month": f"{date_interpolation.month:02d}",
+            "monthName": date_interpolation.strftime("%B"),
             "varmet": "TC",
         }
     ).encode("ascii")
@@ -280,8 +281,8 @@ def fetch_ierse_temperature_observations(
             "No fue posible descargar las temperaturas de las estaciones IERSE."
         ) from error
 
-    hour = end_time.split(":", 1)[0]
-    target_timestamp = f"{report_date.isoformat()} {hour}:00:00"
+    interpolation_hour = date_interpolation.replace(minute=0, second=0, microsecond=0)
+    target_timestamp = interpolation_hour.strftime("%Y-%m-%d %H:00:00")
     observations: dict[str, float] = {}
     try:
         rows = csv.DictReader(
@@ -302,7 +303,8 @@ def fetch_ierse_temperature_observations(
         raise ValueError("La respuesta de IERSE no tiene el formato esperado.") from error
     if not observations:
         raise ValueError(
-            f"IERSE no dispone de datos para {report_date.isoformat()} a las {hour}:00."
+            "IERSE no dispone de datos para "
+            f"{interpolation_hour.strftime('%Y-%m-%d a las %H:00')}."
         )
     return observations
 
@@ -382,8 +384,6 @@ def _feature_label_point(
     bounds: tuple[float, float, float, float],
     size: tuple[int, int],
 ) -> tuple[tuple[int, int], Image.Image]:
-    from .hydromet_rain_map import _feature_rings, _map_point
-
     rings = _feature_rings(feature)
     pixel_rings = [
         [_map_point(*point, bounds, size) for point in ring]
@@ -491,8 +491,6 @@ def _draw_temperature_boundaries(
     bounds: tuple[float, float, float, float],
     features: list[dict[str, Any]],
 ) -> None:
-    from .hydromet_rain_map import _draw_dashed_line, _feature_rings, _map_point
-
     draw = ImageDraw.Draw(image, "RGBA")
     for feature in features:
         for ring in _feature_rings(feature):
@@ -784,15 +782,3 @@ def _draw_temperature_legend(
             fill="#050505",
             font=_font(39, bold=True),
         )
-
-
-def _job_copy(job_id: str) -> dict[str, Any] | None:
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-        return job.copy() if job else None
-
-
-def _update_job(job_id: str, **values: Any) -> None:
-    with _jobs_lock:
-        if job_id in _jobs:
-            _jobs[job_id].update(values)

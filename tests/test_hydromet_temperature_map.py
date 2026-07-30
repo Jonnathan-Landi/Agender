@@ -3,7 +3,8 @@ from __future__ import annotations
 import io
 import tempfile
 import unittest
-from datetime import date
+import urllib.parse
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -56,7 +57,7 @@ class HydrometTemperatureMapTests(unittest.TestCase):
                 image_path = hydromet_temperature_map.generate_temperature_map(
                     user_id=7,
                     job_id="temperature-test",
-                    report_date=date(2026, 7, 23),
+                    date_interpolation=datetime(2026, 7, 23, 8, 45),
                     start_time="00:00",
                     end_time="20:31",
                     observations=observations,
@@ -98,8 +99,7 @@ class HydrometTemperatureMapTests(unittest.TestCase):
             return_value=io.BytesIO(content),
         ):
             observations = hydromet_temperature_map.fetch_ierse_temperature_observations(
-                date(2026, 7, 23),
-                "20:31",
+                datetime(2026, 7, 23, 20, 31),
             )
 
         self.assertEqual(
@@ -109,6 +109,46 @@ class HydrometTemperatureMapTests(unittest.TestCase):
             },
             observations,
         )
+
+    def test_ierse_hour_comes_from_interpolation_datetime_not_map_range(self) -> None:
+        content = (
+            "timestamp;id_nombre;avgTC;maxTC;minTC\n"
+            '"2026-07-29 08:00:00";"SCP03_Casa Pérez";12.5;13;12\n'
+            '"2026-07-29 20:00:00";"SCP03_Casa Pérez";18.5;19;18\n'
+        ).encode()
+        with patch(
+            "backend.hydromet_temperature_map.urllib.request.urlopen",
+            return_value=io.BytesIO(content),
+        ) as urlopen:
+            observations = hydromet_temperature_map.fetch_ierse_temperature_observations(
+                datetime(2026, 7, 29, 8, 47),
+            )
+
+        self.assertEqual({"SCP03_Casa Pérez": 12.5}, observations)
+        request = urlopen.call_args.args[0]
+        request_payload = urllib.parse.parse_qs(request.data.decode("ascii"))
+        self.assertEqual(["2026"], request_payload["year"])
+        self.assertEqual(["07"], request_payload["month"])
+
+    def test_background_job_preserves_interpolation_datetime(self) -> None:
+        selected = datetime(2026, 7, 29, 8, 47)
+        job_id = hydromet_temperature_map.create_temperature_map_job(
+            user_id=7,
+            date_interpolation=selected,
+            start_time="00:00",
+            end_time="20:00",
+            observations={"MET_TixánPTAP": 12.5},
+        )
+
+        with patch.object(
+            hydromet_temperature_map,
+            "generate_temperature_map",
+            return_value=Path("temperatura.png"),
+        ) as generate:
+            hydromet_temperature_map.execute_temperature_map_job(job_id)
+
+        self.assertEqual(selected, generate.call_args.kwargs["date_interpolation"])
+        self.assertEqual("20:00", generate.call_args.kwargs["end_time"])
 
     def test_outlying_ierse_values_are_corrected_against_etapa_references(self) -> None:
         corrected = hydromet_temperature_map._correct_remote_observations(

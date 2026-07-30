@@ -84,7 +84,8 @@
   }
   if (modules.has("report-hydromet-network")) {
     moduleLoads.push(
-      loadScriptOnce("js/features/hydromet-report.js"),
+      loadScriptOnce("js/features/hydromet-design-export.js")
+        .then(() => loadScriptOnce("js/features/hydromet-report.js")),
       loadStyleOnce("css/hydromet-report.css")
     );
   }

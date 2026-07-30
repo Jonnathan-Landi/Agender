@@ -36,7 +36,6 @@ class WaterQualityReportExportTests(unittest.TestCase):
         self.assertIn("@page", document)
         self.assertIn("print-color-adjust: exact", document)
 
-
 class WaterQualityReportIntegrationTests(unittest.TestCase):
     def test_static_application_is_mounted(self):
         mounts = {getattr(route, "path", "") for route in app.routes}
@@ -136,6 +135,27 @@ class WaterQualityReportIntegrationTests(unittest.TestCase):
         self.assertIn("await bridge.save()", controller)
         self.assertIn("{ notify: false }", controller)
         self.assertNotIn("savePreferencesIfChanged", controller)
+
+    def test_pdf_export_does_not_assume_every_server_response_is_json(self):
+        project_root = Path(__file__).resolve().parent.parent
+        controller = (
+            project_root / "frontend" / "js" / "features" / "water-quality-report.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("async function readApiResult(response)", controller)
+        self.assertIn("const text = await response.text()", controller)
+        self.assertNotIn("const result = await response.json();", controller)
+
+    def test_pdf_export_uses_only_the_integrated_chromium_engine(self):
+        project_root = Path(__file__).resolve().parent.parent
+        exporter = (
+            project_root / "backend" / "wqreport_export.py"
+        ).read_text(encoding="utf-8")
+        renderer = (
+            project_root / "backend" / "browser_render.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("with chromium_browser() as browser", exporter)
+        self.assertIn("playwright.chromium.launch(headless=True)", renderer)
+        self.assertNotIn("subprocess", exporter)
 
     def test_first_page_tlp_is_propagated_to_following_pages(self):
         project_root = Path(__file__).resolve().parent.parent

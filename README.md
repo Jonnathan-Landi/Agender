@@ -68,12 +68,12 @@ Los paquetes se firman para impedir que una descarga manipulada pueda instalarse
    de ese archivo. La clave actual no tiene contraseña.
 3. Actualiza la misma versión SemVer en `src-tauri/tauri.conf.json` y `src-tauri/Cargo.toml`.
    En la línea `1.14.x`, el tercer número identifica el acumulado de correcciones publicadas:
-   por ejemplo, tres correcciones corresponden a `1.14.3`.
+   por ejemplo, tres correcciones corresponden a `1.14.6`.
 4. Antes de crear la etiqueta, ejecuta localmente el mismo build y las mismas validaciones
    que usará GitHub Actions:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build-release.ps1 -ExpectedTag v1.14.3
+powershell -ExecutionPolicy Bypass -File scripts\build-release.ps1 -ExpectedTag v1.14.6
 ```
 
 El comando no publica nada. Comprueba las versiones, el backend empaquetado, el instalador
@@ -82,8 +82,8 @@ y su firma, y deja en `release-artifacts/` exactamente los archivos que se publi
 5. Si todo termina correctamente, confirma los cambios y publica la etiqueta:
 
 ```powershell
-git tag v1.14.3
-git push origin v1.14.3
+git tag v1.14.6
+git push origin v1.14.6
 ```
 
 GitHub Actions vuelve a construir y validar desde cero. Después carga los artefactos en una
@@ -95,6 +95,12 @@ falla cualquier fase, la actualización no queda visible para las instalaciones 
 Las rutas de datos crudos y QC se configuran desde **Configuración > Rutas**. El backend lee `.csv`, `.dat` y `.txt` mediante Polars y mantiene índices incrementales en `%APPDATA%\Agender\cache`.
 
 Los usuarios, credenciales, rutas, solicitudes, tareas diarias y eventos de agenda se conservan en `%APPDATA%\Agender`. Los datos funcionales se almacenan en SQLite y se vinculan al identificador interno de cada usuario. Al iniciar esta versión, Agender migra automáticamente los datos anteriores de `localStorage`; después lo utiliza solo como cola temporal de recuperación mientras confirma cada escritura en SQLite. Una actualización normal reemplaza los binarios de la aplicación sin eliminar este directorio de datos.
+
+Las exportaciones PDF del reporte de calidad del agua y JPG de la red
+hidrometeorológica utilizan Chromium headless integrado mediante Playwright.
+No dependen de navegadores instalados en el equipo. El proceso de compilación
+descarga la versión fijada del motor, la incorpora al backend y ejecuta una
+prueba real de PDF y PNG antes de aceptar el paquete.
 
 `backend/data/stations.xlsx` es el catálogo maestro. La tabla siempre muestra sus estaciones y obtiene de allí Código, Tipo, X_UTM, Y_UTM, Z y Cuenca. Solo los archivos cuyo nombre coincide con un código del catálogo completan Primer registro, Último registro, Actualizada y Completitud.
 

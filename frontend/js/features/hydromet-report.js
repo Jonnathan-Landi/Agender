@@ -34,15 +34,6 @@
     plotLogo: true,
     plotDesign: true
   });
-  const designExportFormats = Object.freeze([
-    "caudales",
-    "lluvias",
-    "temperaturas",
-    "pronostico-diario",
-    "pronostico-semanal",
-    "indice-ultravioleta"
-  ]);
-
   function padNumber(value) {
     return String(value).padStart(2, "0");
   }
@@ -57,6 +48,38 @@
 
   function formatCalendarDay(date) {
     return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
+  }
+
+  function formatCalendarDateTime(date) {
+    return `${formatCalendarDay(date)} ${padNumber(date.getHours())}:${padNumber(date.getMinutes())}`;
+  }
+
+  function parseCalendarDay(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return null;
+    const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return (
+      parsed.getFullYear() === Number(match[1]) &&
+      parsed.getMonth() === Number(match[2]) - 1 &&
+      parsed.getDate() === Number(match[3])
+    ) ? parsed : null;
+  }
+
+  function parseCalendarDateTime(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2}) ([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+    if (!match) return null;
+    const parsed = new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      Number(match[4]),
+      Number(match[5])
+    );
+    return (
+      parsed.getFullYear() === Number(match[1]) &&
+      parsed.getMonth() === Number(match[2]) - 1 &&
+      parsed.getDate() === Number(match[3])
+    ) ? parsed : null;
   }
 
   function updatePageDateTimes() {
@@ -77,13 +100,9 @@
     }
     const temperatureDateInput = document.querySelector("[data-hydromet-temperature-date]");
     if (!temperatureDateWasChanged) {
-      temperatureReportDate = new Date(
-        reportDate.getFullYear(),
-        reportDate.getMonth(),
-        reportDate.getDate()
-      );
+      temperatureReportDate = new Date(reportDate);
       if (temperatureDateInput) {
-        temperatureDateInput.value = formatCalendarDay(temperatureReportDate);
+        temperatureDateInput.value = formatCalendarDateTime(temperatureReportDate);
       }
     }
     const triggerValue = document.querySelector("#hydromet-datetime-trigger-value");
@@ -638,181 +657,14 @@
     return payload;
   }
 
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("No se pudo preparar una imagen para exportar."));
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  async function exportImageSource(image) {
-    const source = image.getAttribute("src") || "";
-    if (!source || source.startsWith("data:")) return source;
-    if (image.classList.contains("hydromet-report-template")) {
-      return new URL(source, document.baseURI).href;
-    }
-    const response = await fetch(source, {
-      cache: "no-store",
-      credentials: "same-origin"
-    });
-    if (!response.ok) {
-      throw new Error("Una de las imágenes del diseño no pudo prepararse para exportar.");
-    }
-    return blobToDataUrl(await response.blob());
-  }
-
-  async function serializeDesignForExport(format) {
-    const page = document.querySelector(
-      `#hydromet-panel-design [data-hydromet-format="${format}"]`
-    );
-    if (!page) throw new Error(`No se encontró el diseño ${format}.`);
-    const clone = page.cloneNode(true);
-    const sourceImages = Array.from(page.querySelectorAll("img"));
-    const clonedImages = Array.from(clone.querySelectorAll("img"));
-    await Promise.all(sourceImages.map(async (image, index) => {
-      const clonedImage = clonedImages[index];
-      if (!clonedImage) return;
-      const source = await exportImageSource(image);
-      if (source) clonedImage.setAttribute("src", source);
-      else clonedImage.removeAttribute("src");
-      clonedImage.hidden = image.hidden;
-      clonedImage.removeAttribute("loading");
-      clonedImage.classList.remove("is-selected");
-    }));
-    clone.classList.remove("is-cropping");
-    clone.querySelectorAll(
-      ".hydromet-upload-zone, .hydromet-crop-overlay, input[type='file']"
-    ).forEach((element) => element.remove());
-    clone.querySelectorAll("[contenteditable]").forEach((element) => {
-      element.removeAttribute("contenteditable");
-    });
-    return { format, html: clone.outerHTML };
-  }
-
-  function syncDesignExportSelection() {
-    const selectAll = document.querySelector("#hydromet-design-export-all");
-    const options = Array.from(document.querySelectorAll(
-      "#hydromet-design-export-list input"
-    ));
-    if (!selectAll || !options.length) return;
-    selectAll.checked = options.every((option) => option.checked);
-    selectAll.indeterminate = (
-      options.some((option) => option.checked) &&
-      options.some((option) => !option.checked)
-    );
-  }
-
-  function setDesignExportMessage(message, isError = false) {
-    const element = document.querySelector("#hydromet-design-export-message");
-    if (!element) return;
-    element.textContent = message;
-    element.classList.toggle("is-error", isError);
-  }
-
-  function setDesignExportBusy(busy) {
-    const form = document.querySelector("#hydromet-design-export-form");
-    const confirm = document.querySelector("#hydromet-design-export-confirm");
-    const cancel = document.querySelector("#hydromet-design-export-cancel");
-    const close = document.querySelector("#hydromet-design-export-close");
-    const label = confirm?.querySelector("span:last-child");
-    form?.setAttribute("aria-busy", String(busy));
-    if (confirm) confirm.disabled = busy;
-    if (cancel) cancel.disabled = busy;
-    if (close) close.disabled = busy;
-    if (label) label.textContent = busy ? "Exportando…" : "Exportar JPG";
-  }
-
-  function openDesignExportDialog() {
-    cancelCrop();
-    clearSelection();
-    const dialog = document.querySelector("#hydromet-design-export-dialog");
-    document.querySelectorAll("#hydromet-design-export-list input")
-      .forEach((option) => { option.checked = true; });
-    syncDesignExportSelection();
-    setDesignExportMessage("");
-    if (dialog && !dialog.open) dialog.showModal();
-  }
-
-  function closeDesignExportDialog() {
-    const dialog = document.querySelector("#hydromet-design-export-dialog");
-    if (dialog?.open) dialog.close();
-  }
-
-  async function exportSelectedDesigns(event) {
-    event.preventDefault();
-    const selected = Array.from(document.querySelectorAll(
-      "#hydromet-design-export-list input:checked"
-    )).map((option) => option.value);
-    if (!selected.length) {
-      setDesignExportMessage("Selecciona al menos un diseño.", true);
-      return;
-    }
-    const invalid = selected.find((format) => !designExportFormats.includes(format));
-    if (invalid) {
-      setDesignExportMessage("La selección contiene un diseño no reconocido.", true);
-      return;
-    }
-    setDesignExportBusy(true);
-    setDesignExportMessage("Preparando los diseños…");
-    try {
-      const reports = [];
-      for (const format of selected) {
-        reports.push(await serializeDesignForExport(format));
-      }
-      setDesignExportMessage("Selecciona la carpeta donde deseas guardar las imágenes.");
-      const response = await fetch("/api/reports/hydromet-network/export-designs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          reportDate: formatCalendarDay(reportDate),
-          reportTime: `${padNumber(reportDate.getHours())}:${padNumber(reportDate.getMinutes())}`,
-          reports
-        })
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(result.detail || "No fue posible exportar los diseños.");
-      }
-      if (result.canceled) {
-        setDesignExportMessage("Exportación cancelada.");
-        return;
-      }
-      setDesignExportMessage(
-        `${result.count} diseño${result.count === 1 ? "" : "s"} guardado${result.count === 1 ? "" : "s"} en ${result.folderName}.`
-      );
-    } catch (error) {
-      setDesignExportMessage(error.message || "No fue posible exportar los diseños.", true);
-    } finally {
-      setDesignExportBusy(false);
-    }
-  }
-
   function initializeDesignExport() {
-    const dialog = document.querySelector("#hydromet-design-export-dialog");
-    const selectAll = document.querySelector("#hydromet-design-export-all");
-    const list = document.querySelector("#hydromet-design-export-list");
-    document.querySelector("#hydromet-design-export-open")
-      ?.addEventListener("click", openDesignExportDialog);
-    document.querySelector("#hydromet-design-export-close")
-      ?.addEventListener("click", closeDesignExportDialog);
-    document.querySelector("#hydromet-design-export-cancel")
-      ?.addEventListener("click", closeDesignExportDialog);
-    document.querySelector("#hydromet-design-export-form")
-      ?.addEventListener("submit", exportSelectedDesigns);
-    dialog?.addEventListener("cancel", (event) => {
-      if (dialog.querySelector("form")?.getAttribute("aria-busy") === "true") {
-        event.preventDefault();
-      }
+    window.NotasHydrometDesignExport.init({
+      getReportDate: () => reportDate,
+      formatCalendarDay,
+      padNumber,
+      cancelCrop,
+      clearSelection
     });
-    selectAll?.addEventListener("change", () => {
-      list?.querySelectorAll("input").forEach((option) => {
-        option.checked = selectAll.checked;
-      });
-      syncDesignExportSelection();
-    });
-    list?.addEventListener("change", syncDesignExportSelection);
   }
 
   function setRunState(button, message, isError = false) {
@@ -1008,10 +860,16 @@
     try {
       const observations = readTemperatureObservations(card);
       const parameters = readTemperatureMapParameters();
+      const interpolationDate = parseCalendarDateTime(
+        card.querySelector("[data-hydromet-temperature-date]")?.value || ""
+      );
       const startTime = card.querySelector("[data-hydromet-temperature-start-time]")?.value || "";
       const endTime = card.querySelector("[data-hydromet-temperature-end-time]")?.value || "";
       if (!Object.values(observations).some((value) => value !== null)) {
         throw new Error("Ingresa al menos un valor de temperatura.");
+      }
+      if (!interpolationDate) {
+        throw new Error("Ingresa la fecha y hora del registro como AAAA-MM-DD HH:mm.");
       }
       if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
         throw new Error("Selecciona una hora inicial y una hora final.");
@@ -1024,7 +882,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
-          reportDate: formatCalendarDay(temperatureReportDate || reportDate),
+          dateInterpolation: `${formatCalendarDateTime(interpolationDate).replace(" ", "T")}:00`,
           startTime,
           endTime,
           observations,
@@ -1124,12 +982,12 @@
       if (card.dataset.hydrometDataTable === "rainfall") {
         const rainDateInput = card.querySelector("[data-hydromet-rain-date]");
         rainDateInput?.addEventListener("change", () => {
-          const [year, month, day] = rainDateInput.value.split("-").map(Number);
-          if (!year || !month || !day) {
+          const parsed = parseCalendarDay(rainDateInput.value);
+          if (!parsed) {
             rainDateInput.value = formatCalendarDay(rainReportDate || reportDate);
             return;
           }
-          rainReportDate = new Date(year, month - 1, day);
+          rainReportDate = parsed;
           rainDateWasChanged = true;
         });
         const endTime = card.querySelector("[data-hydromet-rain-end-time]");
@@ -1141,12 +999,12 @@
       if (card.dataset.hydrometDataTable === "temperatures") {
         const dateInput = card.querySelector("[data-hydromet-temperature-date]");
         dateInput?.addEventListener("change", () => {
-          const [year, month, day] = dateInput.value.split("-").map(Number);
-          if (!year || !month || !day) {
-            dateInput.value = formatCalendarDay(temperatureReportDate || reportDate);
+          const parsed = parseCalendarDateTime(dateInput.value);
+          if (!parsed) {
+            dateInput.value = formatCalendarDateTime(temperatureReportDate || reportDate);
             return;
           }
-          temperatureReportDate = new Date(year, month - 1, day);
+          temperatureReportDate = parsed;
           temperatureDateWasChanged = true;
         });
         const endTime = card.querySelector("[data-hydromet-temperature-end-time]");
