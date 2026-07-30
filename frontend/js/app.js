@@ -82,6 +82,13 @@
       loadStyleOnce("css/water-quality-report.css")
     );
   }
+  if (modules.has("report-hydromet-network")) {
+    moduleLoads.push(
+      loadScriptOnce("js/features/hydromet-design-export.js")
+        .then(() => loadScriptOnce("js/features/hydromet-report.js")),
+      loadStyleOnce("css/hydromet-report.css")
+    );
+  }
   if (modules.has("hydromet")) {
     moduleLoads.push(
       loadScriptOnce("js/features/viewer.js"),
@@ -99,6 +106,9 @@
   if (modules.has("agenda")) window.NotasAgenda.initAgenda();
   if (modules.has("report-water-quality")) {
     window.NotasWaterQualityReport.init();
+  }
+  if (modules.has("report-hydromet-network")) {
+    window.NotasHydrometReport.init();
   }
   if (modules.has("hydromet")) {
     try {

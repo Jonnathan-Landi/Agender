@@ -132,12 +132,523 @@
           </div>
         </section>
 
-        <section class="view report-module-view" id="report-hydromet-network-view" aria-labelledby="report-hydromet-network-title">
-          <header class="toolbar report-module-toolbar">
+        <section class="view hydromet-report-view" id="report-hydromet-network-view" aria-labelledby="report-hydromet-network-title">
+          <header class="toolbar hydromet-report-toolbar">
             <div>
-              <p class="eyebrow" id="report-hydromet-network-title">Reportes de Red hidrometeorológica</p>
+              <h1 id="report-hydromet-network-title">Reportes de la red hidrometeorológica (Beta)</h1>
+            </div>
+            <div class="hydromet-report-toolbar-actions">
+              <span class="hydromet-report-count">6 formatos</span>
+              <button class="button secondary compact-button" type="button" id="hydromet-design-export-open">
+                <span class="font-icon" aria-hidden="true">&#xE74E;</span>
+                <span>Exportar</span>
+              </button>
             </div>
           </header>
+          <div class="hydromet-report-tabs" role="tablist" aria-label="Secciones de Red hidrometeorológica">
+            <button
+              class="hydromet-report-tab"
+              id="hydromet-tab-graphics"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="hydromet-panel-graphics"
+              data-hydromet-report-tab="graphics"
+              tabindex="-1"
+            >Gráficos</button>
+            <button
+              class="hydromet-report-tab is-active"
+              id="hydromet-tab-design"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="hydromet-panel-design"
+              data-hydromet-report-tab="design"
+            >Diseño</button>
+          </div>
+          <section
+            class="hydromet-report-tab-panel"
+            id="hydromet-panel-graphics"
+            role="tabpanel"
+            aria-labelledby="hydromet-tab-graphics"
+            data-hydromet-report-panel="graphics"
+            hidden
+          >
+            <div class="hydromet-graphics-workspace">
+              <section class="hydromet-data-accordion" aria-labelledby="hydromet-data-accordion-title">
+                <header class="hydromet-data-accordion-header">
+                  <div>
+                    <h2 id="hydromet-data-accordion-title">Datos para gráficos</h2>
+                    <p>Seleccione una categoría para ingresar sus valores.</p>
+                  </div>
+                  <button class="hydromet-datetime-trigger" id="hydromet-datetime-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="3.5" y="5.5" width="17" height="15" rx="2"></rect>
+                      <path d="M7.5 3.5v4M16.5 3.5v4M3.5 9.5h17"></path>
+                      <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01"></path>
+                    </svg>
+                    <span>
+                      <small>Fecha y hora</small>
+                      <strong id="hydromet-datetime-trigger-value">Seleccionar</strong>
+                    </span>
+                  </button>
+                </header>
+                <section class="hydromet-data-item" data-hydromet-data-table="flows">
+                  <button
+                    class="hydromet-data-trigger"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="hydromet-data-panel-flows"
+                  >
+                    <span class="hydromet-data-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M4 16c2.2-3 4.2-3 6.2 0s4 3 6 0 3.2-2.4 3.8-1.6"></path>
+                        <path d="M4 10c2.2-3 4.2-3 6.2 0s4 3 6 0 3.2-2.4 3.8-1.6"></path>
+                      </svg>
+                    </span>
+                    <span>Caudales</span>
+                    <svg class="hydromet-data-chevron" viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="m7.5 4.5 5.5 5.5-5.5 5.5"></path>
+                    </svg>
+                  </button>
+                  <div class="hydromet-data-table-wrap hydromet-data-panel" id="hydromet-data-panel-flows" hidden>
+                    <table class="hydromet-data-table">
+                      <thead>
+                        <tr>
+                          <th>Estación Caudales</th>
+                          <th>Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Tomebamba</td>
+                          <td contenteditable="true" inputmode="decimal" data-placeholder="—" data-flow-input="tomebamba"></td>
+                        </tr>
+                        <tr>
+                          <td>Yanuncay</td>
+                          <td contenteditable="true" inputmode="decimal" data-placeholder="—" data-flow-input="yanuncay"></td>
+                        </tr>
+                        <tr>
+                          <td>Tarqui</td>
+                          <td contenteditable="true" inputmode="decimal" data-placeholder="—" data-flow-input="tarqui"></td>
+                        </tr>
+                        <tr>
+                          <td>Machángara</td>
+                          <td contenteditable="true" inputmode="decimal" data-placeholder="—" data-flow-input="machangara"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                <section class="hydromet-data-item" data-hydromet-data-table="rainfall">
+                  <button
+                    class="hydromet-data-trigger"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="hydromet-data-panel-rainfall"
+                  >
+                    <span class="hydromet-data-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M7 15.5h10a4 4 0 0 0 .5-8A6 6 0 0 0 6.2 9.1 3.3 3.3 0 0 0 7 15.5Z"></path>
+                        <path d="m8 18-1 2M12.5 18l-1 2M17 18l-1 2"></path>
+                      </svg>
+                    </span>
+                    <span>Lluvias</span>
+                    <svg class="hydromet-data-chevron" viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="m7.5 4.5 5.5 5.5-5.5 5.5"></path>
+                    </svg>
+                  </button>
+                  <div class="hydromet-data-panel hydromet-rain-dashboard" id="hydromet-data-panel-rainfall" hidden>
+                    <header class="hydromet-rain-dashboard-header">
+                      <div>
+                        <h3>Registro de Lluvias</h3>
+                        <p>Ingrese los valores de lluvia acumulada por estación.</p>
+                      </div>
+                      <div class="hydromet-run-controls">
+                        <button class="hydromet-run-button" type="button" data-hydromet-run="rainfall">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5Z"></path></svg>
+                          <span data-hydromet-run-label>Ejecutar</span>
+                        </button>
+                        <button
+                          class="hydromet-params-button"
+                          type="button"
+                          data-hydromet-params-trigger="rainfall"
+                          aria-expanded="false"
+                          aria-controls="hydromet-rain-params"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9.6 3h4.8l.6 2.2 1.2.7 2.2-.7 2.4 4.1-1.6 1.6v1.4l1.6 1.6-2.4 4.1-2.2-.7-1.2.7-.6 2.2H9.6L9 18l-1.2-.7-2.2.7-2.4-4.1 1.6-1.6v-1.4L3.2 9.3l2.4-4.1 2.2.7L9 5.2 9.6 3Z"></path>
+                            <circle cx="12" cy="11.6" r="3"></circle>
+                          </svg>
+                          <span>Configurar</span>
+                        </button>
+                        <button class="hydromet-clear-button" type="button" data-hydromet-clear="rainfall">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"></path>
+                          </svg>
+                          <span>Limpiar</span>
+                        </button>
+                      </div>
+                    </header>
+                    <div class="hydromet-rain-filters">
+                      <label class="hydromet-rain-filter">
+                        <span>Fecha del registro</span>
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          placeholder="AAAA-MM-DD"
+                          pattern="\d{4}-\d{2}-\d{2}"
+                          data-hydromet-rain-date
+                          aria-label="Fecha del registro de lluvias, formato año-mes-día"
+                        >
+                      </label>
+                      <label class="hydromet-rain-filter">
+                        <span>Hora inicial</span>
+                        <input type="time" value="00:00" data-hydromet-rain-start-time>
+                      </label>
+                      <label class="hydromet-rain-filter">
+                        <span>Hora final</span>
+                        <input type="time" value="20:00" data-hydromet-rain-end-time>
+                      </label>
+                      <div class="hydromet-rain-filter">
+                        <span>Unidades</span>
+                        <strong>Milímetros (mm)</strong>
+                      </div>
+                    </div>
+                    <div class="hydromet-rain-dashboard-grid">
+                      <div class="hydromet-rain-table-card">
+                        <div class="hydromet-rain-table-scroll" tabindex="0" aria-label="Valores de lluvia por estación">
+                          <table class="hydromet-data-table">
+                            <thead>
+                              <tr>
+                                <th># &nbsp; Estación</th>
+                                <th>Lluvia acumulada (mm)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                        <tr><td>MataderoSayausi</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Sayausi</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Cebollar</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Totoracocha</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>SoldadosPTAR</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>YanuncayPucan</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Labrado</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Saucay</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Tixán</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Chanlud</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Narancay</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Huizhil</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Ricaurte</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Ucubamba</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Challuabamba</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>ElValle</td><td contenteditable="true" inputmode="decimal">0</td></tr>
+                        <tr><td>Llaviucu</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
+                        <tr><td>Chirimachay</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
+                        <tr><td>Toreadora</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
+                        <tr><td>Portete</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
+                        <tr><td>Irquis</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <footer class="hydromet-rain-table-footer">
+                          <span>21 estaciones registradas</span>
+                        </footer>
+                      </div>
+                      <aside class="hydromet-rain-preview-column">
+                        <section class="hydromet-rain-preview-card">
+                          <header><strong>Vista previa del mapa</strong></header>
+                          <div class="hydromet-rain-preview">
+                            <img data-hydromet-rain-preview-output alt="Vista previa del mapa de lluvias" hidden>
+                            <p data-hydromet-rain-preview-empty>Ejecute la generación para visualizar el mapa.</p>
+                          </div>
+                        </section>
+                        <section class="hydromet-rain-summary-card">
+                          <header><strong>Resumen del registro</strong></header>
+                          <div class="hydromet-rain-summary">
+                            <div><span>Estaciones con valor</span><strong data-hydromet-rain-filled>21</strong></div>
+                            <div><span>Promedio (mm)</span><strong data-hydromet-rain-average>0.00</strong></div>
+                          </div>
+                        </section>
+                      </aside>
+                    </div>
+                    <div class="hydromet-run-actions hydromet-rain-background-status">
+                      <div class="hydromet-params-popover" id="hydromet-rain-params" data-hydromet-params="rainfall" role="dialog" aria-label="Parámetros del mapa de lluvias" hidden>
+                        <header class="hydromet-params-header">
+                          <strong>Parámetros</strong>
+                          <button type="button" data-hydromet-params-close aria-label="Cerrar parámetros">×</button>
+                        </header>
+                        <div class="hydromet-params-fields">
+                          <label>
+                            <span>search_radius</span>
+                            <input name="search_radius" type="number" min="1" max="100" step="0.5" value="10">
+                          </label>
+                          <label>
+                            <span>p</span>
+                            <input name="p" type="number" min="0.1" max="10" step="0.1" value="2">
+                          </label>
+                          <label>
+                            <span>grid_resolution</span>
+                            <input name="grid_resolution" type="number" min="0.02" max="5" step="0.01" value="0.1">
+                          </label>
+                          <label>
+                            <span>n_round</span>
+                            <input name="n_round" type="number" min="0" max="6" step="1" value="2">
+                          </label>
+                          <label class="hydromet-params-check">
+                            <input name="plot_logo" type="checkbox" checked>
+                            <span>plot_logo</span>
+                          </label>
+                          <label class="hydromet-params-check">
+                            <input name="plot_design" type="checkbox" checked>
+                            <span>plot_design</span>
+                          </label>
+                        </div>
+                        <button class="hydromet-params-reset" type="button" data-hydromet-params-reset>
+                          Restablecer valores
+                        </button>
+                      </div>
+                      <span class="hydromet-run-status" data-hydromet-run-status="rainfall" role="status" aria-live="polite"></span>
+                    </div>
+                  </div>
+                </section>
+                <section class="hydromet-data-item" data-hydromet-data-table="temperatures">
+                  <button
+                    class="hydromet-data-trigger"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="hydromet-data-panel-temperatures"
+                  >
+                    <span class="hydromet-data-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M9 5a3 3 0 0 1 6 0v8.2a5 5 0 1 1-6 0Z"></path>
+                        <path d="M12 8v7"></path>
+                      </svg>
+                    </span>
+                    <span>Temperaturas</span>
+                    <svg class="hydromet-data-chevron" viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="m7.5 4.5 5.5 5.5-5.5 5.5"></path>
+                    </svg>
+                  </button>
+                  <div class="hydromet-data-panel hydromet-rain-dashboard" id="hydromet-data-panel-temperatures" hidden>
+                    <header class="hydromet-rain-dashboard-header">
+                      <div>
+                        <h3>Registro de Temperaturas</h3>
+                        <p>Ingrese los valores de temperatura por estación.</p>
+                      </div>
+                      <div class="hydromet-run-controls">
+                        <button class="hydromet-run-button" type="button" data-hydromet-run="temperatures">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5Z"></path></svg>
+                          <span data-hydromet-run-label>Ejecutar</span>
+                        </button>
+                        <button class="hydromet-params-button" type="button" data-hydromet-params-trigger="temperatures" aria-expanded="false" aria-controls="hydromet-temperature-params">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9.6 3h4.8l.6 2.2 1.2.7 2.2-.7 2.4 4.1-1.6 1.6v1.4l1.6 1.6-2.4 4.1-2.2-.7-1.2.7-.6 2.2H9.6L9 18l-1.2-.7-2.2.7-2.4-4.1 1.6-1.6v-1.4L3.2 9.3l2.4-4.1 2.2.7L9 5.2 9.6 3Z"></path>
+                            <circle cx="12" cy="11.6" r="3"></circle>
+                          </svg>
+                          <span>Configurar</span>
+                        </button>
+                        <button class="hydromet-clear-button" type="button" data-hydromet-clear="temperatures">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"></path></svg>
+                          <span>Limpiar</span>
+                        </button>
+                      </div>
+                    </header>
+                    <div class="hydromet-rain-filters">
+                      <label class="hydromet-rain-filter">
+                        <span>Fecha y hora del registro</span>
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          placeholder="AAAA-MM-DD HH:mm"
+                          pattern="\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d"
+                          data-hydromet-temperature-date
+                          aria-label="Fecha y hora del registro de temperaturas, formato año-mes-día hora:minuto"
+                        >
+                      </label>
+                      <label class="hydromet-rain-filter">
+                        <span>Hora inicial</span>
+                        <input type="time" value="00:00" data-hydromet-temperature-start-time>
+                      </label>
+                      <label class="hydromet-rain-filter">
+                        <span>Hora final</span>
+                        <input type="time" value="20:00" data-hydromet-temperature-end-time>
+                      </label>
+                      <div class="hydromet-rain-filter">
+                        <span>Unidades</span>
+                        <strong>Grados Celsius (°C)</strong>
+                      </div>
+                    </div>
+                    <div class="hydromet-rain-dashboard-grid">
+                      <div class="hydromet-rain-table-card">
+                        <div class="hydromet-rain-table-scroll" tabindex="0" aria-label="Valores de temperatura por estación">
+                          <table class="hydromet-data-table">
+                            <thead><tr><th># &nbsp; Estación</th><th>Temperatura (°C)</th></tr></thead>
+                            <tbody>
+                              <tr><td>MET_TixánPTAP</td><td contenteditable="true" inputmode="decimal" data-placeholder="—"></td></tr>
+                              <tr><td>MET_SayausiPTAP</td><td contenteditable="true" inputmode="decimal" data-placeholder="—"></td></tr>
+                              <tr><td>MET_CebollarPTAP</td><td contenteditable="true" inputmode="decimal" data-placeholder="—"></td></tr>
+                              <tr><td>MET_ElValle</td><td contenteditable="true" inputmode="decimal" data-placeholder="—"></td></tr>
+                              <tr><td>MET_UcubambaPTAR</td><td contenteditable="true" inputmode="decimal" data-placeholder="—"></td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <footer class="hydromet-rain-table-footer"><span>5 estaciones manuales</span></footer>
+                      </div>
+                      <aside class="hydromet-rain-preview-column">
+                        <section class="hydromet-rain-preview-card">
+                          <header><strong>Vista previa del mapa</strong></header>
+                          <div class="hydromet-rain-preview">
+                            <img data-hydromet-temperature-preview-output alt="Vista previa del mapa de temperaturas" hidden>
+                            <p data-hydromet-temperature-preview-empty>Ejecute la generación para visualizar el mapa.</p>
+                          </div>
+                        </section>
+                      </aside>
+                    </div>
+                    <div class="hydromet-run-actions hydromet-rain-background-status">
+                      <div class="hydromet-params-popover" id="hydromet-temperature-params" data-hydromet-params="temperatures" role="dialog" aria-label="Parámetros del mapa de temperaturas" hidden>
+                        <header class="hydromet-params-header">
+                          <strong>Parámetros</strong>
+                          <button type="button" data-hydromet-params-close aria-label="Cerrar parámetros">×</button>
+                        </header>
+                        <div class="hydromet-params-fields">
+                          <label><span>search_radius</span><input name="search_radius" type="number" min="1" max="100" step="0.5" value="10"></label>
+                          <label><span>p</span><input name="p" type="number" min="0.1" max="10" step="0.1" value="2"></label>
+                          <label><span>grid_resolution</span><input name="grid_resolution" type="number" min="0.02" max="5" step="0.01" value="0.1"></label>
+                          <label><span>n_round</span><input name="n_round" type="number" min="0" max="6" step="1" value="2"></label>
+                        </div>
+                        <button class="hydromet-params-reset" type="button" data-hydromet-params-reset>Restablecer valores</button>
+                      </div>
+                      <span class="hydromet-run-status" data-hydromet-run-status="temperatures" role="status" aria-live="polite"></span>
+                    </div>
+                  </div>
+                </section>
+              </section>
+            </div>
+          </section>
+          <section
+            class="hydromet-report-tab-panel is-active"
+            id="hydromet-panel-design"
+            role="tabpanel"
+            aria-labelledby="hydromet-tab-design"
+            data-hydromet-report-panel="design"
+          >
+            <div class="hydromet-report-workspace">
+              <div class="hydromet-report-stack" aria-label="Formatos del reporte hidrometeorológico">
+              <figure class="hydromet-report-page" data-hydromet-format="caudales">
+                <img class="hydromet-report-template" src="assets/hydromet-report/01-caudales.jpeg" alt="Formato de reporte de caudales" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-flow-report-data" aria-label="Valores del reporte de caudales">
+                  <div class="hydromet-flow-report-row">
+                    <span class="hydromet-flow-state">—</span>
+                    <span class="hydromet-flow-value" data-flow-output="tomebamba">—</span>
+                  </div>
+                  <div class="hydromet-flow-report-row">
+                    <span class="hydromet-flow-state">—</span>
+                    <span class="hydromet-flow-value" data-flow-output="yanuncay">—</span>
+                  </div>
+                  <div class="hydromet-flow-report-row">
+                    <span class="hydromet-flow-state">—</span>
+                    <span class="hydromet-flow-value" data-flow-output="tarqui">—</span>
+                  </div>
+                  <div class="hydromet-flow-report-row">
+                    <span class="hydromet-flow-state">—</span>
+                    <span class="hydromet-flow-value" data-flow-output="machangara">—</span>
+                  </div>
+                </div>
+              </figure>
+              <figure class="hydromet-report-page" data-hydromet-format="lluvias">
+                <img class="hydromet-report-template" src="assets/hydromet-report/02-lluvias.jpeg" alt="Formato de lluvias por estaciones" loading="lazy" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-generated-map-slot" data-hydromet-rain-map-slot aria-live="polite">
+                  <img
+                    class="hydromet-generated-map"
+                    data-hydromet-rain-map-output
+                    alt="Mapa generado con los valores de la tabla de lluvias"
+                    hidden
+                  >
+                  <div class="hydromet-generated-map-status" data-hydromet-rain-map-design-status hidden>
+                    Generando mapa…
+                  </div>
+                </div>
+              </figure>
+              <figure class="hydromet-report-page" data-hydromet-format="temperaturas">
+                <img class="hydromet-report-template" src="assets/hydromet-report/03-temperaturas.jpeg" alt="Formato de reporte de temperaturas" loading="lazy" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-generated-map-slot" data-hydromet-temperature-map-slot aria-live="polite">
+                  <img
+                    class="hydromet-generated-map"
+                    data-hydromet-temperature-map-output
+                    alt="Mapa generado con los valores de la tabla de temperaturas"
+                    hidden
+                  >
+                  <div class="hydromet-generated-map-status" data-hydromet-temperature-map-design-status hidden>
+                    Generando mapa…
+                  </div>
+                </div>
+              </figure>
+              <figure class="hydromet-report-page hydromet-report-page-editable" data-hydromet-format="pronostico-diario">
+                <img class="hydromet-report-template" src="assets/hydromet-report/04-pronostico-diario.jpeg" alt="Formato de pronóstico diario" loading="lazy" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-image-slot" tabindex="0" aria-label="Área para insertar la imagen del pronóstico diario">
+                  <img class="hydromet-inserted-image" alt="Imagen insertada en el pronóstico diario" tabindex="0" hidden>
+                  <div class="hydromet-upload-zone">
+                    <label class="hydromet-upload-button">
+                      <input class="hydromet-image-input" type="file" accept="image/*">
+                      <span>Seleccionar imagen</span>
+                    </label>
+                    <span class="hydromet-upload-hint">o arrastra y pega aquí</span>
+                  </div>
+                </div>
+              </figure>
+              <figure class="hydromet-report-page hydromet-report-page-editable" data-hydromet-format="pronostico-semanal">
+                <img class="hydromet-report-template" src="assets/hydromet-report/05-pronostico-semanal.jpeg" alt="Formato de pronóstico semanal" loading="lazy" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-image-slot" tabindex="0" aria-label="Área para insertar la imagen del pronóstico semanal">
+                  <img class="hydromet-inserted-image" alt="Imagen insertada en el pronóstico semanal" tabindex="0" hidden>
+                  <div class="hydromet-upload-zone">
+                    <label class="hydromet-upload-button">
+                      <input class="hydromet-image-input" type="file" accept="image/*">
+                      <span>Seleccionar imagen</span>
+                    </label>
+                    <span class="hydromet-upload-hint">o arrastra y pega aquí</span>
+                  </div>
+                </div>
+              </figure>
+              <figure class="hydromet-report-page hydromet-report-page-editable" data-hydromet-format="indice-ultravioleta">
+                <img class="hydromet-report-template" src="assets/hydromet-report/06-indice-ultravioleta.jpeg" alt="Formato de índice ultravioleta" loading="lazy" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-image-slot" tabindex="0" aria-label="Área para insertar la imagen del índice ultravioleta">
+                  <img class="hydromet-inserted-image" alt="Imagen insertada en el índice ultravioleta" tabindex="0" hidden>
+                  <div class="hydromet-upload-zone">
+                    <label class="hydromet-upload-button">
+                      <input class="hydromet-image-input" type="file" accept="image/*">
+                      <span>Seleccionar imagen</span>
+                    </label>
+                    <span class="hydromet-upload-hint">o arrastra y pega aquí</span>
+                  </div>
+                </div>
+                </figure>
+              </div>
+            </div>
+          </section>
         </section>
 
         <section class="view license-admin-view" id="license-admin-view" aria-labelledby="license-admin-title" hidden>
@@ -156,9 +667,16 @@
                   <p id="license-authority-status">Comprobando la clave privada de la autoridad…</p>
                 </div>
               </div>
-              <label class="button secondary license-authority-import" for="license-authority-key" title="Importar clave" aria-label="Importar clave">
-                <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
-              </label>
+              <div class="license-authority-actions">
+                <label class="button secondary license-previous-import" for="license-previous-file">
+                  <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+                  <span>Importar licencia anterior</span>
+                </label>
+                <label class="button secondary license-authority-import" for="license-authority-key" title="Importar clave" aria-label="Importar clave">
+                  <span class="font-icon" aria-hidden="true">&#xE8E5;</span>
+                </label>
+              </div>
+              <input id="license-previous-file" type="file" accept=".json,.license.json,application/json" hidden>
               <input id="license-authority-key" type="file" accept=".pem" hidden>
             </section>
 
@@ -174,6 +692,7 @@
                   <label><span>Clave temporal</span><input name="temporaryPassword" type="password" minlength="10" required></label>
                   <label><span>Identificador</span><input name="licenseId" placeholder="CLIENTE-001" required></label>
                   <label><span>Revisión</span><input name="revision" type="number" min="1" value="1" required></label>
+                  <label><span>Vencimiento (opcional)</span><input name="expiresAt" type="date"></label>
                 </div>
               </section>
 
@@ -959,7 +1478,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.13.1.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.15.1.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -1014,43 +1533,35 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.13.1</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.15.1</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.13.1</strong>
+                <strong class="news-version-number">1.15.1</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
-                  <h2>Solicitud de datos</h2>
+                  <h2>Mapas hidrometeorológicos</h2>
                   <ul>
-                    <li>Nueva tabla compacta con navegación por estado, paginación, búsqueda, filtros y mejor aprovechamiento del espacio disponible.</li>
-                    <li>Nuevo tablero de solicitudes con columnas desplazables, tarjetas uniformes y desplazamiento independiente cuando existen muchos registros.</li>
-                    <li>Las solicitudes entregadas dejan de mostrarse en el tablero después de dos días, pero permanecen en la lista hasta que el usuario las elimine.</li>
-                    <li>Se incorporó el tipo de usuario Externo o Interno. El dato se conserva y se exporta a Excel sin recargar la tabla principal.</li>
-                    <li>La exportación Excel conserva todos los registros y todas las columnas, independientemente del filtro o la página visible.</li>
-                    <li>Los estados largos utilizan controles de ancho fijo y texto recortado para mantener estables las proporciones de la tabla.</li>
+                    <li>Los mapas de lluvia y temperatura mantienen sus plantillas y mapas base en cualquier equipo.</li>
+                    <li>Temperatura consulta IERSE con la fecha y hora seleccionadas, independientemente del rango mostrado en el mapa.</li>
+                    <li>Los registros utilizan formatos estables: AAAA-MM-DD y AAAA-MM-DD HH:mm.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Plan diario</h2>
+                  <h2>Exportaciones confiables</h2>
                   <ul>
-                    <li>Nuevo diseño de lista de trabajo con selector de fecha desde el encabezado, columnas de categoría, vencimiento, estado y progreso.</li>
-                    <li>Nuevo resumen lateral con gráfico ampliado de tareas por estado y listas detalladas de próximos vencimientos y tareas vencidas.</li>
-                    <li>El diseño se adapta a distintos anchos de pantalla sin deformar el gráfico ni superponer sus indicadores.</li>
-                    <li>Las tareas finalizadas dejan de mostrarse en el tablero después de dos días y continúan disponibles en el plan diario.</li>
-                    <li>Se eliminó el botón Hoy y los componentes del resumen diario anterior que ya no pertenecían al diseño actual.</li>
+                    <li>Los seis diseños JPG componen su plantilla base localmente y conservan mapas, textos e imágenes editadas.</li>
+                    <li>Los reportes PDF y JPG utilizan el Chromium integrado y funcionan sin depender del navegador instalado.</li>
+                    <li>La exportación JPG evita transferir las plantillas en Base64, reduciendo memoria y tiempo de preparación.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Estabilidad y mantenimiento</h2>
+                  <h2>Rendimiento y estabilidad</h2>
                   <ul>
-                    <li>Se corrigieron textos dañados y fechas inválidas en la pantalla de actualizaciones.</li>
-                    <li>Se retiró del Viewer la interfaz de ventana antigua y sus estilos y controladores ocultos.</li>
-                    <li>Las consultas y estadísticas DuckDB del Viewer se aislaron del controlador HTTP para reducir acoplamiento y facilitar su mantenimiento.</li>
-                    <li>Se eliminaron funciones sin consumidores, selectores CSS huérfanos y reglas responsivas que interferían entre módulos.</li>
-                    <li>Se reforzaron las pruebas de Solicitudes, Diario, Viewer, exportaciones, versiones y arquitectura del frontend.</li>
-                    <li>Se alinearon la aplicación, el backend, las novedades y la configuración de publicación con la versión 1.13.1.</li>
+                    <li>El arranque mantiene la carga diferida de los componentes pesados del Viewer y procesamiento hidrometeorológico.</li>
+                    <li>Los trabajos de mapas comparten un registro concurrente protegido y sin código duplicado.</li>
+                    <li>La validación del instalador prueba Chromium, inventario, API local, firma y recursos empaquetados.</li>
                   </ul>
                 </section>
               </div>
@@ -1534,6 +2045,54 @@
           </section>
         </div>
         <footer><button class="button primary" type="button" id="water-quality-settings-done">Listo</button></footer>
+      </form>
+    </dialog>
+
+    <dialog
+      id="hydromet-design-export-dialog"
+      class="hydromet-design-export-dialog"
+      aria-labelledby="hydromet-design-export-title"
+    >
+      <form method="dialog" class="hydromet-design-export-form" id="hydromet-design-export-form">
+        <header>
+          <div>
+            <p class="eyebrow">Red hidrometeorológica</p>
+            <h2 id="hydromet-design-export-title">Exportar diseños</h2>
+            <p>Selecciona las hojas que se guardarán como JPG de máxima calidad.</p>
+          </div>
+          <button class="hydromet-design-export-close" type="button" id="hydromet-design-export-close" aria-label="Cerrar">
+            <span class="font-icon" aria-hidden="true">&#xE711;</span>
+          </button>
+        </header>
+        <div class="hydromet-design-export-body">
+          <label class="hydromet-design-export-all">
+            <input type="checkbox" id="hydromet-design-export-all" checked>
+            <span>
+              <strong>Seleccionar todo</strong>
+              <small>Exportar las seis hojas del reporte.</small>
+            </span>
+          </label>
+          <div class="hydromet-design-export-list" id="hydromet-design-export-list">
+            <label><input type="checkbox" value="caudales" checked><span>Caudales</span></label>
+            <label><input type="checkbox" value="lluvias" checked><span>Lluvias por estaciones</span></label>
+            <label><input type="checkbox" value="temperaturas" checked><span>Temperaturas</span></label>
+            <label><input type="checkbox" value="pronostico-diario" checked><span>Pronóstico diario</span></label>
+            <label><input type="checkbox" value="pronostico-semanal" checked><span>Pronóstico semanal</span></label>
+            <label><input type="checkbox" value="indice-ultravioleta" checked><span>Índice ultravioleta</span></label>
+          </div>
+          <div class="hydromet-design-export-note">
+            <span class="font-icon" aria-hidden="true">&#xE946;</span>
+            <p>Dentro de la carpeta seleccionada se creará otra carpeta con la fecha y hora del reporte.</p>
+          </div>
+          <p class="hydromet-design-export-message" id="hydromet-design-export-message" role="status" aria-live="polite"></p>
+        </div>
+        <footer>
+          <button class="button secondary" type="button" id="hydromet-design-export-cancel">Cancelar</button>
+          <button class="button primary" type="submit" id="hydromet-design-export-confirm">
+            <span class="font-icon" aria-hidden="true">&#xE74E;</span>
+            <span>Exportar JPG</span>
+          </button>
+        </footer>
       </form>
     </dialog>
 

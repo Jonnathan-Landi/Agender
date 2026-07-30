@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 
 
 def main() -> None:
@@ -8,10 +9,16 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=47831, type=int)
     parser.add_argument("--index-worker", action="store_true")
+    parser.add_argument("--render-smoke-test", action="store_true")
     parser.add_argument("--source", choices=("raw", "quality"))
     parser.add_argument("--root")
     parser.add_argument("--recursive", choices=("true", "false"), default="true")
     arguments = parser.parse_args()
+    if arguments.render_smoke_test:
+        from backend.browser_render import render_smoke_test
+
+        print(json.dumps(render_smoke_test()))
+        return
     if arguments.index_worker:
         from backend.index_worker import run
 

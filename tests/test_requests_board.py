@@ -226,12 +226,13 @@ class RequestsBoardIntegrationTests(unittest.TestCase):
         self.assertIn("data-request-pdf-view", self.controller)
 
     def test_pdf_pickers_are_compact_and_dates_use_iso_format(self):
+        request_form = self.document.split('id="request-form"', 1)[1].split("</form>", 1)[0]
         self.assertEqual(2, self.document.count('class="button secondary request-pdf-picker"'))
         self.assertGreaterEqual(self.document.count("&#xEA90;"), 2)
         self.assertIn("function formatIsoDate", self.controller)
         self.assertIn("formatIsoDate(record.requestDate)", self.controller)
         self.assertIn("formatIsoDate(record.responseDate)", self.controller)
-        self.assertEqual(2, self.document.count('placeholder="AAAA-MM-DD"'))
+        self.assertEqual(2, request_form.count('placeholder="AAAA-MM-DD"'))
         self.assertIn('data-request-calendar="request"', self.document)
         self.assertIn('data-request-calendar="response"', self.document)
         self.assertIn("renderCalendar", self.controller)

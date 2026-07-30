@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import html
 import json
+import math
 import os
 import subprocess
 import sys
 import webbrowser
 from contextlib import asynccontextmanager
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +40,7 @@ from .security import (
     generate_license,
     install_authority_key,
     install_license,
+    inspect_license_for_reissue,
     replace_license,
     login,
     logout,
@@ -56,7 +59,7 @@ async def lifespan(_application: FastAPI):
 
 app = FastAPI(title="Agender", docs_url=None, redoc_url=None, lifespan=lifespan)
 viewer_app = LazyAsgiApp("backend.viewer.api", "app")
-SESSION_MAX_AGE_SECONDS = 24 * 60 * 60
+SESSION_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60
 MAX_REQUEST_BYTES = 50 * 1024 * 1024
 MAX_LICENSE_BYTES = 1024 * 1024
 MAX_AUTHORITY_KEY_BYTES = 64 * 1024
@@ -133,6 +136,8 @@ async def enforce_module_access(request: Request, call_next):
         required = "settings"
     elif path.startswith("/viewer-api"):
         required = "viewer"
+    elif path.startswith("/api/reports/hydromet-network"):
+        required = "report-hydromet-network"
     elif path.startswith("/wqreport"):
         required = "report-water-quality"
     if required:
@@ -200,11 +205,52 @@ class WaterQualityPdfExport(BaseModel):
     pageHeight: int = 1260
 
 
+class HydrometRainMapParameters(BaseModel):
+    searchRadius: float = Field(default=10, ge=1, le=100)
+    p: float = Field(default=2, ge=0.1, le=10)
+    gridResolution: float = Field(default=0.1, ge=0.02, le=5)
+    nRound: int = Field(default=2, ge=0, le=6)
+    plotLogo: bool = True
+    plotDesign: bool = True
+
+
+class HydrometRainMapGeneration(BaseModel):
+    reportDate: date
+    startTime: str = Field(default="00:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    endTime: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    observations: dict[str, float | None]
+    parameters: HydrometRainMapParameters = Field(default_factory=HydrometRainMapParameters)
+
+
+class HydrometTemperatureMapGeneration(BaseModel):
+    dateInterpolation: datetime
+    startTime: str = Field(default="00:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    endTime: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    observations: dict[str, float | None]
+    parameters: HydrometRainMapParameters = Field(default_factory=HydrometRainMapParameters)
+
+
+class HydrometDesignItem(BaseModel):
+    format: str = Field(
+        pattern=(
+            r"^(caudales|lluvias|temperaturas|pronostico-diario|"
+            r"pronostico-semanal|indice-ultravioleta)$"
+        )
+    )
+    html: str = Field(min_length=1, max_length=45 * 1024 * 1024)
+
+
+class HydrometDesignExport(BaseModel):
+    reportDate: date
+    reportTime: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    reports: list[HydrometDesignItem] = Field(min_length=1, max_length=6)
+
+
 class LicenseGenerationRequest(BaseModel):
-    licenseId: str
-    fullName: str
-    username: str
-    temporaryPassword: str
+    licenseId: str = Field(min_length=1, max_length=128)
+    fullName: str = Field(min_length=1, max_length=256)
+    username: str = Field(min_length=1, max_length=128)
+    temporaryPassword: str = Field(min_length=10, max_length=1024)
     expiresAt: str | None = None
     revision: int = 1
     modules: list[str]
@@ -316,6 +362,18 @@ def post_generate_license(request: Request, values: LicenseGenerationRequest) ->
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/api/licenses/inspect")
+async def post_inspect_license(request: Request, license: UploadFile = File(...)) -> dict[str, Any]:
+    user = current_user(request.cookies.get("agender_session"))
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede importar licencias")
+    try:
+        content = await _read_limited_upload(license, MAX_LICENSE_BYTES, "La licencia")
+        return inspect_license_for_reissue(content)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/licenses/import-authority")
@@ -669,6 +727,196 @@ def export_water_quality_pdf(payload: WaterQualityPdfExport, request: Request) -
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo guardar el PDF. Verifica los permisos de la ubicación y el espacio disponible.",
+        ) from error
+
+
+@app.post("/api/reports/hydromet-network/rain-map", status_code=202)
+def start_hydromet_rain_map(
+    payload: HydrometRainMapGeneration,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> dict[str, object]:
+    from .hydromet_rain_map import create_rain_map_job, execute_rain_map_job, station_names
+
+    user = _require_user(request)
+    if "report-hydromet-network" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    expected_stations = set(station_names())
+    unknown_stations = set(payload.observations) - expected_stations
+    if unknown_stations:
+        raise HTTPException(status_code=422, detail="La tabla contiene estaciones no reconocidas.")
+    if not payload.observations:
+        raise HTTPException(status_code=422, detail="La tabla de lluvias está vacía.")
+    for value in payload.observations.values():
+        if value is not None and (not math.isfinite(value) or value < 0 or value > 2_000):
+            raise HTTPException(status_code=422, detail="Los valores de lluvia deben estar entre 0 y 2000 mm.")
+    job_id = create_rain_map_job(
+        user_id=user["id"],
+        report_date=payload.reportDate,
+        start_time=payload.startTime,
+        end_time=payload.endTime,
+        observations=payload.observations,
+        parameters={
+            "search_radius": payload.parameters.searchRadius,
+            "p": payload.parameters.p,
+            "grid_resolution": payload.parameters.gridResolution,
+            "n_round": payload.parameters.nRound,
+            "plot_logo": payload.parameters.plotLogo,
+            "plot_design": payload.parameters.plotDesign,
+        },
+    )
+    background_tasks.add_task(execute_rain_map_job, job_id)
+    return {"jobId": job_id, "status": "queued"}
+
+
+@app.post("/api/reports/hydromet-network/export-designs")
+async def export_hydromet_designs(
+    payload: HydrometDesignExport,
+    request: Request,
+) -> dict[str, object]:
+    from .hydromet_report_export import export_hydromet_designs as export_designs
+
+    user = _require_user(request)
+    if "report-hydromet-network" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    try:
+        return await run_in_threadpool(
+            export_designs,
+            [report.model_dump() for report in payload.reports],
+            payload.reportDate,
+            payload.reportTime,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudieron guardar los diseños. Verifica los permisos de la carpeta y el espacio disponible.",
+        ) from error
+
+
+@app.get("/api/reports/hydromet-network/rain-map/{job_id}")
+def hydromet_rain_map_status(job_id: str, request: Request) -> dict[str, object]:
+    from .hydromet_rain_map import rain_map_job
+
+    user = _require_user(request)
+    job = rain_map_job(job_id, user["id"])
+    if not job:
+        raise HTTPException(status_code=404, detail="No se encontró la generación solicitada.")
+    if job["status"] == "completed":
+        job["imageUrl"] = f"/api/reports/hydromet-network/rain-map/{job_id}/image"
+        job["previewUrl"] = f"/api/reports/hydromet-network/rain-map/{job_id}/preview"
+    return job
+
+
+@app.get("/api/reports/hydromet-network/rain-map/{job_id}/image")
+def hydromet_rain_map_content(job_id: str, request: Request) -> Response:
+    from .hydromet_rain_map import rain_map_image
+
+    user = _require_user(request)
+    image_path = rain_map_image(job_id, user["id"])
+    if not image_path:
+        raise HTTPException(status_code=404, detail="El mapa todavía no está disponible.")
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        filename=image_path.name,
+        content_disposition_type="inline",
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+@app.get("/api/reports/hydromet-network/rain-map/{job_id}/preview")
+def hydromet_rain_map_preview(job_id: str, request: Request) -> Response:
+    from .hydromet_rain_map import rain_map_preview
+
+    user = _require_user(request)
+    image_path = rain_map_preview(job_id, user["id"])
+    if not image_path:
+        raise HTTPException(status_code=404, detail="La vista previa todavía no está disponible.")
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        filename=image_path.name,
+        content_disposition_type="inline",
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+@app.post("/api/reports/hydromet-network/temperature-map", status_code=202)
+def start_hydromet_temperature_map(
+    payload: HydrometTemperatureMapGeneration,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> dict[str, object]:
+    from .hydromet_temperature_map import (
+        create_temperature_map_job,
+        execute_temperature_map_job,
+        manual_station_names,
+    )
+
+    user = _require_user(request)
+    if "report-hydromet-network" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    if set(payload.observations) - set(manual_station_names()):
+        raise HTTPException(status_code=422, detail="La tabla contiene estaciones no reconocidas.")
+    if not payload.observations:
+        raise HTTPException(status_code=422, detail="La tabla de temperaturas está vacía.")
+    for value in payload.observations.values():
+        if value is not None and (not math.isfinite(value) or value < -40 or value > 60):
+            raise HTTPException(
+                status_code=422,
+                detail="Los valores de temperatura deben estar entre -40 y 60 °C.",
+            )
+    job_id = create_temperature_map_job(
+        user_id=user["id"],
+        date_interpolation=payload.dateInterpolation,
+        start_time=payload.startTime,
+        end_time=payload.endTime,
+        observations=payload.observations,
+        parameters={
+            "search_radius": payload.parameters.searchRadius,
+            "p": payload.parameters.p,
+            "grid_resolution": payload.parameters.gridResolution,
+            "n_round": payload.parameters.nRound,
+        },
+    )
+    background_tasks.add_task(execute_temperature_map_job, job_id)
+    return {"jobId": job_id, "status": "queued"}
+
+
+@app.get("/api/reports/hydromet-network/temperature-map/{job_id}")
+def hydromet_temperature_map_status(job_id: str, request: Request) -> dict[str, object]:
+    from .hydromet_temperature_map import temperature_map_job
+
+    user = _require_user(request)
+    job = temperature_map_job(job_id, user["id"])
+    if not job:
+        raise HTTPException(status_code=404, detail="No se encontró la generación solicitada.")
+    if job["status"] == "completed":
+        job["imageUrl"] = f"/api/reports/hydromet-network/temperature-map/{job_id}/image"
+    return job
+
+
+@app.get("/api/reports/hydromet-network/temperature-map/{job_id}/image")
+def hydromet_temperature_map_content(job_id: str, request: Request) -> Response:
+    from .hydromet_temperature_map import temperature_map_image
+
+    user = _require_user(request)
+    image_path = temperature_map_image(job_id, user["id"])
+    if not image_path:
+        raise HTTPException(status_code=404, detail="El mapa todavía no está disponible.")
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        filename=image_path.name,
+        content_disposition_type="inline",
+        headers={"Cache-Control": "private, no-store"},
+    )
 
 
 def _folder_dialog(initial_path: str) -> str:

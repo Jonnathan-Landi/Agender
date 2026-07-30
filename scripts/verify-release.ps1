@@ -59,6 +59,18 @@ try {
 if (-not $workerResult.data -or $workerResult.catalogStationCount -lt 1) {
   throw "El trabajador de inventario empaquetado devolvió un catálogo vacío."
 }
+$renderOutput = & $backendExecutable --render-smoke-test
+if ($LASTEXITCODE -ne 0) {
+  throw "El motor Chromium empaquetado terminó con código $LASTEXITCODE."
+}
+try {
+  $renderResult = ($renderOutput -join "`n") | ConvertFrom-Json
+} catch {
+  throw "El motor Chromium empaquetado no devolvió JSON válido."
+}
+if (-not $renderResult.ok -or $renderResult.pdfBytes -lt 1 -or $renderResult.imageBytes -lt 1) {
+  throw "El motor Chromium empaquetado no produjo PDF y PNG válidos."
+}
 $backend = Start-Process -FilePath $backendExecutable -ArgumentList "--port", "18765" -PassThru -WindowStyle Hidden
 try {
   $ready = $false

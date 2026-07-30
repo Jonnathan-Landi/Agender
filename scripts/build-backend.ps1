@@ -2,10 +2,23 @@ $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $distPath = Join-Path $projectRoot "dist\agender-backend"
 $resourcePath = Join-Path $projectRoot "src-tauri\resources\backend"
-$python = if ($env:AGENDER_BUILD_PYTHON) { $env:AGENDER_BUILD_PYTHON } else { "python" }
+$browserPath = Join-Path $projectRoot "build\playwright-browsers"
+$venvPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$python = if ($env:AGENDER_BUILD_PYTHON) {
+  $env:AGENDER_BUILD_PYTHON
+} elseif (Test-Path -LiteralPath $venvPython) {
+  $venvPython
+} else {
+  "python"
+}
 
 Push-Location $projectRoot
 try {
+  $env:PLAYWRIGHT_BROWSERS_PATH = $browserPath
+  & $python -m playwright install chromium --only-shell
+  if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo preparar Chromium para el motor de exportación integrado."
+  }
   & $python -m PyInstaller --noconfirm --clean "packaging\agender-backend.spec"
   if ($LASTEXITCODE -ne 0) {
     throw "Falló el empaquetado del backend con $python."
@@ -36,6 +49,18 @@ try {
   }
   if (-not $workerResult.data -or $workerResult.catalogStationCount -lt 1) {
     throw "El backend empaquetado devolvió un inventario de prueba vacío."
+  }
+  $renderOutput = & $backendExecutable --render-smoke-test
+  if ($LASTEXITCODE -ne 0) {
+    throw "El motor Chromium empaquetado no pudo ejecutar la prueba de renderizado."
+  }
+  try {
+    $renderResult = ($renderOutput -join "`n") | ConvertFrom-Json
+  } catch {
+    throw "El motor Chromium empaquetado no devolvió un resultado JSON válido."
+  }
+  if (-not $renderResult.ok -or $renderResult.pdfBytes -lt 1 -or $renderResult.imageBytes -lt 1) {
+    throw "El motor Chromium empaquetado no produjo los archivos de prueba."
   }
 } finally {
   Pop-Location

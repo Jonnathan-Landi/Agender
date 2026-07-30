@@ -14,6 +14,8 @@ def create_server_socket(
     *,
     fallback_to_ephemeral: bool = False,
 ) -> socket.socket:
+    if host not in {"127.0.0.1", "localhost"}:
+        raise ValueError("El backend local solo puede escuchar en la interfaz de loopback")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
