@@ -635,6 +635,7 @@
                   <span class="hydromet-page-date"></span>
                   <span class="hydromet-page-time"></span>
                 </div>
+                <div class="hydromet-uv-risk" aria-live="polite" hidden></div>
                 <div class="hydromet-image-slot" tabindex="0" aria-label="Área para insertar la imagen del índice ultravioleta">
                   <img class="hydromet-inserted-image" alt="Imagen insertada en el índice ultravioleta" tabindex="0" hidden>
                   <div class="hydromet-upload-zone">
@@ -1478,7 +1479,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.15.1.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.15.2.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -1533,27 +1534,27 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.15.1</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.15.2</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.15.1</strong>
+                <strong class="news-version-number">1.15.2</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
                   <h2>Mapas hidrometeorológicos</h2>
                   <ul>
-                    <li>Los mapas de lluvia y temperatura mantienen sus plantillas y mapas base en cualquier equipo.</li>
-                    <li>Temperatura consulta IERSE con la fecha y hora seleccionadas, independientemente del rango mostrado en el mapa.</li>
-                    <li>Los registros utilizan formatos estables: AAAA-MM-DD y AAAA-MM-DD HH:mm.</li>
+                    <li>Los mapas de lluvia y temperatura utilizan una composición SVG híbrida con textos, límites y leyendas vectoriales.</li>
+                    <li>Las leyendas, etiquetas territoriales, logotipos y márgenes reproducen con mayor fidelidad el diseño institucional.</li>
+                    <li>El índice ultravioleta reconoce automáticamente la categoría dominante de la gráfica incorporada.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
                   <h2>Exportaciones confiables</h2>
                   <ul>
-                    <li>Los seis diseños JPG componen su plantilla base localmente y conservan mapas, textos e imágenes editadas.</li>
-                    <li>Los reportes PDF y JPG utilizan el Chromium integrado y funcionan sin depender del navegador instalado.</li>
-                    <li>La exportación JPG evita transferir las plantillas en Base64, reduciendo memoria y tiempo de preparación.</li>
+                    <li>Las áreas para pegar o arrastrar imágenes coinciden con el espacio que ocupará el contenido exportado.</li>
+                    <li>Los gráficos aprovechan mejor los márgenes disponibles sin cubrir la información de la fuente.</li>
+                    <li>Las imágenes conservan su proporción al ajustarse dentro de las plantillas.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">

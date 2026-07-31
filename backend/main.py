@@ -823,7 +823,7 @@ def hydromet_rain_map_content(job_id: str, request: Request) -> Response:
         raise HTTPException(status_code=404, detail="El mapa todavía no está disponible.")
     return FileResponse(
         image_path,
-        media_type="image/png",
+        media_type="image/svg+xml" if image_path.suffix.lower() == ".svg" else "image/png",
         filename=image_path.name,
         content_disposition_type="inline",
         headers={"Cache-Control": "private, no-store"},
@@ -840,7 +840,7 @@ def hydromet_rain_map_preview(job_id: str, request: Request) -> Response:
         raise HTTPException(status_code=404, detail="La vista previa todavía no está disponible.")
     return FileResponse(
         image_path,
-        media_type="image/png",
+        media_type="image/svg+xml" if image_path.suffix.lower() == ".svg" else "image/png",
         filename=image_path.name,
         content_disposition_type="inline",
         headers={"Cache-Control": "private, no-store"},
@@ -912,7 +912,7 @@ def hydromet_temperature_map_content(job_id: str, request: Request) -> Response:
         raise HTTPException(status_code=404, detail="El mapa todavía no está disponible.")
     return FileResponse(
         image_path,
-        media_type="image/png",
+        media_type="image/svg+xml" if image_path.suffix.lower() == ".svg" else "image/png",
         filename=image_path.name,
         content_disposition_type="inline",
         headers={"Cache-Control": "private, no-store"},

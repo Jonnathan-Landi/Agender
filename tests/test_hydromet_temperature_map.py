@@ -4,11 +4,10 @@ import io
 import tempfile
 import unittest
 import urllib.parse
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
-
-from PIL import Image
 
 from backend import hydromet_temperature_map
 from backend.hydromet_rain_map import _expand_bounds_to_aspect
@@ -16,7 +15,7 @@ from backend.hydromet_rain_map import _expand_bounds_to_aspect
 
 class HydrometTemperatureMapTests(unittest.TestCase):
     def test_design_uses_hydroclima_style_plot_and_axis_spacing(self) -> None:
-        self.assertEqual((220, 170, 2100, 1245), hydromet_temperature_map.TEMPERATURE_PLOT_BOX)
+        self.assertEqual((170, 150, 2180, 1160), hydromet_temperature_map.TEMPERATURE_PLOT_BOX)
         self.assertEqual(
             [-79.05, -79.0, -78.95, -78.9],
             hydromet_temperature_map._temperature_axis_ticks(-79.07, -78.89, 0.05),
@@ -25,6 +24,14 @@ class HydrometTemperatureMapTests(unittest.TestCase):
             [-2.92, -2.9, -2.88, -2.86, -2.84],
             hydromet_temperature_map._temperature_axis_ticks(-2.93, -2.83, 0.02),
         )
+        self.assertEqual(9, len(hydromet_temperature_map.COOL_STOPS))
+        self.assertEqual(9, len(hydromet_temperature_map.WARM_STOPS))
+        source = Path(hydromet_temperature_map.__file__).read_text(encoding="utf-8")
+        self.assertIn("padding = 0.009", source)
+        self.assertIn("panel_width = round((right - left) * 0.24)", source)
+        self.assertIn("panel_height = round((bottom - top) * 0.48)", source)
+        self.assertIn("(right-left) * 0.35", source)
+        self.assertIn("label_lines = [part.upper() for part in name.split()]", source)
 
     def test_hydroclima_stations_are_available(self) -> None:
         self.assertEqual(15, len(hydromet_temperature_map.station_names()))
@@ -70,12 +77,17 @@ class HydrometTemperatureMapTests(unittest.TestCase):
                 )
 
             self.assertEqual(
-                root / "7/jobs/temperature-test/out/temperatura_2026-07-23.png",
+                root / "7/jobs/temperature-test/out/temperatura_2026-07-23.svg",
                 image_path,
             )
-            with Image.open(image_path) as image:
-                self.assertEqual((2200, 1450), image.size)
-                self.assertEqual("RGB", image.mode)
+            svg = image_path.read_text(encoding="utf-8")
+            root_element = ET.fromstring(svg)
+            self.assertEqual("2200", root_element.attrib["width"])
+            self.assertEqual("1332", root_element.attrib["height"])
+            self.assertIn("data:image/png;base64,", svg)
+            self.assertIn('id="temperature-scale"', svg)
+            self.assertIn("Temperatura mínima en Cuenca:", svg)
+            self.assertIn("<path", svg)
 
     def test_palette_switches_between_minimum_and_maximum_maps(self) -> None:
         self.assertEqual(

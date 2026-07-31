@@ -1248,6 +1248,20 @@ body > .hydromet-params-popover {
   object-position: center;
 }
 
+[data-hydromet-format="lluvias"] .hydromet-generated-map-slot {
+  top: 19.5%;
+  left: 2.5%;
+  width: 95%;
+  height: 57.5%;
+}
+
+[data-hydromet-format="temperaturas"] .hydromet-generated-map-slot {
+  top: 19.5%;
+  left: 2.5%;
+  width: 95%;
+  height: 57.5%;
+}
+
 .hydromet-generated-map[hidden] {
   display: none;
 }
@@ -1286,6 +1300,34 @@ body > .hydromet-params-popover {
   box-shadow: inset 0 0 0 4px #ff8300;
 }
 
+.hydromet-uv-risk {
+  position: absolute;
+  z-index: 4;
+  top: 19.6%;
+  left: 12%;
+  max-width: 76%;
+  color: #4b5159;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 3.2cqw;
+  font-weight: 700;
+  line-height: 1;
+}
+
+[data-hydromet-format="pronostico-diario"] .hydromet-image-slot,
+[data-hydromet-format="pronostico-semanal"] .hydromet-image-slot {
+  top: 19.5%;
+  left: 2.5%;
+  width: 95%;
+  height: 54%;
+}
+
+[data-hydromet-format="indice-ultravioleta"] .hydromet-image-slot {
+  top: 24.5%;
+  left: 2.5%;
+  width: 95%;
+  height: 50%;
+}
+
 .hydromet-inserted-image {
   position: absolute;
   inset: 0;
@@ -1318,7 +1360,8 @@ body > .hydromet-params-popover {
 .hydromet-upload-zone {
   position: absolute;
   z-index: 2;
-  inset: 2.5%;
+  inset: 0;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
