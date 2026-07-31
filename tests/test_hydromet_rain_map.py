@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -41,7 +42,7 @@ class HydrometRainMapTests(unittest.TestCase):
                 )
 
             self.assertEqual(root / "12/jobs/test-job/BD_Obs.xlsx", workbook_path)
-            self.assertEqual(root / "12/jobs/test-job/out/mapa_2026-07-22.png", image_path)
+            self.assertEqual(root / "12/jobs/test-job/out/mapa_2026-07-22.svg", image_path)
             self.assertEqual(
                 root / "12/jobs/test-job/out/mapa_limpio_2026-07-22.png",
                 preview_path,
@@ -54,11 +55,16 @@ class HydrometRainMapTests(unittest.TestCase):
             self.assertEqual(22, len(rows))
             self.assertEqual(("MataderoSayausi", 0), rows[1])
             self.assertEqual(("Irquis", 4), rows[-1])
-            with Image.open(image_path) as image:
-                self.assertEqual(hydromet_rain_map.MAP_SIZE, image.size)
-                self.assertEqual((2200, 1450), image.size)
-                self.assertEqual("RGB", image.mode)
-                self.assertEqual((255, 255, 255), image.getpixel((0, 0)))
+            svg = image_path.read_text(encoding="utf-8")
+            root_element = ET.fromstring(svg)
+            self.assertEqual("2200", root_element.attrib["width"])
+            self.assertEqual("1332", root_element.attrib["height"])
+            self.assertIn("data:image/png;base64,", svg)
+            self.assertIn("<path", svg)
+            self.assertIn("CHIQUINTAD", svg)
+            self.assertIn("Lluvia diaria (mm)", svg)
+            self.assertIn('fill-opacity=".70"', svg)
+            self.assertIn('preserveAspectRatio="none"', svg)
             with Image.open(preview_path) as preview:
                 self.assertEqual(hydromet_rain_map.PLOT_SIZE, preview.size)
 
@@ -105,6 +111,17 @@ class HydrometRainMapTests(unittest.TestCase):
         self.assertGreaterEqual(expanded[2], source[2])
         self.assertLessEqual(expanded[1], source[1])
         self.assertGreaterEqual(expanded[3], source[3])
+
+    def test_map_labels_and_legend_use_readable_native_sizes(self) -> None:
+        source = Path(hydromet_rain_map.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("font_size = 49 if is_city else 36", source)
+        self.assertIn('font_size = 45 if name == "CUENCA" else 33', source)
+        self.assertIn("stroke_width=3", source)
+        self.assertIn("panel_width = round((right - left) * 0.28)", source)
+        self.assertIn("panel_height = round((bottom - top) * 0.28)", source)
+        self.assertIn("font-size=\"29\"", source)
+        self.assertIn("text-rendering:geometricPrecision", source)
 
     def test_logo_and_design_parameters_control_the_composition(self) -> None:
         observations = dict.fromkeys(hydromet_rain_map.station_names(), 1.0)

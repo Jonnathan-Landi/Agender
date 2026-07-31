@@ -9,10 +9,11 @@ import urllib.request
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
+from html import escape
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 from .config import APP_DATA_DIR
 from .job_registry import JobRegistry
@@ -21,8 +22,6 @@ from .hydromet_rain_map import (
     SPANISH_MONTHS,
     SPANISH_WEEKDAYS,
     _basemap,
-    _draw_dashed_line,
-    _draw_logo,
     _fallback_basemap,
     _feature_bounds,
     _feature_rings,
@@ -30,6 +29,8 @@ from .hydromet_rain_map import (
     _grid_size,
     _map_point,
     _polygon_mask,
+    _png_data_uri,
+    _draw_outer_boundary,
 )
 
 REPORT_ROOT = APP_DATA_DIR / "reports" / "hydromet-network"
@@ -43,7 +44,7 @@ DEFAULT_SEARCH_RADIUS_KM = 10.0
 DEFAULT_IDW_POWER = 2.0
 DEFAULT_GRID_RESOLUTION_KM = 0.01
 DEFAULT_ROUND_DIGITS = 2
-TEMPERATURE_PLOT_BOX = (220, 170, 2100, 1245)
+TEMPERATURE_PLOT_BOX = (170, 150, 2180, 1160)
 TEMPERATURE_PLOT_SIZE = (
     TEMPERATURE_PLOT_BOX[2] - TEMPERATURE_PLOT_BOX[0],
     TEMPERATURE_PLOT_BOX[3] - TEMPERATURE_PLOT_BOX[1],
@@ -81,8 +82,14 @@ IERSE_STATION_ALIASES = {
     "SCP17_Monumento a la Familia": "SCP17_Redondel Muñecas de Piedra",
 }
 
-COOL_STOPS = ("#081D58", "#225EA8", "#1D91C0", "#7FCDBB", "#FFFFD9")
-WARM_STOPS = ("#FFFFCC", "#FED976", "#FD8D3C", "#E31A1C", "#800026")
+COOL_STOPS = (
+    "#081D58", "#253494", "#225EA8", "#1D91C0", "#41B6C4",
+    "#7FCDBB", "#C7E9B4", "#EDF8B1", "#FFFFD9",
+)
+WARM_STOPS = (
+    "#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C",
+    "#FC4E2A", "#E31A1C", "#BD0026", "#800026",
+)
 
 _jobs = JobRegistry()
 
@@ -212,7 +219,7 @@ def generate_temperature_map(
     output_dir = REPORT_ROOT / str(user_id) / "jobs" / job_id / "out"
     output_dir.mkdir(parents=True, exist_ok=True)
     report_date = date_interpolation.date()
-    image_path = output_dir / f"temperatura_{report_date.isoformat()}.png"
+    image_path = output_dir / f"temperatura_{report_date.isoformat()}.svg"
 
     features = _load_temperature_buffer_features()
     bounds = _temperature_map_bounds(features)
@@ -236,18 +243,19 @@ def generate_temperature_map(
         Image.Resampling.BILINEAR,
     )
     map_image = Image.alpha_composite(background.convert("RGBA"), temperature_layer)
-    _draw_temperature_boundaries(map_image, bounds, features)
-    _draw_temperature_feature_labels(map_image, bounds, features)
-    designed_map = _compose_temperature_design(
-        map_image,
-        bounds,
-        report_date,
-        start_time,
-        end_time,
-        minimum,
-        maximum,
+    image_path.write_text(
+        _compose_temperature_design_svg(
+            map_image,
+            bounds,
+            features,
+            report_date,
+            start_time,
+            end_time,
+            minimum,
+            maximum,
+        ),
+        encoding="utf-8",
     )
-    designed_map.convert("RGB").save(image_path, format="PNG", optimize=True)
     return image_path
 
 
@@ -339,28 +347,13 @@ def _temperature_map_bounds(
 ) -> tuple[float, float, float, float]:
     """Match HydroClima's close urban framing while preserving geographic aspect."""
     west, south, east, north = _feature_bounds(features)
-    padding = 0.0015
+    padding = 0.009
     west, south, east, north = (
         west - padding,
         south - padding,
         east + padding,
         north + padding,
     )
-    target_aspect = TEMPERATURE_PLOT_SIZE[0] / TEMPERATURE_PLOT_SIZE[1]
-    width = east - west
-    height = north - south
-    latitude_scale = math.cos(math.radians((south + north) / 2))
-    geographic_aspect = width * latitude_scale / height
-    if geographic_aspect < target_aspect:
-        desired_width = height * target_aspect / latitude_scale
-        extra = (desired_width - width) / 2
-        west -= extra
-        east += extra
-    else:
-        desired_height = width * latitude_scale / target_aspect
-        extra = (desired_height - height) / 2
-        south -= extra
-        north += extra
     return west, south, east, north
 
 
@@ -440,70 +433,6 @@ def _label_fits_feature(
         0 <= x < mask.width and 0 <= y < mask.height and pixels[x, y]
         for x, y in samples
     )
-
-
-def _draw_temperature_feature_labels(
-    image: Image.Image,
-    bounds: tuple[float, float, float, float],
-    features: list[dict[str, Any]],
-) -> None:
-    vertical = {"Gil Ramirez Dávalos", "El Sagrario", "San Blas"}
-    small = vertical | {"Cañaribamba"}
-    draw = ImageDraw.Draw(image, "RGBA")
-    for feature in features:
-        name = str(feature.get("properties", {}).get("name", "")).strip()
-        if not name:
-            continue
-        (x, y), feature_mask = _feature_label_point(feature, bounds, image.size)
-        label = "\n".join(part.upper() for part in name.split())
-        target_size = 27 if name in small else 32
-        for font_size in range(target_size, 17, -1):
-            font = _font(font_size)
-            text_box = draw.multiline_textbbox(
-                (0, 0), label, font=font, spacing=0, align="center"
-            )
-            width = round(text_box[2] - text_box[0] + 8)
-            height = round(text_box[3] - text_box[1] + 8)
-            fitted_width, fitted_height = (
-                (height, width) if name in vertical else (width, height)
-            )
-            if _label_fits_feature(feature_mask, (x, y), fitted_width, fitted_height):
-                break
-        label_image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        ImageDraw.Draw(label_image).multiline_text(
-            (4 - text_box[0], 4 - text_box[1]),
-            label,
-            fill=(255, 255, 255, 255),
-            font=font,
-            spacing=0,
-            align="center",
-        )
-        if name in vertical:
-            label_image = label_image.rotate(90, expand=True, resample=Image.Resampling.BICUBIC)
-        image.alpha_composite(
-            label_image,
-            (round(x - label_image.width / 2), round(y - label_image.height / 2)),
-        )
-
-
-def _draw_temperature_boundaries(
-    image: Image.Image,
-    bounds: tuple[float, float, float, float],
-    features: list[dict[str, Any]],
-) -> None:
-    draw = ImageDraw.Draw(image, "RGBA")
-    for feature in features:
-        for ring in _feature_rings(feature):
-            points = [_map_point(*point, bounds, image.size) for point in ring]
-            if len(points) > 1:
-                _draw_dashed_line(draw, points, fill=(8, 8, 8, 255), width=4, dash=13, gap=10)
-
-    mask = _polygon_mask(bounds, features, image.size)
-    outer = ImageChops.difference(
-        mask.filter(ImageFilter.MaxFilter(11)),
-        mask.filter(ImageFilter.MinFilter(11)),
-    )
-    image.paste((5, 5, 5, 255), mask=outer)
 
 
 def _interpolated_temperature_layer(
@@ -620,165 +549,197 @@ def _temperature_axis_ticks(start: float, end: float, step: float) -> list[float
     return ticks
 
 
-def _draw_temperature_axes(
-    canvas: Image.Image,
-    draw: ImageDraw.ImageDraw,
+def _temperature_svg_path(
+    feature: dict[str, Any],
     bounds: tuple[float, float, float, float],
-) -> None:
-    west, south, east, north = bounds
-    left, top, right, bottom = TEMPERATURE_PLOT_BOX
-    tick_font = _font(42, bold=True)
-    axis_font = _font(56, bold=True)
-    for longitude in _temperature_axis_ticks(west, east, 0.05):
-        x = left + (longitude - west) / (east - west) * (right - left)
-        draw.line((x, bottom, x, bottom + 22), fill="#2b2b2b", width=7)
-        label = f"{abs(longitude):.2f}°W"
-        box = draw.textbbox((0, 0), label, font=tick_font)
-        draw.text(
-            (x - (box[2] - box[0]) / 2, bottom + 31),
-            label,
-            fill="#111111",
-            font=tick_font,
-        )
-    for latitude in _temperature_axis_ticks(south, north, 0.02):
-        y = bottom - (latitude - south) / (north - south) * (bottom - top)
-        draw.line((left - 22, y, left, y), fill="#2b2b2b", width=7)
-        label = f"{abs(latitude):.2f}°S"
-        box = draw.textbbox((0, 0), label, font=tick_font)
-        draw.text(
-            (left - (box[2] - box[0]) - 28, y - (box[3] - box[1]) / 2),
-            label,
-            fill="#111111",
-            font=tick_font,
-        )
-    x_label = "Longitud (°W)"
-    x_box = draw.textbbox((0, 0), x_label, font=axis_font)
-    draw.text(
-        ((left + right - (x_box[2] - x_box[0])) / 2, MAP_SIZE[1] - 78),
-        x_label,
-        fill="#050505",
-        font=axis_font,
-    )
-    y_label = "Latitud (°S)"
-    y_box = draw.textbbox((0, 0), y_label, font=axis_font)
-    label_image = Image.new(
-        "RGBA",
-        (y_box[2] - y_box[0] + 16, y_box[3] - y_box[1] + 16),
-        (255, 255, 255, 0),
-    )
-    ImageDraw.Draw(label_image).text((8, 8), y_label, fill="#050505", font=axis_font)
-    rotated = label_image.rotate(90, expand=True, resample=Image.Resampling.BICUBIC)
-    canvas.alpha_composite(rotated, (8, round((top + bottom - rotated.height) / 2)))
-
-
-def _draw_temperature_north_arrow(draw: ImageDraw.ImageDraw) -> None:
+) -> str:
+    commands: list[str] = []
     left, top, _right, _bottom = TEMPERATURE_PLOT_BOX
-    center_x = left + 190
-    center_y = top + 190
-    draw.ellipse(
-        (center_x - 72, center_y - 55, center_x + 72, center_y + 85),
-        outline=(5, 5, 5, 255),
-        width=4,
-    )
-    draw.polygon(
-        ((center_x, center_y - 88), (center_x - 55, center_y + 72), (center_x, center_y + 32)),
-        fill=(255, 255, 255, 255),
-        outline=(5, 5, 5, 255),
-    )
-    draw.polygon(
-        ((center_x, center_y - 88), (center_x + 55, center_y + 72), (center_x, center_y + 32)),
-        fill=(238, 238, 238, 255),
-        outline=(5, 5, 5, 255),
-    )
-    font = _font(72)
-    box = draw.textbbox((0, 0), "N", font=font)
-    draw.text(
-        (center_x - (box[2] - box[0]) / 2, top + 20),
-        "N",
-        fill="#ffffff",
-        font=font,
-    )
+    for ring in _feature_rings(feature):
+        points = [_map_point(*point, bounds, TEMPERATURE_PLOT_SIZE) for point in ring]
+        if points:
+            commands.append(
+                "M "
+                + " L ".join(f"{left + x},{top + y}" for x, y in points)
+                + " Z"
+            )
+    return " ".join(commands)
 
 
-def _compose_temperature_design(
+def _compose_temperature_design_svg(
     map_image: Image.Image,
     bounds: tuple[float, float, float, float],
+    features: list[dict[str, Any]],
     report_date: date,
     start_time: str,
     end_time: str,
     minimum: float,
     maximum: float,
-) -> Image.Image:
-    canvas = Image.new("RGBA", MAP_SIZE, (255, 255, 255, 255))
-    canvas.alpha_composite(
-        map_image,
-        (TEMPERATURE_PLOT_BOX[0], TEMPERATURE_PLOT_BOX[1]),
-    )
-    draw = ImageDraw.Draw(canvas, "RGBA")
+) -> str:
+    left, top, right, bottom = TEMPERATURE_PLOT_BOX
+    raster_map = map_image.copy()
+    _draw_outer_boundary(raster_map, bounds, features)
     kind = "mínima" if maximum < 17 else "máxima"
-    title = (
-        f"Temperatura {kind} en Cuenca:\n"
+    title_line = (
         f"{SPANISH_WEEKDAYS[report_date.weekday()].capitalize()} "
         f"{report_date.day} de {SPANISH_MONTHS[report_date.month - 1]} {report_date.year}, "
         f"{start_time} - {end_time}"
     )
-    title_font = _font(54, bold=True)
-    title_box = draw.multiline_textbbox((0, 0), title, font=title_font, spacing=2, align="center")
-    draw.multiline_text(
-        ((MAP_SIZE[0] - (title_box[2] - title_box[0])) / 2, 16),
-        title,
-        fill="#050505",
-        font=title_font,
-        spacing=2,
-        align="center",
-    )
-    _draw_temperature_axes(canvas, draw, bounds)
-    _draw_temperature_north_arrow(draw)
-    _draw_temperature_legend(canvas, minimum, maximum, _temperature_palette(maximum), kind)
-    _draw_logo(canvas, TEMPERATURE_PLOT_BOX)
-    draw.rectangle(TEMPERATURE_PLOT_BOX, outline=(5, 5, 5, 255), width=8)
-    return canvas
-
-
-def _draw_temperature_legend(
-    canvas: Image.Image,
-    minimum: float,
-    maximum: float,
-    palette: tuple[str, ...],
-    kind: str,
-) -> None:
-    right, bottom = TEMPERATURE_PLOT_BOX[2], TEMPERATURE_PLOT_BOX[3]
-    panel = (right - 390, bottom - 430, right, bottom)
-    mica = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    mica_draw = ImageDraw.Draw(mica, "RGBA")
-    mica_draw.rectangle(panel, fill=(248, 248, 248, 178))
-    mica_crop = canvas.crop(panel).filter(ImageFilter.GaussianBlur(radius=2.2))
-    mica.paste(mica_crop, panel[:2], mica_crop)
-    tint = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    ImageDraw.Draw(tint, "RGBA").rectangle(panel, fill=(248, 248, 248, 165))
-    canvas.alpha_composite(mica)
-    canvas.alpha_composite(tint)
-    draw = ImageDraw.Draw(canvas, "RGBA")
-    draw.text(
-        (panel[0] + 28, panel[1] + 18),
-        f"Temperatura {kind} (°C)",
-        fill="#111111",
-        font=_font(30, bold=True),
-    )
-    bar = (panel[0] + 38, panel[1] + 82, panel[0] + 112, panel[3] - 28)
-    for y in range(bar[1], bar[3]):
-        ratio = 1 - (y - bar[1]) / max(1, bar[3] - bar[1] - 1)
-        color = _gradient_color(ratio, 0, 1, palette)
-        draw.line((bar[0], y, bar[2], y), fill=(*color, 255), width=1)
-    draw.rectangle(bar, outline="#222222", width=2)
+    palette = _temperature_palette(maximum)
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{MAP_SIZE[0]}" '
+        f'height="{MAP_SIZE[1]}" viewBox="0 0 {MAP_SIZE[0]} {MAP_SIZE[1]}">',
+        "<defs>",
+        '<linearGradient id="temperature-scale" x1="0" y1="1" x2="0" y2="0">',
+    ]
+    for index, color in enumerate(palette):
+        parts.append(
+            f'<stop offset="{index / (len(palette) - 1):.4f}" stop-color="{color}"/>'
+        )
+    parts.extend([
+        "</linearGradient>",
+        "</defs>",
+        "<style>"
+        "text{font-family:'Segoe UI',Arial,sans-serif;text-rendering:geometricPrecision}"
+        ".district{fill:#fff;font-weight:600}"
+        ".tick{fill:#111;font-size:32px;font-weight:700}"
+        "</style>",
+        '<rect width="100%" height="100%" fill="#fff"/>',
+        f'<image x="{left}" y="{top}" width="{TEMPERATURE_PLOT_SIZE[0]}" '
+        f'height="{TEMPERATURE_PLOT_SIZE[1]}" href="{_png_data_uri(raster_map)}" '
+        'preserveAspectRatio="none"/>',
+    ])
+    for feature in features:
+        path = _temperature_svg_path(feature, bounds)
+        if path:
+            parts.append(
+                f'<path d="{path}" fill="none" stroke="#080808" stroke-width="4" '
+                'stroke-dasharray="13 10" stroke-linecap="round" stroke-linejoin="round"/>'
+            )
+    vertical = {"Gil Ramirez Dávalos", "El Sagrario", "San Blas"}
+    small = vertical | {"Cañaribamba"}
+    for feature in features:
+        name = str(feature.get("properties", {}).get("name", "")).strip()
+        if not name:
+            continue
+        (x, y), feature_mask = _feature_label_point(
+            feature,
+            bounds,
+            TEMPERATURE_PLOT_SIZE,
+        )
+        label_lines = [part.upper() for part in name.split()]
+        label = "\n".join(label_lines)
+        target_size = 27 if name in small else 32
+        font_size = target_size
+        measure = ImageDraw.Draw(Image.new("L", (1, 1)))
+        while font_size > 18:
+            box = measure.multiline_textbbox(
+                (0, 0),
+                label,
+                font=_font(font_size),
+                spacing=0,
+                align="center",
+            )
+            width = box[2] - box[0] + 8
+            height = box[3] - box[1] + 8
+            fitted = (height, width) if name in vertical else (width, height)
+            if _label_fits_feature(feature_mask, (x, y), *fitted):
+                break
+            font_size -= 1
+        transform = (
+            f' transform="rotate(90 {left + x} {top + y})"'
+            if name in vertical
+            else ""
+        )
+        line_height = font_size * 0.9
+        first_y = top + y - line_height * (len(label_lines) - 1) / 2
+        tspans = "".join(
+            f'<tspan x="{left + x}" y="{first_y + index * line_height}">'
+            f'{escape(line)}</tspan>'
+            for index, line in enumerate(label_lines)
+        )
+        parts.append(
+            f'<text class="district" x="{left + x}" y="{top + y}" '
+            f'font-size="{font_size}" text-anchor="middle" dominant-baseline="middle"'
+            f'{transform}>{tspans}</text>'
+        )
+    parts.extend([
+        f'<text x="{MAP_SIZE[0] / 2}" y="58" text-anchor="middle" '
+        f'font-size="54" font-weight="700">Temperatura {kind} en Cuenca:</text>',
+        f'<text x="{MAP_SIZE[0] / 2}" y="116" text-anchor="middle" '
+        f'font-size="54" font-weight="700">{escape(title_line)}</text>',
+    ])
+    west, south, east, north = bounds
+    for longitude in _temperature_axis_ticks(west, east, 0.05):
+        x = left + (longitude - west) / (east - west) * (right - left)
+        parts.append(f'<line x1="{x}" y1="{bottom}" x2="{x}" y2="{bottom + 22}" stroke="#2b2b2b" stroke-width="7"/>')
+        parts.append(f'<text class="tick" x="{x}" y="{bottom + 65}" text-anchor="middle">{abs(longitude):.2f}°W</text>')
+    for latitude in _temperature_axis_ticks(south, north, 0.02):
+        y = bottom - (latitude - south) / (north - south) * (bottom - top)
+        parts.append(f'<line x1="{left - 22}" y1="{y}" x2="{left}" y2="{y}" stroke="#2b2b2b" stroke-width="7"/>')
+        parts.append(
+            f'<text class="tick" x="{left - 28}" y="{y}" text-anchor="end" '
+            f'dominant-baseline="middle">{abs(latitude):.2f}°S</text>'
+        )
+    parts.extend([
+        f'<text x="{(left + right) / 2}" y="{MAP_SIZE[1] - 20}" text-anchor="middle" '
+        'font-size="43" font-weight="700">Longitud (°W)</text>',
+        f'<text x="55" y="{(top + bottom) / 2}" text-anchor="middle" font-size="43" '
+        f'font-weight="700" transform="rotate(-90 55 {(top + bottom) / 2})">Latitud (°S)</text>',
+    ])
+    center_x, center_y = left + 190, top + 190
+    parts.extend([
+        f'<text x="{center_x}" y="{top + 75}" text-anchor="middle" fill="#fff" font-size="72">N</text>',
+        f'<circle cx="{center_x}" cy="{center_y + 15}" r="72" fill="none" stroke="#050505" stroke-width="4"/>',
+        f'<path d="M {center_x},{center_y - 88} L {center_x - 55},{center_y + 72} '
+        f'L {center_x},{center_y + 32} Z" fill="#fff" stroke="#050505" stroke-width="3"/>',
+        f'<path d="M {center_x},{center_y - 88} L {center_x + 55},{center_y + 72} '
+        f'L {center_x},{center_y + 32} Z" fill="#eee" stroke="#050505" stroke-width="3"/>',
+    ])
+    panel_width = round((right - left) * 0.24)
+    panel_height = round((bottom - top) * 0.48)
+    panel_right = right - round((right - left) * 0.001)
+    panel_bottom = bottom - round((bottom - top) * 0.001)
+    panel_left, panel_top = panel_right - panel_width, panel_bottom - panel_height
+    margin_x = panel_width * 0.05
+    margin_bottom = panel_height * 0.04
+    margin_top = panel_height * 0.06
+    title_space = panel_height * 0.20
+    bar_left = panel_left + margin_x
+    bar_right = bar_left + panel_width * 0.23
+    bar_top = panel_top + margin_top + title_space
+    bar_bottom = panel_bottom - margin_bottom
+    parts.extend([
+        f'<rect x="{panel_left}" y="{panel_top}" width="{panel_width}" height="{panel_height}" '
+        'fill="#f8f8f8" fill-opacity=".70"/>',
+        f'<text x="{panel_left + panel_width / 2}" y="{panel_top + margin_top + 30}" text-anchor="middle" '
+        f'font-size="34" font-weight="700">Temperatura {kind} (°C)</text>',
+        f'<rect x="{bar_left}" y="{bar_top}" width="{bar_right - bar_left}" height="{bar_bottom - bar_top}" '
+        'fill="url(#temperature-scale)" stroke="#222" stroke-width="2"/>',
+    ])
     for index in range(5):
         ratio = index / 4
-        y = round(bar[3] - ratio * (bar[3] - bar[1]))
+        y = bar_bottom - ratio * (bar_bottom - bar_top)
         value = minimum + ratio * (maximum - minimum)
-        draw.line((bar[2], y, bar[2] + 12, y), fill="#222222", width=2)
-        draw.text(
-            (bar[2] + 28, y - 20),
-            f"{value:.2f}",
-            fill="#050505",
-            font=_font(39, bold=True),
+        parts.append(f'<line x1="{bar_right}" y1="{y}" x2="{bar_right + 12}" y2="{y}" stroke="#222" stroke-width="2"/>')
+        parts.append(
+            f'<text x="{bar_right + panel_width * 0.07}" y="{y}" '
+            f'dominant-baseline="middle" font-size="46" font-weight="700">{value:.2f}</text>'
         )
+    from .hydromet_rain_map import LOGO_PATH
+    if LOGO_PATH.is_file():
+        with Image.open(LOGO_PATH) as logo:
+            logo_uri = _png_data_uri(logo.convert("RGBA"))
+        parts.extend([
+            f'<rect x="{left + (right-left) * 0.65}" y="{top}" width="{(right-left) * 0.35}" '
+            f'height="{(bottom-top) * 0.10}" fill="#fff" fill-opacity=".70"/>',
+            f'<image x="{left + (right-left) * 0.65}" y="{top}" width="{(right-left) * 0.35}" '
+            f'height="{(bottom-top) * 0.10}" '
+            f'href="{logo_uri}" preserveAspectRatio="xMidYMid meet"/>',
+        ])
+    parts.append(
+        f'<rect x="{left}" y="{top}" width="{right-left}" height="{bottom-top}" '
+        'fill="none" stroke="#050505" stroke-width="8"/>'
+    )
+    parts.append("</svg>")
+    return "".join(parts)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import base64
 import io
 import json
 import math
@@ -10,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime
 from itertools import pairwise
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +27,8 @@ STATIONS_PATH = ASSET_DIR / "stations.csv"
 LOGO_PATH = ASSET_DIR / "logo.png"
 REPORT_ROOT = APP_DATA_DIR / "reports" / "hydromet-network"
 TILE_CACHE = APP_DATA_DIR / "cache" / "hydromet-maptiles"
-MAP_SIZE = (2200, 1450)
-PLOT_BOX = (160, 110, 2140, 1320)
+MAP_SIZE = (2200, 1332)
+PLOT_BOX = (160, 110, 2140, 1202)
 PLOT_SIZE = (PLOT_BOX[2] - PLOT_BOX[0], PLOT_BOX[3] - PLOT_BOX[1])
 DEFAULT_SEARCH_RADIUS_KM = 10.0
 DEFAULT_IDW_POWER = 2.0
@@ -206,7 +208,11 @@ def generate_rain_map(
     output_dir = job_root / "out"
     output_dir.mkdir(parents=True, exist_ok=True)
     workbook_path = job_root / "BD_Obs.xlsx"
-    image_path = output_dir / f"mapa_{report_date.isoformat()}.png"
+    image_path = output_dir / (
+        f"mapa_{report_date.isoformat()}.svg"
+        if plot_design
+        else f"mapa_{report_date.isoformat()}.png"
+    )
     preview_path = output_dir / f"mapa_limpio_{report_date.isoformat()}.png"
     _write_observation_workbook(workbook_path, report_date, stations, observations)
 
@@ -226,20 +232,25 @@ def generate_rain_map(
     )
     rain_layer = rain_layer.resize(PLOT_SIZE, Image.Resampling.NEAREST)
     background = Image.alpha_composite(background.convert("RGBA"), rain_layer)
-    _draw_boundaries(background, bounds, features)
-    _draw_feature_labels(background, bounds, features)
-    designed_map = _compose_map_design(
-        background,
-        bounds,
-        report_date,
-        start_time,
-        end_time,
-        plot_logo=plot_logo,
-    )
-    preview_map = _compose_clean_map(background, bounds, plot_logo=plot_logo)
-    if not plot_design:
-        designed_map = preview_map.copy()
-    designed_map.convert("RGB").save(image_path, format="PNG", optimize=True)
+    preview_background = background.copy()
+    _draw_boundaries(preview_background, bounds, features)
+    _draw_feature_labels(preview_background, bounds, features)
+    preview_map = _compose_clean_map(preview_background, bounds, plot_logo=plot_logo)
+    if plot_design:
+        image_path.write_text(
+            _compose_map_design_svg(
+                background,
+                bounds,
+                features,
+                report_date,
+                start_time,
+                end_time,
+                plot_logo=plot_logo,
+            ),
+            encoding="utf-8",
+        )
+    else:
+        preview_map.convert("RGB").save(image_path, format="PNG", optimize=True)
     preview_map.convert("RGB").save(preview_path, format="PNG", optimize=True)
     return image_path, workbook_path, preview_path
 
@@ -511,7 +522,7 @@ def _interpolated_rain_layer(
                 n_round,
             )
             red, green, blue = ImageColor.getrgb(_rain_color(value))
-            pixels[x, y] = red, green, blue, 145
+            pixels[x, y] = red, green, blue, 128
     mask = _polygon_mask(bounds, features, size)
     alpha = ImageChops.multiply(layer.getchannel("A"), mask)
     layer.putalpha(alpha)
@@ -545,6 +556,14 @@ def _draw_boundaries(
             if len(points) > 1:
                 draw.line((*points, points[0]), fill=(5, 5, 5, 255), width=7, joint="curve")
 
+    _draw_outer_boundary(image, bounds, features)
+
+
+def _draw_outer_boundary(
+    image: Image.Image,
+    bounds: tuple[float, float, float, float],
+    features: list[dict[str, Any]],
+) -> None:
     union_mask = _polygon_mask(bounds, features, image.size)
     outside = union_mask.filter(ImageFilter.MaxFilter(9))
     inside = union_mask.filter(ImageFilter.MinFilter(9))
@@ -623,15 +642,31 @@ def _draw_feature_labels(
         longitude, latitude = _ring_centroid(rings[0])
         x, y = _map_point(longitude, latitude, bounds, image.size)
         is_city = name == "CUENCA"
-        font = _font(43 if is_city else 27, bold=True)
+        polygon_points = [_map_point(*point, bounds, image.size) for point in rings[0]]
+        polygon_width = max(point[0] for point in polygon_points) - min(
+            point[0] for point in polygon_points
+        )
+        polygon_height = max(point[1] for point in polygon_points) - min(
+            point[1] for point in polygon_points
+        )
+        font_size = 49 if is_city else 36
+        while font_size > (38 if is_city else 29):
+            candidate = _font(font_size, bold=True)
+            candidate_box = draw.textbbox((0, 0), name, font=candidate, stroke_width=3)
+            text_width = candidate_box[2] - candidate_box[0]
+            text_height = candidate_box[3] - candidate_box[1]
+            if text_width <= polygon_width * 0.72 and text_height <= polygon_height * 0.34:
+                break
+            font_size -= 1
+        font = _font(font_size, bold=True)
         box = draw.textbbox((0, 0), name, font=font)
         draw.text(
             (x - (box[2] - box[0]) / 2, y - (box[3] - box[1]) / 2),
             name,
             fill=(255, 255, 255, 255),
             font=font,
-            stroke_width=2,
-            stroke_fill=(45, 45, 45, 150),
+            stroke_width=3,
+            stroke_fill=(35, 35, 35, 190),
         )
 
 
@@ -648,49 +683,200 @@ def _font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFon
     return ImageFont.load_default()
 
 
-def _compose_map_design(
+def _png_data_uri(image: Image.Image) -> str:
+    stream = io.BytesIO()
+    image.save(stream, format="PNG", optimize=True)
+    return "data:image/png;base64," + base64.b64encode(stream.getvalue()).decode("ascii")
+
+
+def _svg_feature_path(
+    feature: dict[str, Any],
+    bounds: tuple[float, float, float, float],
+) -> str:
+    commands: list[str] = []
+    for ring in _feature_rings(feature):
+        points = [_map_point(*point, bounds, PLOT_SIZE) for point in ring]
+        if not points:
+            continue
+        commands.append(
+            "M "
+            + " L ".join(
+                f"{PLOT_BOX[0] + x},{PLOT_BOX[1] + y}" for x, y in points
+            )
+            + " Z"
+        )
+    return " ".join(commands)
+
+
+def _compose_map_design_svg(
     map_image: Image.Image,
     bounds: tuple[float, float, float, float],
+    features: list[dict[str, Any]],
     report_date: date,
     start_time: str,
     end_time: str,
     *,
     plot_logo: bool,
-) -> Image.Image:
-    canvas = Image.new("RGBA", MAP_SIZE, (255, 255, 255, 255))
-    canvas.alpha_composite(map_image, (PLOT_BOX[0], PLOT_BOX[1]))
-    draw = ImageDraw.Draw(canvas, "RGBA")
-    title = (
-        "Lluvia acumulada:\n"
+) -> str:
+    left, top, right, bottom = PLOT_BOX
+    raster_map = map_image.copy()
+    _draw_outer_boundary(raster_map, bounds, features)
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{MAP_SIZE[0]}" '
+        f'height="{MAP_SIZE[1]}" viewBox="0 0 {MAP_SIZE[0]} {MAP_SIZE[1]}">',
+        "<style>"
+        "text{font-family:'Segoe UI',Arial,sans-serif;text-rendering:geometricPrecision}"
+        ".place{fill:#fff;font-weight:700}"
+        ".axis{fill:#555;font-size:29px}"
+        "</style>",
+        '<rect width="100%" height="100%" fill="#fff"/>',
+        f'<image x="{left}" y="{top}" width="{PLOT_SIZE[0]}" height="{PLOT_SIZE[1]}" '
+        f'href="{_png_data_uri(raster_map)}" preserveAspectRatio="none"/>',
+    ]
+    for feature in features:
+        path = _svg_feature_path(feature, bounds)
+        if path:
+            parts.append(
+                f'<path d="{path}" fill="none" stroke="#050505" stroke-width="7" '
+                'stroke-dasharray="30 20" stroke-linecap="round" stroke-linejoin="round"/>'
+            )
+    parts.extend(
+        (
+                f'<path d="{_svg_feature_path(feature, bounds)}" fill="none" '
+                'stroke="#050505" stroke-width="7" stroke-linejoin="round"/>'
+        )
+        for feature in features
+        if feature.get("properties", {}).get("name") == "CUENCA"
+    )
+    for feature in features:
+        rings = _feature_rings(feature)
+        name = str(feature.get("properties", {}).get("name", ""))
+        if not rings or not name:
+            continue
+        longitude, latitude = _ring_centroid(rings[0])
+        x, y = _map_point(longitude, latitude, bounds, PLOT_SIZE)
+        polygon_points = [_map_point(*point, bounds, PLOT_SIZE) for point in rings[0]]
+        polygon_width = max(point[0] for point in polygon_points) - min(
+            point[0] for point in polygon_points
+        )
+        polygon_height = max(point[1] for point in polygon_points) - min(
+            point[1] for point in polygon_points
+        )
+        font_size = 45 if name == "CUENCA" else 33
+        measuring_draw = ImageDraw.Draw(Image.new("L", (1, 1)))
+        while font_size > (38 if name == "CUENCA" else 27):
+            text_box = measuring_draw.textbbox(
+                (0, 0),
+                name,
+                font=_font(font_size, bold=True),
+            )
+            if (
+                text_box[2] - text_box[0] <= polygon_width * 0.72
+                and text_box[3] - text_box[1] <= polygon_height * 0.34
+            ):
+                break
+            font_size -= 1
+        css_class = "place city" if name == "CUENCA" else "place"
+        parts.append(
+            f'<text class="{css_class}" x="{left + x}" y="{top + y}" '
+            f'font-size="{font_size}" text-anchor="middle" '
+            f'dominant-baseline="middle">{escape(name)}</text>'
+        )
+    title_line = (
         f"{SPANISH_WEEKDAYS[report_date.weekday()].capitalize()} "
         f"{report_date.day} de {SPANISH_MONTHS[report_date.month - 1]} {report_date.year}, "
         f"{start_time} - {end_time}"
     )
-    title_font = _font(43, bold=True)
-    title_box = draw.multiline_textbbox(
-        (0, 0),
-        title,
-        font=title_font,
-        spacing=2,
-        align="center",
+    parts.extend([
+        f'<text x="{MAP_SIZE[0] / 2}" y="42" text-anchor="middle" '
+        'font-size="43" font-weight="700">Lluvia acumulada:</text>',
+        f'<text x="{MAP_SIZE[0] / 2}" y="90" text-anchor="middle" '
+        f'font-size="43" font-weight="700">{escape(title_line)}</text>',
+    ])
+    west, south, east, north = bounds
+    for longitude in _axis_ticks(west, east, 0.1):
+        x = left + (longitude - west) / (east - west) * (right - left)
+        parts.append(f'<line x1="{x}" y1="{bottom}" x2="{x}" y2="{bottom + 12}" stroke="#222" stroke-width="3"/>')
+        parts.append(f'<text class="axis" x="{x}" y="{bottom + 43}" text-anchor="middle">{abs(longitude):.1f}°W</text>')
+    for latitude in _axis_ticks(south, north, 0.05):
+        y = bottom - (latitude - south) / (north - south) * (bottom - top)
+        parts.append(f'<line x1="{left - 12}" y1="{y}" x2="{left}" y2="{y}" stroke="#222" stroke-width="3"/>')
+        parts.append(
+            f'<text class="axis" x="{left - 18}" y="{y}" text-anchor="end" '
+            f'dominant-baseline="middle">{abs(latitude):.2f}°S</text>'
+        )
+    parts.extend([
+        f'<text x="{(left + right) / 2}" y="{MAP_SIZE[1] - 10}" '
+        'text-anchor="middle" font-size="34">Longitud (°W)</text>',
+        f'<text x="48" y="{(top + bottom) / 2}" text-anchor="middle" font-size="34" '
+        f'transform="rotate(-90 48 {(top + bottom) / 2})">Latitud (°S)</text>',
+    ])
+    center_x, center_y = left + 125, top + 125
+    parts.extend([
+        f'<text x="{center_x}" y="{top + 45}" text-anchor="middle" fill="#fff" font-size="45">N</text>',
+        f'<circle cx="{center_x}" cy="{center_y + 15}" r="50" fill="none" stroke="#111" stroke-width="3"/>',
+        f'<path d="M {center_x},{center_y - 55} L {center_x - 35},{center_y + 48} '
+        f'L {center_x},{center_y + 23} Z" fill="#fff" stroke="#111" stroke-width="2"/>',
+        f'<path d="M {center_x},{center_y - 55} L {center_x + 35},{center_y + 48} '
+        f'L {center_x},{center_y + 23} Z" fill="#ddd" stroke="#111" stroke-width="2"/>',
+    ])
+    center_latitude = (south + north) / 2
+    scale_width = round(10 / (111.32 * math.cos(math.radians(center_latitude))) / (east - west) * (right - left))
+    scale_width = max(220, min(360, scale_width))
+    scale_left, scale_top = left + 20, bottom - 42
+    segment_width = scale_width / 4
+    parts.extend(
+        (
+            f'<rect x="{scale_left + index * segment_width}" y="{scale_top}" '
+            f'width="{segment_width}" height="22" fill="{"#050505" if index % 2 == 0 else "#fff"}" '
+            'stroke="#fff" stroke-width="2"/>'
+        )
+        for index in range(4)
     )
-    title_width = title_box[2] - title_box[0]
-    draw.multiline_text(
-        ((MAP_SIZE[0] - title_width) / 2, 8),
-        title,
-        fill="#050505",
-        font=title_font,
-        spacing=2,
-        align="center",
+    parts.append(
+        f'<text x="{scale_left + scale_width + 12}" y="{scale_top + 19}" fill="#fff" '
+        'font-size="30" paint-order="stroke" stroke="#222" stroke-width="4">10 km</text>'
     )
-    _draw_axes(canvas, draw, bounds)
-    _draw_north_arrow(draw, PLOT_BOX)
-    _draw_scale_bar(draw, bounds, PLOT_BOX)
-    _draw_legend(canvas, draw, PLOT_BOX)
-    if plot_logo:
-        _draw_logo(canvas, PLOT_BOX)
-    draw.rectangle(PLOT_BOX, outline=(5, 5, 5, 255), width=5)
-    return canvas
+    panel_width = round((right - left) * 0.28)
+    panel_height = round((bottom - top) * 0.28)
+    panel_right = right + round((right - left) * 0.01)
+    panel_bottom = bottom - round((bottom - top) * 0.0099)
+    panel_left = panel_right - panel_width
+    panel_top = panel_bottom - panel_height
+    title_height = 56
+    row_height = (panel_height - title_height) / len(RAIN_CATEGORIES)
+    parts.append(
+        f'<rect x="{panel_left}" y="{panel_top}" width="{panel_width}" height="{panel_height}" '
+        'fill="#fff" fill-opacity=".70"/>'
+    )
+    parts.append(
+        f'<text x="{panel_left + panel_width / 2}" y="{panel_top + 39}" '
+        'text-anchor="middle" font-size="34" font-weight="700">Lluvia diaria (mm)</text>'
+    )
+    for index, (_maximum, color, label) in enumerate(RAIN_CATEGORIES):
+        y = panel_top + title_height + index * row_height
+        parts.append(
+            f'<rect x="{panel_left}" y="{y}" width="60" height="{row_height}" '
+            f'fill="{color}"/>'
+        )
+        parts.append(
+            f'<text x="{panel_left + 75}" y="{y + row_height * 0.73}" '
+            f'font-size="29" font-weight="500">{escape(label)}</text>'
+        )
+    if plot_logo and LOGO_PATH.is_file():
+        with Image.open(LOGO_PATH) as logo:
+            logo_uri = _png_data_uri(logo.convert("RGBA"))
+        parts.extend([
+            f'<rect x="{right - 594}" y="{top}" width="594" height="109" fill="#fff" fill-opacity=".70"/>',
+            f'<image x="{right - 594}" y="{top}" width="594" height="109" '
+            f'href="{logo_uri}" preserveAspectRatio="none"/>',
+        ])
+    parts.append(
+        f'<rect x="{left}" y="{top}" width="{right-left}" height="{bottom-top}" '
+        'fill="none" stroke="#050505" stroke-width="5"/>'
+    )
+    parts.append("</svg>")
+    return "".join(parts)
 
 
 def _compose_clean_map(
@@ -852,46 +1038,57 @@ def _draw_legend(
     box: tuple[int, int, int, int],
 ) -> None:
     _left, _top, right, bottom = box
-    panel_width = 575
-    row_height = 36
-    panel_height = 62 + row_height * len(RAIN_CATEGORIES)
-    panel_left = right - panel_width
-    panel_top = bottom - panel_height
+    panel_width = round((right - _left) * 0.28)
+    panel_height = round((bottom - _top) * 0.28)
+    panel_right = right + round((right - _left) * 0.01)
+    panel_bottom = bottom - round((bottom - _top) * 0.0099)
+    panel_left = panel_right - panel_width
+    panel_top = panel_bottom - panel_height
+    title_height = 56
+    row_height = (panel_height - title_height) / len(RAIN_CATEGORIES)
     panel = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     ImageDraw.Draw(panel).rectangle(
-        (panel_left, panel_top, right, bottom),
-        fill=(255, 255, 255, 205),
+        (panel_left, panel_top, panel_right, panel_bottom),
+        fill=(255, 255, 255, 179),
     )
     canvas.alpha_composite(panel)
     draw.text(
-        (panel_left + 112, panel_top + 5),
+        (panel_left + 106, panel_top + 6),
         "Lluvia diaria (mm)",
         fill="#111111",
-        font=_font(31, bold=True),
+        font=_font(34, bold=True),
     )
     for index, (_maximum, color, label) in enumerate(RAIN_CATEGORIES):
-        y = panel_top + 55 + index * row_height
-        draw.rectangle((panel_left, y, panel_left + 48, y + row_height), fill=color)
-        draw.text((panel_left + 66, y - 1), label, fill="#111111", font=_font(27))
+        y = panel_top + title_height + index * row_height
+        draw.rectangle(
+            (panel_left, y, panel_left + 60, y + row_height),
+            fill=color,
+        )
+        draw.text(
+            (panel_left + 75, y + 1),
+            label,
+            fill="#111111",
+            font=_font(29),
+        )
 
 
 def _draw_logo(canvas: Image.Image, box: tuple[int, int, int, int]) -> None:
     if LOGO_PATH.is_file():
         with Image.open(LOGO_PATH) as logo_source:
             logo = logo_source.convert("RGBA")
-            maximum_width, maximum_height = 500, 105
+            maximum_width, maximum_height = 558, 95
             logo.thumbnail((maximum_width, maximum_height), Image.Resampling.LANCZOS)
             _left, top, right, _bottom = box
             panel = (
-                right - 540,
+                right - 594,
                 top,
                 right,
-                top + 125,
+                top + 109,
             )
             background = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-            ImageDraw.Draw(background).rectangle(panel, fill=(255, 255, 255, 190))
+            ImageDraw.Draw(background).rectangle(panel, fill=(255, 255, 255, 179))
             canvas.alpha_composite(background)
             canvas.alpha_composite(
                 logo,
-                (right - logo.width - 18, top + round((125 - logo.height) / 2)),
+                (right - logo.width - 18, top + round((109 - logo.height) / 2)),
             )

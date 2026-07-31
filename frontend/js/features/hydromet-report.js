@@ -1030,6 +1030,98 @@
     return image && !image.hidden ? image.getAttribute("src") || "" : "";
   }
 
+  const uvRiskRanges = Object.freeze([
+    { label: "Extremo", hue: (hue) => hue >= 235 && hue <= 315 },
+    { label: "Muy Alto", hue: (hue) => hue >= 340 || hue <= 7 },
+    { label: "Alto", hue: (hue) => hue >= 8 && hue <= 32 },
+    { label: "Moderado", hue: (hue) => hue >= 33 && hue <= 62 },
+    { label: "Bajo", hue: (hue) => hue >= 63 && hue <= 115 }
+  ]);
+
+  function rgbToHsv(red, green, blue) {
+    const r = red / 255;
+    const g = green / 255;
+    const b = blue / 255;
+    const maximum = Math.max(r, g, b);
+    const minimum = Math.min(r, g, b);
+    const delta = maximum - minimum;
+    let hue = 0;
+    if (delta) {
+      if (maximum === r) hue = 60 * (((g - b) / delta) % 6);
+      else if (maximum === g) hue = 60 * ((b - r) / delta + 2);
+      else hue = 60 * ((r - g) / delta + 4);
+    }
+    if (hue < 0) hue += 360;
+    return {
+      hue,
+      saturation: maximum ? delta / maximum : 0,
+      value: maximum
+    };
+  }
+
+  function classifyUvRisk(image) {
+    if (!image?.naturalWidth || !image.naturalHeight) return "";
+    const maximumWidth = 900;
+    const scale = Math.min(1, maximumWidth / image.naturalWidth);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return "";
+    canvas.width = width;
+    canvas.height = height;
+    context.drawImage(image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height).data;
+    const runs = uvRiskRanges.map(() => new Uint16Array(width));
+    const bestRuns = uvRiskRanges.map(() => new Uint16Array(width));
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const offset = (y * width + x) * 4;
+        const color = rgbToHsv(
+          pixels[offset],
+          pixels[offset + 1],
+          pixels[offset + 2]
+        );
+        const category = color.saturation >= 0.42 && color.value >= 0.28
+          ? uvRiskRanges.findIndex((range) => range.hue(color.hue))
+          : -1;
+        uvRiskRanges.forEach((_range, index) => {
+          if (index === category) {
+            runs[index][x] += 1;
+            if (runs[index][x] > bestRuns[index][x]) {
+              bestRuns[index][x] = runs[index][x];
+            }
+          } else {
+            runs[index][x] = 0;
+          }
+        });
+      }
+    }
+
+    const minimumBarWidth = Math.max(3, Math.round(width * 0.008));
+    const minimumBarHeight = Math.max(12, Math.round(height * 0.08));
+    let winner = "";
+    bestRuns.forEach((columnRuns, category) => {
+      const candidates = Array.from(columnRuns).sort((a, b) => b - a);
+      const representativeHeight = candidates[minimumBarWidth - 1] || 0;
+      if (!winner && representativeHeight >= minimumBarHeight) {
+        winner = uvRiskRanges[category].label;
+      }
+    });
+    return winner;
+  }
+
+  function updateUvRisk(image) {
+    const page = image?.closest('[data-hydromet-format="indice-ultravioleta"]');
+    if (!page) return;
+    const label = page.querySelector(".hydromet-uv-risk");
+    if (!label) return;
+    const risk = image.hidden ? "" : classifyUvRisk(image);
+    label.textContent = risk;
+    label.hidden = !risk;
+  }
+
   function setImage(image, source, remember = true) {
     if (!image) return;
     if (remember) history.push({ image, source: getSource(image) });
@@ -1042,12 +1134,14 @@
       image.classList.remove("is-selected");
       slot.classList.remove("has-image");
       if (selectedImage === image) selectedImage = null;
+      updateUvRisk(image);
       return;
     }
 
     image.onload = () => {
       image.hidden = false;
       slot.classList.add("has-image");
+      updateUvRisk(image);
     };
     image.onerror = () => setImage(image, "", false);
     image.src = source;

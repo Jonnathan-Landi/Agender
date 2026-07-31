@@ -80,6 +80,31 @@ class HydrometReportIntegrationTests(TestCase):
         self.assertIn("height: 51.5%", self.styles)
         self.assertIn("contain: layout paint", self.styles)
         self.assertIn("clip-path: inset(0)", self.styles)
+        self.assertIn("inset: 0", self.styles)
+        self.assertNotIn("inset: 2.5%", self.styles)
+
+    def test_uv_risk_is_detected_from_the_inserted_chart(self) -> None:
+        self.assertEqual(1, self.document.count('class="hydromet-uv-risk"'))
+        self.assertIn("function classifyUvRisk", self.feature)
+        self.assertIn("function updateUvRisk", self.feature)
+        for risk in ("Extremo", "Muy Alto", "Alto", "Moderado", "Bajo"):
+            self.assertIn(f'label: "{risk}"', self.feature)
+        self.assertIn(".hydromet-uv-risk", self.styles)
+        self.assertIn(
+            '[data-hydromet-format="indice-ultravioleta"] .hydromet-image-slot',
+            self.styles,
+        )
+        self.assertIn("top: 24.5%", self.styles)
+        self.assertIn("left: 2.5%", self.styles)
+        self.assertIn("width: 95%", self.styles)
+        self.assertIn("height: 50%", self.styles)
+        for report_format in ("pronostico-diario", "pronostico-semanal"):
+            self.assertIn(
+                f'[data-hydromet-format="{report_format}"] .hydromet-image-slot',
+                self.styles,
+            )
+        self.assertIn("top: 19.5%", self.styles)
+        self.assertIn("height: 54%", self.styles)
 
     def test_one_datetime_control_updates_every_report_page(self) -> None:
         self.assertEqual(1, self.document.count('id="hydromet-datetime-trigger"'))
@@ -213,12 +238,24 @@ class HydrometReportIntegrationTests(TestCase):
         self.assertIn("left: 3.5%", self.styles)
         self.assertIn("width: 93%", self.styles)
         self.assertIn("height: 58.5%", self.styles)
+        self.assertIn(
+            '[data-hydromet-format="lluvias"] .hydromet-generated-map-slot',
+            self.styles,
+        )
+        self.assertIn("top: 19.5%", self.styles)
+        self.assertIn("left: 2.5%", self.styles)
+        self.assertIn("width: 95%", self.styles)
+        self.assertIn("height: 57.5%", self.styles)
+        self.assertIn(
+            '[data-hydromet-format="temperaturas"] .hydromet-generated-map-slot',
+            self.styles,
+        )
         self.assertIn('@app.post("/api/reports/hydromet-network/rain-map"', main)
         self.assertIn('@app.get("/api/reports/hydromet-network/rain-map/{job_id}/preview")', main)
         self.assertIn("background_tasks.add_task(execute_rain_map_job, job_id)", main)
         self.assertIn("def generate_rain_map(", generator)
         self.assertIn('"BD_Obs.xlsx"', generator)
-        self.assertIn('f"mapa_{report_date.isoformat()}.png"', generator)
+        self.assertIn('f"mapa_{report_date.isoformat()}.svg"', generator)
 
     def test_rainfall_parameters_are_editable_and_control_generation(self) -> None:
         main = (ROOT / "backend/main.py").read_text(encoding="utf-8")
@@ -248,7 +285,8 @@ class HydrometReportIntegrationTests(TestCase):
         self.assertIn("search_radius=search_radius", generator)
         self.assertIn("p=p", generator)
         self.assertIn("n_round=n_round", generator)
-        self.assertIn("if not plot_design:", generator)
+        self.assertIn("if plot_design:", generator)
+        self.assertIn("_compose_map_design_svg(", generator)
         self.assertIn("if plot_logo:", generator)
         self.assertIn(".hydromet-params-popover", self.styles)
 
