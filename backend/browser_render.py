@@ -23,13 +23,20 @@ def _configure_bundled_browser() -> None:
 @contextmanager
 def chromium_browser() -> Iterator[Browser]:
     _configure_bundled_browser()
+    playwright = None
     try:
         playwright = sync_playwright().start()
-        browser = playwright.chromium.launch(headless=True)
+        try:
+            browser = playwright.chromium.launch(headless=True)
+        except PlaywrightError:
+            executable = _installed_browser()
+            if executable is None:
+                raise
+            browser = playwright.chromium.launch(headless=True, executable_path=str(executable))
     except PlaywrightError as error:
-        raise ValueError(
-            "No se pudo iniciar el motor de exportación integrado."
-        ) from error
+        if playwright is not None:
+            playwright.stop()
+        raise ValueError("No se pudo iniciar el motor de exportación integrado.") from error
     try:
         yield browser
     finally:
@@ -37,6 +44,16 @@ def chromium_browser() -> Iterator[Browser]:
             browser.close()
         finally:
             playwright.stop()
+
+
+def _installed_browser() -> Path | None:
+    candidates = (
+        Path(os.environ.get("PROGRAMFILES", "")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft/Edge/Application/msedge.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft/Edge/Application/msedge.exe",
+    )
+    return next((path for path in candidates if path.is_file()), None)
 
 
 def wait_for_images(page, timeout: int = 20_000) -> None:

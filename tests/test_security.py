@@ -72,6 +72,10 @@ class LicenseRevisionTests(TestCase):
         self.assertIn("report-water-quality", modules)
         self.assertNotIn("report-hydromet-network", modules)
 
+    def test_climatology_submodule_is_preserved_as_an_independent_permission(self):
+        modules = security._expand_module_access(["climatology"])
+        self.assertEqual({"climatology"}, modules)
+
     def test_activation_rejects_same_or_older_revision(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

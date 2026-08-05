@@ -79,6 +79,19 @@
               </button>
             </div>
           </div>
+          <div class="nav-group" data-nav-group="climate">
+            <button class="nav-item nav-group-toggle" type="button" aria-expanded="false" aria-controls="climate-nav-items">
+              <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE706;</span></span>
+              <span class="nav-label">Clima</span>
+              <span class="nav-group-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+            </button>
+            <div class="nav-submenu" id="climate-nav-items">
+              <button class="nav-item nav-subitem" type="button" data-view="climatology">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE9D2;</span></span>
+                <span class="nav-label">Climatología mensual</span>
+              </button>
+            </div>
+          </div>
         </nav>
 
         <div class="nav-footer">
@@ -327,26 +340,26 @@
                             </thead>
                             <tbody>
                         <tr><td>MataderoSayausi</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
-                        <tr><td>Sayausi</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Cebollar</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Totoracocha</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>SoldadosPTAR</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>YanuncayPucan</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Labrado</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Saucay</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Tixán</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Chanlud</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Narancay</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Huizhil</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Ricaurte</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Ucubamba</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Challuabamba</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>ElValle</td><td contenteditable="true" inputmode="decimal">0</td></tr>
-                        <tr><td>Llaviucu</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
-                        <tr><td>Chirimachay</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
-                        <tr><td>Toreadora</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
-                        <tr><td>Portete</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
-                        <tr><td>Irquis</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0</td></tr>
+                        <tr><td>Sayausi</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Cebollar</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Totoracocha</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>SoldadosPTAR</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>YanuncayPucan</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Labrado</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Saucay</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Tixán</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Chanlud</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Narancay</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Huizhil</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Ricaurte</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Ucubamba</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Challuabamba</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>ElValle</td><td contenteditable="true" inputmode="decimal">0.00</td></tr>
+                        <tr><td>Llaviucu</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0.00</td></tr>
+                        <tr><td>Chirimachay</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0.00</td></tr>
+                        <tr><td>Toreadora</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0.00</td></tr>
+                        <tr><td>Portete</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0.00</td></tr>
+                        <tr><td>Irquis</td><td contenteditable="true" inputmode="decimal" data-placeholder="—">0.00</td></tr>
                             </tbody>
                           </table>
                         </div>
@@ -652,6 +665,90 @@
           </section>
         </section>
 
+        <section class="view climatology-view" id="climatology-view" aria-labelledby="climatology-title">
+          <header class="toolbar climatology-toolbar">
+            <div>
+              <p class="eyebrow">Clima</p>
+              <h1 id="climatology-title">Climatología mensual</h1>
+            </div>
+            <div class="toolbar-actions">
+              <span class="climatology-status" id="climatology-status" role="status" aria-live="polite"></span>
+              <button class="button primary compact-button" type="button" id="climatology-run">
+                <span class="font-icon" aria-hidden="true">&#xE768;</span>
+                <span>Ejecutar</span>
+              </button>
+              <button class="button secondary compact-button" type="button" id="climatology-settings">
+                <span class="font-icon" aria-hidden="true">&#xE713;</span>
+                <span>Configuración</span>
+              </button>
+              <button class="button secondary compact-button" type="button" id="climatology-print">
+                <span class="font-icon" aria-hidden="true">&#xE749;</span>
+                <span>Imprimir</span>
+              </button>
+            </div>
+          </header>
+
+          <main class="climatology-workspace" id="climatology-workspace">
+            <section class="climatology-empty-state" aria-labelledby="climatology-empty-title">
+              <span class="climatology-empty-icon font-icon" aria-hidden="true">&#xE9D2;</span>
+              <h2 id="climatology-empty-title">El reporte mensual se construirá aquí</h2>
+              <p>Configura las estaciones de temperatura y lluvia que representarán cada cuenca.</p>
+              <button class="button primary" type="button" id="climatology-empty-settings">
+                <span class="font-icon" aria-hidden="true">&#xE713;</span>
+                <span>Configurar estaciones</span>
+              </button>
+            </section>
+          </main>
+
+          <dialog class="climatology-settings-dialog" id="climatology-settings-dialog" aria-labelledby="climatology-settings-title">
+            <form class="climatology-settings-form" id="climatology-settings-form" method="dialog">
+              <header>
+                <div>
+                  <p class="eyebrow">Climatología mensual</p>
+                  <h2 id="climatology-settings-title">Estaciones representativas</h2>
+                  <p>Selecciona una estación de temperatura y otra de lluvia para cada territorio.</p>
+                </div>
+                <button class="climatology-settings-close" type="button" id="climatology-settings-close" aria-label="Cerrar">×</button>
+              </header>
+              <div class="climatology-settings-body" id="climatology-settings-body">
+                <section class="climatology-period-card">
+                  <div class="climatology-area-title">
+                    <strong>Periodo del reporte</strong>
+                    <small>Se aplicará a todos los territorios</small>
+                  </div>
+                  <label class="climatology-station-field"><span>Año</span><input id="climatology-year" type="number" min="2000" max="2100"></label>
+                  <label class="climatology-station-field"><span>Mes</span><select id="climatology-month"></select></label>
+                </section>
+                <div class="climatology-settings-loading" role="status">Cargando estaciones del Registro hidrometeorológico…</div>
+              </div>
+              <footer>
+                <span class="climatology-dialog-message" id="climatology-dialog-message" role="status" aria-live="polite"></span>
+                <button class="button secondary" type="button" id="climatology-settings-cancel">Cancelar</button>
+                <button class="button primary" type="submit" id="climatology-settings-save">Guardar configuración</button>
+              </footer>
+            </form>
+          </dialog>
+
+          <dialog class="climatology-print-dialog" id="climatology-print-dialog" aria-labelledby="climatology-print-title">
+            <form class="climatology-print-form" id="climatology-print-form" method="dialog">
+              <header>
+                <div><p class="eyebrow">Exportar PDF</p><h2 id="climatology-print-title">Territorios del reporte</h2></div>
+                <button class="climatology-settings-close" type="button" id="climatology-print-close" aria-label="Cerrar">×</button>
+              </header>
+              <div class="climatology-print-body">
+                <label class="climatology-print-all"><input type="checkbox" id="climatology-print-all" checked><span>Seleccionar todo</span></label>
+                <div class="climatology-print-areas" id="climatology-print-areas"></div>
+                <p>Cada territorio incluirá dos páginas: seguimiento térmico y seguimiento de precipitaciones.</p>
+              </div>
+              <footer>
+                <span class="climatology-dialog-message" id="climatology-print-message" role="status" aria-live="polite"></span>
+                <button class="button secondary" type="button" id="climatology-print-cancel">Cancelar</button>
+                <button class="button primary" type="submit" id="climatology-print-export">Exportar PDF</button>
+              </footer>
+            </form>
+          </dialog>
+        </section>
+
         <section class="view license-admin-view" id="license-admin-view" aria-labelledby="license-admin-title" hidden>
           <header class="toolbar license-admin-toolbar">
             <div>
@@ -751,6 +848,18 @@
                     <span class="license-permission-check" aria-hidden="true">✓</span>
                     <span class="license-permission-icon font-icon" aria-hidden="true">&#xEC4A;</span>
                     <span><strong>Red hidrometeorológica</strong><small>Acceso al submódulo de reportes hidrometeorológicos.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-group">
+                    <input type="checkbox" id="license-climate-all">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE706;</span>
+                    <span><strong>Clima</strong><small>Selecciona todos los submódulos de seguimiento climático.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="climatology">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE9D2;</span>
+                    <span><strong>Climatología mensual</strong><small>Configuración, ejecución y exportación de reportes de temperatura y precipitación.</small></span>
                   </label>
                 </fieldset>
               </section>

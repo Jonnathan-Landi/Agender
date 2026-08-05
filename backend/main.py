@@ -138,6 +138,8 @@ async def enforce_module_access(request: Request, call_next):
         required = "viewer"
     elif path.startswith("/api/reports/hydromet-network"):
         required = "report-hydromet-network"
+    elif path.startswith("/api/climatology"):
+        required = "climatology"
     elif path.startswith("/wqreport"):
         required = "report-water-quality"
     if required:
@@ -176,6 +178,17 @@ class DirectoryRequest(BaseModel):
     initialPath: str = ""
 
 
+class ClimatologyAreaSelection(BaseModel):
+    temperature: str = ""
+    rain: str = ""
+
+
+class ClimatologyReportRequest(BaseModel):
+    year: int = Field(ge=2000, le=2100)
+    month: int = Field(ge=1, le=12)
+    areas: dict[str, ClimatologyAreaSelection]
+
+
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=1024)
@@ -203,6 +216,19 @@ class WaterQualityPdfExport(BaseModel):
     reportsHtml: str
     suggestedFileName: str = "Reporte_CA"
     pageHeight: int = 1260
+
+
+class ClimatologyPdfPage(BaseModel):
+    territory: str = Field(min_length=1, max_length=120)
+    kind: str = Field(pattern="^(temperature|rain)$")
+    station: str = Field(min_length=1, max_length=120)
+    period: str = Field(min_length=1, max_length=80)
+    url: str = Field(min_length=1, max_length=1024)
+
+
+class ClimatologyPdfExport(BaseModel):
+    pages: list[ClimatologyPdfPage] = Field(min_length=1, max_length=10)
+    suggestedFileName: str = Field(default="Seguimiento_mensual_clima", max_length=160)
 
 
 class HydrometRainMapParameters(BaseModel):
@@ -447,8 +473,7 @@ def cloud_auth_callback(provider: str, request: Request) -> Response:
         return Response(content=content, media_type="text/html", status_code=400)
     safe_account = html.escape(str(account))
     content = (
-        f"<html><body><h1>Cuenta conectada</h1><p>{safe_account}</p>"
-        "<p>Ya puedes volver a Agender.</p></body></html>"
+        f"<html><body><h1>Cuenta conectada</h1><p>{safe_account}</p><p>Ya puedes volver a Agender.</p></body></html>"
     )
     return Response(content=content, media_type="text/html")
 
@@ -541,6 +566,63 @@ async def local_data(
         return result
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/climatology/stations")
+def climatology_stations() -> dict[str, object]:
+    from .climatology import station_configuration_catalog
+
+    return station_configuration_catalog()
+
+
+@app.post("/api/climatology/monthly-report")
+async def climatology_monthly_report(payload: ClimatologyReportRequest, request: Request) -> dict[str, object]:
+    from .climatology import build_exact_monthly_report
+
+    user = current_user(request.cookies.get("agender_session"))
+    settings = read_settings(user["username"], user["role"] == "admin")
+    recursive = settings["qualityIncludeSubfolders"]
+    try:
+        root, _remote_sync = await run_in_threadpool(materialize_source, user, settings, "quality")
+        return await run_in_threadpool(
+            build_exact_monthly_report,
+            root,
+            recursive,
+            payload.year,
+            payload.month,
+            {key: value.model_dump() for key, value in payload.areas.items()},
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/climatology/report-file/{job_id}/{asset_path:path}")
+def climatology_report_file(job_id: str, asset_path: str) -> FileResponse:
+    from .climatology import resolve_report_asset
+
+    try:
+        return FileResponse(resolve_report_asset(job_id, asset_path))
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.post("/api/climatology/export-pdf")
+def climatology_export_pdf(payload: ClimatologyPdfExport, request: Request) -> dict[str, object]:
+    from .climatology_export import export_climatology_pdf
+
+    _require_user(request)
+    try:
+        return export_climatology_pdf(
+            [page.model_dump() for page in payload.pages],
+            payload.suggestedFileName,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo guardar el PDF. Verifica los permisos y el espacio disponible.",
+        ) from error
 
 
 def _synchronize_inventory(source: str, root: str, recursive: bool) -> dict[str, Any]:

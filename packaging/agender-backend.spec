@@ -33,6 +33,7 @@ analysis = Analysis(
         (str(project_root / "backend" / "data" / "stations.xlsx"), "backend/data"),
         (str(project_root / "backend" / "data" / "hydromet_rain_map"), "backend/data/hydromet_rain_map"),
         (str(project_root / "backend" / "data" / "hydromet_temperature_map"), "backend/data/hydromet_temperature_map"),
+        (str(project_root / "backend" / "data" / "climatology"), "backend/data/climatology"),
         (str(project_root / "backend" / "security" / "license_public_key.pem"), "backend/security"),
         (str(project_root / "src-tauri" / "tauri.conf.json"), "src-tauri"),
         *polars_data,

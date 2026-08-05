@@ -89,6 +89,12 @@
       loadStyleOnce("css/hydromet-report.css")
     );
   }
+  if (modules.has("climatology")) {
+    moduleLoads.push(
+      loadScriptOnce("js/features/climatology.js"),
+      loadStyleOnce("css/climatology.css")
+    );
+  }
   if (modules.has("hydromet")) {
     moduleLoads.push(
       loadScriptOnce("js/features/viewer.js"),
@@ -110,6 +116,7 @@
   if (modules.has("report-hydromet-network")) {
     window.NotasHydrometReport.init();
   }
+  if (modules.has("climatology")) window.NotasClimatology.init();
   if (modules.has("hydromet")) {
     try {
       window.NotasViewer.initViewer();

@@ -6,6 +6,7 @@
     agenda: "agenda",
     "report-water-quality": "report-water-quality",
     "report-hydromet-network": "report-hydromet-network",
+    climatology: "climatology",
     settings: "settings"
   };
   let currentUser = null;

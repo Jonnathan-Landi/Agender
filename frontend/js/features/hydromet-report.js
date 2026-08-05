@@ -54,6 +54,17 @@
     return `${formatCalendarDay(date)} ${padNumber(date.getHours())}:${padNumber(date.getMinutes())}`;
   }
 
+  function syncTemperatureTimes(card, date) {
+    if (!card || !date) return;
+    const startTime = `${padNumber(date.getHours())}:${padNumber(date.getMinutes())}`;
+    const endDate = new Date(date.getTime() + 60 * 60 * 1000);
+    const endTime = `${padNumber(endDate.getHours())}:${padNumber(endDate.getMinutes())}`;
+    const startInput = card.querySelector("[data-hydromet-temperature-start-time]");
+    const endInput = card.querySelector("[data-hydromet-temperature-end-time]");
+    if (startInput) startInput.value = startTime;
+    if (endInput) endInput.value = endTime;
+  }
+
   function parseCalendarDay(value) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     if (!match) return null;
@@ -85,10 +96,13 @@
   function updatePageDateTimes() {
     const dateText = formatPageDate(reportDate);
     const timeText = formatPageTime(reportDate);
+    const inputTime = `${padNumber(reportDate.getHours())}:${padNumber(reportDate.getMinutes())}`;
     document.querySelectorAll("#report-hydromet-network-view .hydromet-page-date")
       .forEach((element) => { element.textContent = dateText; });
     document.querySelectorAll("#report-hydromet-network-view .hydromet-page-time")
       .forEach((element) => { element.textContent = timeText; });
+    document.querySelectorAll("[data-hydromet-rain-end-time]")
+      .forEach((input) => { input.value = inputTime; });
     const rainDateInput = document.querySelector("[data-hydromet-rain-date]");
     if (!rainDateWasChanged) {
       rainReportDate = new Date(
@@ -103,6 +117,10 @@
       temperatureReportDate = new Date(reportDate);
       if (temperatureDateInput) {
         temperatureDateInput.value = formatCalendarDateTime(temperatureReportDate);
+        syncTemperatureTimes(
+          temperatureDateInput.closest('[data-hydromet-data-table="temperatures"]'),
+          temperatureReportDate
+        );
       }
     }
     const triggerValue = document.querySelector("#hydromet-datetime-trigger-value");
@@ -298,7 +316,9 @@
   }
 
   function initializeDateTimeControl() {
-    reportDate.setSeconds(0, 0);
+    // Automatic report timestamps always represent the beginning of the
+    // current hour (for example, 12:20 becomes 12:00).
+    reportDate.setMinutes(0, 0, 0);
     updatePageDateTimes();
     document.querySelector("#hydromet-datetime-trigger")
       ?.addEventListener("click", openDatePicker);
@@ -1006,11 +1026,9 @@
           }
           temperatureReportDate = parsed;
           temperatureDateWasChanged = true;
+          syncTemperatureTimes(card, temperatureReportDate);
         });
-        const endTime = card.querySelector("[data-hydromet-temperature-end-time]");
-        if (endTime) {
-          endTime.value = `${padNumber(reportDate.getHours())}:${padNumber(reportDate.getMinutes())}`;
-        }
+        syncTemperatureTimes(card, temperatureReportDate || reportDate);
       }
     });
     document.querySelectorAll("[data-flow-input]").forEach(syncFlowReportValue);
@@ -1055,7 +1073,8 @@
     return {
       hue,
       saturation: maximum ? delta / maximum : 0,
-      value: maximum
+      value: maximum,
+      chroma: delta
     };
   }
 
@@ -1083,7 +1102,13 @@
           pixels[offset + 1],
           pixels[offset + 2]
         );
-        const category = color.saturation >= 0.42 && color.value >= 0.28
+        // The light theme renders the purple UV bar with less saturation than
+        // the dark theme.  Chroma still separates every bar from both chart
+        // backgrounds, including the saturated blue used by the dark theme.
+        const isBarColor = color.chroma >= 0.22
+          && color.saturation >= 0.2
+          && color.value >= 0.28;
+        const category = isBarColor
           ? uvRiskRanges.findIndex((range) => range.hue(color.hue))
           : -1;
         uvRiskRanges.forEach((_range, index) => {

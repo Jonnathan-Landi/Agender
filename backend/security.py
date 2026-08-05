@@ -28,6 +28,7 @@ ALL_MODULES = {
     "requests",
     "diary",
     "agenda",
+    "climatology",
     "reports",
     *REPORT_MODULES,
     "settings",
@@ -181,6 +182,7 @@ def inspect_license_for_reissue(content: bytes) -> dict[str, Any]:
         "diary",
         "agenda",
         *REPORT_MODULES,
+        "climatology",
     }
     return {
         "licenseId": str(payload.get("licenseId") or ""),
@@ -446,6 +448,7 @@ def generate_license(values: dict[str, Any]) -> bytes:
         "agenda",
         "reports",
         *REPORT_MODULES,
+        "climatology",
     }
     modules = _expand_module_access(requested)
     if "hydromet" in requested:

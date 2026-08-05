@@ -8,7 +8,8 @@
     "agender.request.records",
     "agender.hydromet.qc-methods",
     "agender.reports.water-quality",
-    "agender.reports.water-quality.preferences"
+    "agender.reports.water-quality.preferences",
+    "agender.climatology.station-configuration"
   ];
   const pending = new Map();
   const values = new Map();
