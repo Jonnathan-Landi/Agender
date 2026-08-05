@@ -81,7 +81,10 @@ def build_exact_monthly_report(
                     "station": code,
                     "url": f"/api/climatology/report-file/{job_id}/{area_id}/{kind}/{relative}",
                 }
-            except (OSError, ValueError, pl.exceptions.PolarsError) as error:
+            # A malformed station file must not turn the complete batch into a
+            # plain-text HTTP 500. Keep failures scoped to the station, just as
+            # validation and missing-file errors are scoped above.
+            except Exception as error:
                 results[(area_id, kind)] = {"station": code, "error": str(error)}
     return {
         "jobId": job_id,

@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from backend import climatology
 from backend.climatology import _rain_report, _temperature_report, station_configuration_catalog
 
 
@@ -69,3 +70,31 @@ def test_rainfall_reader_preserves_decimal_measurements(tmp_path):
     assert report["summary"]["total"] == pytest.approx(1.0)
     assert report["summary"]["maximum"] == pytest.approx(1.0)
     assert report["summary"]["rainDays"] == 1
+
+
+def test_monthly_report_keeps_unexpected_renderer_failure_scoped_to_each_station(tmp_path, monkeypatch):
+    source = tmp_path / "station.dat"
+    source.write_text("TIMESTAMP,Lluvia_Tot\n", encoding="utf-8")
+    catalog = {
+        basin: {"code": basin, "basin": basin, "type": "Meteorológica"}
+        for _area_id, _label, basin in climatology.CLIMATE_AREAS
+    }
+    selections = {
+        area_id: {"temperature": basin, "rain": basin}
+        for area_id, _label, basin in climatology.CLIMATE_AREAS
+    }
+
+    monkeypatch.setattr(climatology, "CLIMATOLOGY_REPORT_ROOT", tmp_path / "reports")
+    monkeypatch.setattr(climatology, "load_station_catalog", lambda: catalog)
+    monkeypatch.setattr(climatology, "_find_station_file", lambda *_args: source)
+    monkeypatch.setattr(
+        climatology,
+        "_run_python_report",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("fallo inesperado del renderizador")),
+    )
+
+    result = climatology.build_exact_monthly_report(str(tmp_path), False, 2026, 7, selections)
+
+    reports = [area[kind] for area in result["areas"] for kind in ("temperature", "rain")]
+    assert len(reports) == 10
+    assert all(report["error"] == "fallo inesperado del renderizador" for report in reports)
