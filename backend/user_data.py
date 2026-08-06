@@ -19,6 +19,7 @@ DATA_MODULES = {
     "agender.hydromet.qc-methods": "hydromet",
     "agender.reports.water-quality": "report-water-quality",
     "agender.reports.water-quality.preferences": "report-water-quality",
+    "agender.climatology.station-configuration": "climatology",
 }
 LOCAL_ONLY_DATA_KEYS = {
     "agender.reports.water-quality",

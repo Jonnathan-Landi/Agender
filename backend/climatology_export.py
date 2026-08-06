@@ -15,6 +15,7 @@ from .desktop_dialogs import choose_save_file
 PAGE_WIDTH = 1536
 PAGE_HEIGHT = 1220
 CSS_PIXELS_PER_INCH = 96
+REPORT_LOGO = Path(__file__).resolve().parent.parent / "frontend" / "wqreport" / "img" / "logo.png"
 
 
 def export_climatology_pdf(pages: list[dict[str, str]], suggested_name: str) -> dict[str, object]:
@@ -79,6 +80,12 @@ def _resolve_page(item: dict[str, str]) -> dict[str, str]:
 
 def _document(pages: list[dict[str, str]]) -> str:
     sections = []
+    logo = REPORT_LOGO.as_uri() if REPORT_LOGO.is_file() else ""
+    logo_html = (
+        f'<img class="report-logo" src="{html.escape(logo, quote=True)}" alt="Alcaldía de Cuenca · ETAPA">'
+        if logo
+        else ""
+    )
     for item in pages:
         territory = html.escape(item.get("territory", ""))
         station = html.escape(str(item.get("station", "")).replace("_", " "))
@@ -86,8 +93,9 @@ def _document(pages: list[dict[str, str]]) -> str:
         kind = item.get("kind")
         title = "SEGUIMIENTO TÉRMICO" if kind == "temperature" else "SEGUIMIENTO DE PRECIPITACIONES"
         sections.append(
-            f'<section class="page"><header><h1>{title} <span>|</span> {period}</h1>'
-            f"<p>SEGUIMIENTO MENSUAL DEL CLIMA EN LA {territory.upper()} · ESTACIÓN DE REFERENCIA: {station}</p>"
+            f'<section class="page"><header><div class="heading"><h1>{title} <span>|</span> {period}</h1>'
+            f"<p>SEGUIMIENTO MENSUAL DEL CLIMA EN LA {territory.upper()} · "
+            f"ESTACIÓN DE REFERENCIA: {station}</p></div>{logo_html}"
             f'</header><iframe src="{html.escape(item["file"], quote=True)}"></iframe></section>'
         )
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><style>
@@ -100,8 +108,14 @@ html, body {{ margin: 0; background: white; font-family: "Segoe UI", Arial, sans
 }}
 .page:last-child {{ break-after: auto; page-break-after: auto; }}
 header {{
-  height: 126px; display: grid; place-content: center; text-align: center;
+  position: relative; height: 126px; display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; text-align: center;
   color: white; background: #073f63; border-bottom: 6px solid #54c8dd;
+}}
+.heading {{ grid-column: 2; grid-row: 1; padding: 0; }}
+.report-logo {{
+  grid-column: 1; grid-row: 1; justify-self: start; width: 340px; height: auto; margin-left: 4px;
+  max-width: calc(100% - 12px); max-height: 100px; object-fit: contain;
 }}
 h1 {{ margin: 0; font-size: 37px; letter-spacing: .2px; }} h1 span {{ font-weight: 400; }}
 p {{ margin: 10px 0 0; font-size: 16px; }}

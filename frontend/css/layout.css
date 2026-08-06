@@ -293,3 +293,22 @@ h2 {
 .startup-screen strong { font-size: 22px; }
 .startup-screen span { color: var(--muted, #666); font-size: 13px; }
 .startup-screen.is-complete { opacity: 0; pointer-events: none; }
+
+.startup-recovery-warning {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10000;
+  display: grid;
+  gap: 4px;
+  max-width: 470px;
+  padding: 14px 17px;
+  border: 1px solid #d9a429;
+  border-radius: 9px;
+  color: #3f3108;
+  background: #fff4c7;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .24);
+}
+
+.startup-recovery-warning span { font-size: 13px; }
+.startup-recovery-warning.is-fatal { border-color: #ca554d; color: #631d18; background: #ffdedb; }

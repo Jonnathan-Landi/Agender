@@ -217,7 +217,7 @@ def _temperature_report(path: Path, code: str, year: int, month: int) -> dict[st
         raise ValueError("No existen días válidos para el periodo seleccionado.")
     rows = target.select("date", "minimum", "mean", "maximum").to_dicts()
     monthly = (
-        daily.filter(pl.col("year") == year)
+        daily.filter((pl.col("year") == year) & (pl.col("month") <= month))
         .group_by("month")
         .agg(
             pl.col("mean").mean().alias("value"),

@@ -269,7 +269,7 @@
     const title = isTemperature ? "SEGUIMIENTO TÉRMICO" : "SEGUIMIENTO DE PRECIPITACIONES";
     const reportLabel = isTemperature ? "REPORTE TÉRMICO" : "REPORTE DE PRECIPITACIONES";
     const station = String(report.station || "ESTACIÓN PENDIENTE").replaceAll("_", " ");
-    const heading = `<header class="climate-original-band"><h2>${title} <span>|</span> ${escapeHtml(period.toUpperCase())}</h2><p>SEGUIMIENTO MENSUAL DEL CLIMA EN LA ${escapeHtml(territory.toUpperCase())} · ESTACIÓN DE REFERENCIA: ${escapeHtml(station)}</p></header>`;
+    const heading = `<header class="climate-original-band"><div class="climate-original-heading"><h2>${title} <span>|</span> ${escapeHtml(period.toUpperCase())}</h2><p>SEGUIMIENTO MENSUAL DEL CLIMA EN LA ${escapeHtml(territory.toUpperCase())} · ESTACIÓN DE REFERENCIA: ${escapeHtml(station)}</p></div><img class="climate-original-logo" src="wqreport/img/logo.png" alt="Alcaldía de Cuenca · ETAPA"></header>`;
     if (report.error) {
       return `<article class="climate-original-sheet">${heading}<div class="climate-report-error"><span class="font-icon" aria-hidden="true">&#xEA39;</span><div><strong>${escapeHtml(report.station || reportLabel)}</strong><p>${escapeHtml(report.error)}</p></div></div></article>`;
     }

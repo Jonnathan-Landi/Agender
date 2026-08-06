@@ -1588,7 +1588,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.16.9.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.20.5.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -1643,35 +1643,35 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.16.9</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.20.5</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.16.9</strong>
+                <strong class="news-version-number">1.20.5</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
-                  <h2>Corrección de climatología mensual</h2>
+                  <h2>Climatología mensual más clara</h2>
                   <ul>
-                    <li>Un archivo irregular de una estación ya no interrumpe la generación completa del reporte mensual.</li>
-                    <li>Los errores quedan aislados en la estación afectada y los demás territorios continúan procesándose.</li>
-                    <li>La aplicación muestra el detalle correspondiente dentro del reporte en lugar de un error general.</li>
+                    <li>Los gráficos mensuales de temperatura y lluvia se limitan siempre al mes seleccionado.</li>
+                    <li>Los indicadores de posición térmica y pluviométrica fueron retirados para destacar la información más útil.</li>
+                    <li>Las tarjetas restantes aprovechan uniformemente el espacio disponible.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Reportes y exportación</h2>
+                  <h2>Identidad visual en los reportes</h2>
                   <ul>
-                    <li>Los seguimientos térmicos y de precipitación incorporan gráficos diarios, mensuales, históricos y bandas P10–P90.</li>
-                    <li>La impresión permite seleccionar territorios y crea dos páginas por cada uno con el diseño mostrado en la aplicación.</li>
-                    <li>El motor PDF integrado utiliza un navegador del sistema como respaldo cuando es necesario.</li>
+                    <li>Todas las hojas térmicas y de precipitación incorporan el logo institucional en la franja superior.</li>
+                    <li>El logo conserva su proporción y se adapta automáticamente al ancho del título sin superponerse.</li>
+                    <li>La vista previa y el PDF exportado mantienen la misma composición.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Datos, licencias y estabilidad</h2>
+                  <h2>Inicio y sincronización protegidos</h2>
                   <ul>
-                    <li>El procesamiento climatológico funciona íntegramente en Python y utiliza las estaciones del Registro hidrometeorológico.</li>
-                    <li>Las precipitaciones decimales se conservan correctamente en los acumulados diarios y mensuales.</li>
-                    <li>El generador de licencias permite habilitar Clima y Climatología mensual de manera independiente.</li>
+                    <li>Se corrigió el bloqueo de inicio provocado por la configuración pendiente de Climatología mensual.</li>
+                    <li>Un fallo aislado de sincronización o carga ya no impide utilizar los demás módulos.</li>
+                    <li>Las pruebas de release verifican que todas las claves del frontend estén autorizadas por el backend.</li>
                   </ul>
                 </section>
               </div>

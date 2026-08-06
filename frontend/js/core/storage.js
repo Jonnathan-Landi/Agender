@@ -37,7 +37,12 @@
       }
       localStorage.removeItem(localKey);
     });
-    await Promise.all(migrations);
+    const results = await Promise.allSettled(migrations);
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.error(`No fue posible migrar ${supportedKeys[index]}.`, result.reason);
+      }
+    });
   }
 
   async function refreshFromServer() {

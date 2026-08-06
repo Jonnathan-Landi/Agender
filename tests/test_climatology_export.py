@@ -34,6 +34,11 @@ def test_document_contains_one_page_per_selected_report():
     assert "SEGUIMIENTO TÉRMICO" in document
     assert "SEGUIMIENTO DE PRECIPITACIONES" in document
     assert "ESTACIÓN DE REFERENCIA: MET Ucubamba" in document
+    assert 'class="report-logo"' in document
+    assert "wqreport/img/logo.png" in document
+    assert "grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)" in document
+    assert ".heading { grid-column: 2; grid-row: 1; padding: 0; }" in document
+    assert "max-width: calc(100% - 12px); max-height: 100px" in document
 
 
 @pytest.mark.parametrize(

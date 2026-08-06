@@ -7,14 +7,27 @@
   }
   setTimeout(revealApplication, 8000);
 
-  function loadScriptOnce(source) {
-    const existing = document.querySelector(`script[src="${source}"]`);
-    if (existing) return Promise.resolve();
+  function cacheBusted(source) {
+    const separator = source.includes("?") ? "&" : "?";
+    return `${source}${separator}recovery=${Date.now()}`;
+  }
+
+  function loadScriptOnce(source, forceReload = false) {
+    const existing = document.querySelector(`script[data-agender-source="${source}"], script[src="${source}"]`);
+    if (existing && !forceReload) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = source;
+      script.dataset.agenderSource = source;
+      script.src = forceReload ? cacheBusted(source) : source;
       script.onload = resolve;
-      script.onerror = () => reject(new Error(`No fue posible cargar ${source}.`));
+      script.onerror = () => {
+        script.remove();
+        if (!forceReload) {
+          loadScriptOnce(source, true).then(resolve, reject);
+        } else {
+          reject(new Error(`No fue posible cargar ${source}.`));
+        }
+      };
       document.head.appendChild(script);
     });
   }
@@ -25,11 +38,46 @@
     return new Promise((resolve, reject) => {
       const link = document.createElement("link");
       link.rel = "stylesheet";
+      link.dataset.agenderSource = source;
       link.href = source;
       link.onload = resolve;
-      link.onerror = () => reject(new Error(`No fue posible cargar ${source}.`));
+      link.onerror = () => {
+        link.remove();
+        const retry = document.createElement("link");
+        retry.rel = "stylesheet";
+        retry.dataset.agenderSource = source;
+        retry.href = cacheBusted(source);
+        retry.onload = resolve;
+        retry.onerror = () => {
+          retry.remove();
+          reject(new Error(`No fue posible cargar ${source}.`));
+        };
+        document.head.appendChild(retry);
+      };
       document.head.appendChild(link);
     });
+  }
+
+  async function recoverMissingCoreScripts() {
+    const coreScripts = [
+      ["NotasStorage", "js/core/storage.js"],
+      ["NotasSync", "js/core/sync.js"],
+      ["NotasTheme", "js/core/theme.js"],
+      ["NotasNavigation", "js/core/navigation.js"],
+      ["NotasLogin", "js/core/login.js"]
+    ];
+    for (const [globalName, source] of coreScripts) {
+      if (!window[globalName]) await loadScriptOnce(source, true);
+    }
+  }
+
+  function showRecoveryWarning(errors) {
+    if (!errors.length) return;
+    const warning = document.createElement("div");
+    warning.className = "startup-recovery-warning";
+    warning.setAttribute("role", "alert");
+    warning.innerHTML = "<strong>Algunos componentes no pudieron iniciarse.</strong><span>Cierra y abre Agender. Si continúa, reinstala la aplicación sin borrar tus documentos.</span>";
+    document.body.appendChild(warning);
   }
 
   async function restoreBackgroundMode() {
@@ -49,6 +97,7 @@
     });
   });
 
+  await recoverMissingCoreScripts();
   window.NotasTheme.initTheme();
   window.NotasNavigation.initNavigation();
   const authenticated = await window.NotasLogin.initLogin();
@@ -102,22 +151,29 @@
       loadStyleOnce("css/hydromet.css")
     );
   }
-  await Promise.all(moduleLoads);
-  if (modules.has("hydromet")) await loadScriptOnce("js/features/hydromet.js");
+  const moduleResults = await Promise.allSettled(moduleLoads);
+  const moduleErrors = moduleResults.filter((result) => result.status === "rejected").map((result) => result.reason);
+  if (modules.has("hydromet") && window.NotasHydrometMap) {
+    try {
+      await loadScriptOnce("js/features/hydromet.js");
+    } catch (error) {
+      moduleErrors.push(error);
+    }
+  }
   window.NotasTheme.applySavedTheme();
-  if (user?.role === "admin") window.NotasLicenseAdmin.init();
-  if (modules.has("settings")) window.NotasSettings.initSettings();
-  if (modules.has("requests")) window.NotasRequests.initRequests();
-  if (modules.has("diary")) window.NotasDiary.initDiary();
-  if (modules.has("agenda")) window.NotasAgenda.initAgenda();
-  if (modules.has("report-water-quality")) {
+  if (user?.role === "admin") window.NotasLicenseAdmin?.init();
+  if (modules.has("settings")) window.NotasSettings?.initSettings();
+  if (modules.has("requests")) window.NotasRequests?.initRequests();
+  if (modules.has("diary")) window.NotasDiary?.initDiary();
+  if (modules.has("agenda")) window.NotasAgenda?.initAgenda();
+  if (modules.has("report-water-quality") && window.NotasWaterQualityReport) {
     window.NotasWaterQualityReport.init();
   }
-  if (modules.has("report-hydromet-network")) {
+  if (modules.has("report-hydromet-network") && window.NotasHydrometReport) {
     window.NotasHydrometReport.init();
   }
-  if (modules.has("climatology")) window.NotasClimatology.init();
-  if (modules.has("hydromet")) {
+  if (modules.has("climatology")) window.NotasClimatology?.init();
+  if (modules.has("hydromet") && window.NotasViewer && window.NotasHydromet && window.NotasHydrometMap) {
     try {
       window.NotasViewer.initViewer();
       window.NotasHydromet.initHydromet();
@@ -136,5 +192,14 @@
   }
   window.NotasSync.start();
   window.NotasSync.bootstrap().catch((error) => console.error(error));
+  showRecoveryWarning(moduleErrors);
   revealApplication();
-})();
+})().catch((error) => {
+  console.error("No fue posible iniciar Agender.", error);
+  document.querySelector("#startup-screen")?.remove();
+  const warning = document.createElement("div");
+  warning.className = "startup-recovery-warning is-fatal";
+  warning.setAttribute("role", "alert");
+  warning.innerHTML = "<strong>Agender no pudo completar el inicio.</strong><span>Reabre la aplicación. Si el problema continúa, reinstálala; tus documentos no necesitan eliminarse.</span>";
+  document.body.appendChild(warning);
+});

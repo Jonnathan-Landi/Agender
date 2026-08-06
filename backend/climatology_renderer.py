@@ -122,7 +122,6 @@ def render_temperature(report: dict[str, Any], output: Path, year: int, month: i
     {_temp_kpi(_fmt(summary["minimum"], " °C"), "MÍNIMA ABSOLUTA", period, "thermometer", "kpi-blue")}
     {_temp_kpi(_fmt(summary["mean"], " °C"), "TEMPERATURA MEDIA", period, "thermometer", "kpi-yellow")}
     {_temp_kpi(_fmt(summary["maximum"], " °C"), "MÁXIMA ABSOLUTA", period, "thermometer", "kpi-red")}
-    {_temp_kpi(f"{summary['rank']} de {summary['rankTotal']}", "POSICIÓN TÉRMICA", f"De frío a cálido en {year}", "trophy", "kpi-green")}
   </section>
   <section class="report-card card-daily">{_section("thermometer", f"Temperaturas diarias de {MONTHS[month - 1].lower()}", "", "blue", _legend())}<div class="plot-wrap plot-daily"><img class="plot-svg" src="plots/01_comportamiento_diario.svg"></div></section>
   <section class="middle-grid"><article class="report-card card-monthly">{_section("thermometer", f"Temperaturas mensuales durante {year}", comparison, "blue", _monthly_legend())}<div class="monthly-plot-zone"><img class="plot-svg" src="plots/02_comparacion_mensual.svg"></div></article>
@@ -234,7 +233,6 @@ def render_rain(report: dict[str, Any], output: Path, year: int, month: int) -> 
     {_rain_kpi("trend", "VS PROM. HISTÓRICO", comparison, comparison_footer, "green")}
     {_rain_kpi("calendar", "DÍAS CON LLUVIA", f"{summary['rainDays']} días", f"{rainy_percent}% del mes", "purple")}
     {_rain_kpi("drop", "MÁX. DIARIA", _fmt(summary["maximum"], " mm"), _date(summary["maximumDate"]), "cyan")}
-    {_rain_kpi("umbrella", "POSICIÓN PLUVIOMÉTRICA", f"{summary['rank']} de {summary['rankTotal']}", f"Más lluvioso en {year}", "orange")}
   </section>
   <section class="rain-main-grid rain-overview-grid"><article class="rain-card rain-card-monthly"><h2>Lluvia mensual durante {year}</h2><div class="rain-chart rain-chart-main"><img class="rain-plot" src="plots/01_lluvia_mensual.svg"></div></article>
   <article class="rain-card rain-card-history"><h2>¿Cómo fue {MONTHS[month - 1].lower()} frente a otros años?</h2><p class="rain-subtitle">{rain_history_analysis}</p><div class="rain-chart rain-chart-main"><img class="rain-plot" src="plots/02_historia_mensual.svg"></div></article></section>

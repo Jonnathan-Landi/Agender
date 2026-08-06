@@ -4,6 +4,7 @@ import pytest
 
 from backend import climatology
 from backend.climatology import _rain_report, _temperature_report, station_configuration_catalog
+from backend.user_data import _allowed_keys
 
 
 def test_station_catalog_contains_only_requested_areas_and_matching_basins():
@@ -17,6 +18,13 @@ def test_station_catalog_contains_only_requested_areas_and_matching_basins():
         "Tarqui",
         "Machangara",
     ]
+
+
+def test_climatology_configuration_is_allowed_for_authorized_users():
+    keys = _allowed_keys({"modules": ["climatology"]})
+
+    assert "agender.climatology.station-configuration" in keys
+    assert "agender.climatology.station-configuration" not in _allowed_keys({"modules": []})
 
 
 def test_temperature_and_rain_catalogs_respect_station_capabilities():
@@ -55,6 +63,25 @@ def test_monthly_temperature_uses_absolute_extremes_from_all_valid_records(tmp_p
     assert report["summary"]["monthlyMinimumDifference"] == pytest.approx(3.0)
 
 
+def test_monthly_temperature_excludes_data_after_selected_month(tmp_path):
+    rows = ["TIMESTAMP,TempAire_Min,TempAire_Avg,TempAire_Max"]
+    for start, average in (
+        (datetime(2026, 6, 15, tzinfo=UTC), 14.0),
+        (datetime(2026, 8, 15, tzinfo=UTC), 22.0),
+    ):
+        for index in range(231):
+            timestamp = (start + timedelta(minutes=5 * index)).isoformat().replace("+00:00", "Z")
+            rows.append(f"{timestamp},{average - 5},{average},{average + 5}")
+    source = tmp_path / "MET_Test.dat"
+    source.write_text("\n".join(rows), encoding="utf-8")
+
+    report = _temperature_report(source, "MET Test", 2026, 6)
+
+    assert [row["month"] for row in report["monthly"]] == [6]
+    assert report["summary"]["rank"] == 1
+    assert report["summary"]["rankTotal"] == 1
+
+
 def test_rainfall_reader_preserves_decimal_measurements(tmp_path):
     rows = ["TIMESTAMP,Lluvia_Tot"]
     start = datetime(2026, 6, 1, tzinfo=UTC)
@@ -70,6 +97,22 @@ def test_rainfall_reader_preserves_decimal_measurements(tmp_path):
     assert report["summary"]["total"] == pytest.approx(1.0)
     assert report["summary"]["maximum"] == pytest.approx(1.0)
     assert report["summary"]["rainDays"] == 1
+
+
+def test_monthly_rain_excludes_data_after_selected_month(tmp_path):
+    rows = ["TIMESTAMP,Lluvia_Tot"]
+    for start in (datetime(2026, 6, 1, tzinfo=UTC), datetime(2026, 8, 1, tzinfo=UTC)):
+        for index in range(288):
+            timestamp = (start + timedelta(minutes=5 * index)).isoformat().replace("+00:00", "Z")
+            rows.append(f"{timestamp},0.1")
+    source = tmp_path / "MET_Test.dat"
+    source.write_text("\n".join(rows), encoding="utf-8")
+
+    report = _rain_report(source, "MET Test", 2026, 6)
+
+    assert [row["month"] for row in report["monthly"]] == [6]
+    assert report["summary"]["rank"] == 1
+    assert report["summary"]["rankTotal"] == 1
 
 
 def test_monthly_report_keeps_unexpected_renderer_failure_scoped_to_each_station(tmp_path, monkeypatch):
