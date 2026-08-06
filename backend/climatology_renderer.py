@@ -736,7 +736,7 @@ def _points(points):
 def _num(value):
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return math.nan
 
 
