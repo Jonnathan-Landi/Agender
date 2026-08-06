@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from backend import climatology
+from backend import climatology_renderer
 from backend.climatology import _rain_report, _temperature_report, station_configuration_catalog
 from backend.user_data import _allowed_keys
 
@@ -25,6 +26,11 @@ def test_climatology_configuration_is_allowed_for_authorized_users():
 
     assert "agender.climatology.station-configuration" in keys
     assert "agender.climatology.station-configuration" not in _allowed_keys({"modules": []})
+
+
+def test_climatology_renderer_and_required_styles_are_importable():
+    assert climatology_renderer.ASSET_ROOT.joinpath("report.css").is_file()
+    assert climatology_renderer.ASSET_ROOT.joinpath("rain_report.css").is_file()
 
 
 def test_temperature_and_rain_catalogs_respect_station_capabilities():

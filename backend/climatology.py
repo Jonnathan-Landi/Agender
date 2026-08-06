@@ -10,6 +10,7 @@ from typing import Any
 import polars as pl
 
 from .catalog import load_station_catalog
+from .climatology_renderer import render_rain, render_temperature
 from .config import APP_DATA_DIR
 
 CLIMATOLOGY_REPORT_ROOT = APP_DATA_DIR / "reports" / "climatology"
@@ -122,8 +123,6 @@ def _validate_selection(catalog: dict[str, dict[str, Any]], basin: str, kind: st
 
 
 def _run_python_report(kind: str, data_file: Path, station: str, year: int, month: int, output: Path) -> Path:
-    from .climatology_renderer import render_rain, render_temperature
-
     if kind == "temperature":
         report = _temperature_report(data_file, station.replace("_", " "), year, month)
         return render_temperature(report, output, year, month)

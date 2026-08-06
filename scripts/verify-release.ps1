@@ -36,7 +36,7 @@ $modules = (& $python -m PyInstaller.utils.cliutils.archive_viewer -l $archivePa
 if ($LASTEXITCODE -ne 0) {
   throw "No se pudo inspeccionar el backend empaquetado con $python."
 }
-foreach ($required in "backend.main", "backend.cloud_account", "backend.cloud_sync", "backend.config") {
+foreach ($required in "backend.main", "backend.cloud_account", "backend.cloud_sync", "backend.config", "backend.climatology_renderer") {
   if ($modules -notmatch "'$([regex]::Escape($required))'") {
     throw "El módulo requerido $required no está incluido en el backend empaquetado."
   }
@@ -45,6 +45,18 @@ foreach ($required in "backend.main", "backend.cloud_account", "backend.cloud_sy
 $backendExecutable = Join-Path $projectRoot "src-tauri\resources\backend\agender-backend.exe"
 if (-not (Test-Path -LiteralPath $backendExecutable)) {
   throw "No existe el ejecutable del backend empaquetado: $backendExecutable"
+}
+$climatologyOutput = & $backendExecutable --climatology-smoke-test
+if ($LASTEXITCODE -ne 0) {
+  throw "El backend empaquetado no pudo importar el renderizador de climatología."
+}
+try {
+  $climatologyResult = ($climatologyOutput -join "`n") | ConvertFrom-Json
+} catch {
+  throw "La prueba empaquetada de climatología no devolvió JSON válido."
+}
+if (-not $climatologyResult.ok) {
+  throw "El backend empaquetado no contiene el renderizador o sus estilos de climatología."
 }
 $inventoryFixture = Join-Path $projectRoot "tests\fixtures\raw"
 $workerOutput = & $backendExecutable --index-worker --source raw --root $inventoryFixture --recursive true

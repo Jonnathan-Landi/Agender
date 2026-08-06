@@ -64,4 +64,5 @@ class BrowserRenderTests(unittest.TestCase):
         self.assertIn("playwright install chromium --only-shell", build_script)
         self.assertIn('"playwright-browsers"', specification)
         self.assertIn("--render-smoke-test", entrypoint)
+        self.assertIn("--climatology-smoke-test", entrypoint)
         self.assertIn("resolve-windows-sdk.ps1", release_script)
