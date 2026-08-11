@@ -50,3 +50,8 @@ class FrontendArchitectureTests(TestCase):
         self.assertIsNotNone(supported_block)
         frontend_keys = set(re.findall(r'"([^"]+)"', supported_block.group(1)))
         self.assertEqual(frontend_keys, set(DATA_MODULES))
+
+    def test_climatology_ignores_period_select_when_reading_station_configuration(self) -> None:
+        climatology = (ROOT / "frontend/js/features/climatology.js").read_text(encoding="utf-8")
+
+        self.assertEqual(2, climatology.count("if (!select.dataset.area) return;"))

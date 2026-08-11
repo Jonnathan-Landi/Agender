@@ -65,4 +65,6 @@ class BrowserRenderTests(unittest.TestCase):
         self.assertIn('"playwright-browsers"', specification)
         self.assertIn("--render-smoke-test", entrypoint)
         self.assertIn("--climatology-smoke-test", entrypoint)
+        self.assertIn("load_discharge_curves", entrypoint)
+        self.assertIn("--climatology-smoke-test", build_script)
         self.assertIn("resolve-windows-sdk.ps1", release_script)

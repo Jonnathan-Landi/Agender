@@ -13,32 +13,40 @@ def test_safe_name_removes_windows_forbidden_characters():
 def test_document_contains_one_page_per_selected_report():
     pages = [
         {
-            "territory": "Zona urbana",
-            "kind": "temperature",
+            "territory": "Zona Urbana",
             "station": "MET_Ucubamba",
             "period": "julio 2026",
             "file": Path("temperatura.html").resolve().as_uri(),
         },
         {
-            "territory": "Zona urbana",
-            "kind": "rain",
-            "station": "PLU_Challuabamba",
+            "territory": "Páramo",
+            "station": "MET_Cancan",
             "period": "julio 2026",
             "file": Path("lluvia.html").resolve().as_uri(),
+        },
+        {
+            "territory": "Seguimiento de Caudales",
+            "station": "Cuatro cuencas",
+            "period": "julio 2026",
+            "file": Path("caudales.html").resolve().as_uri(),
         },
     ]
 
     document = climatology_export._document(pages)
 
-    assert document.count('<section class="page">') == 2
+    assert document.count('<section class="page">') == 3
     assert "SEGUIMIENTO TÉRMICO" in document
-    assert "SEGUIMIENTO DE PRECIPITACIONES" in document
     assert "ESTACIÓN DE REFERENCIA: MET Ucubamba" in document
+    assert "SEGUIMIENTO MENSUAL DEL CLIMA EN LA ZONA URBANA" in document
+    assert "SEGUIMIENTO MENSUAL DEL CLIMA EN EL PÁRAMO" in document
+    assert "SEGUIMIENTO DE CAUDALES" in document
+    assert "LLUVIA VS CAUDAL · YANUNCAY · TOMEBAMBA · TARQUI · MACHÁNGARA" in document
     assert 'class="report-logo"' in document
     assert "wqreport/img/logo.png" in document
-    assert "grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)" in document
+    assert "SEGUIMIENTO TÉRMICO Y DE PRECIPITACIONES" in document
+    assert "grid-template-columns: 320px minmax(0, 1fr) 320px" in document
     assert ".heading { grid-column: 2; grid-row: 1; padding: 0; }" in document
-    assert "max-width: calc(100% - 12px); max-height: 100px" in document
+    assert "max-width: none; max-height: 100px" in document
 
 
 @pytest.mark.parametrize(

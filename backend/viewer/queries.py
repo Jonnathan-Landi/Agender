@@ -9,6 +9,7 @@ import duckdb
 from fastapi import HTTPException
 
 from .aggregations import RESOLUTION_INTERVALS, aggregation_function
+from ..discharge import variable_sql
 
 
 class ExportQueryPayload(Protocol):
@@ -84,7 +85,9 @@ def build_export_query(
     timestamp_label = meta.get("timestamp_column") or "fecha_hora"
 
     if payload.resolution == "original":
-        columns = [_quoted_identifier(variable) for variable in payload.variables]
+        columns = [
+            f"{variable_sql(variable, meta)} AS {_quoted_identifier(variable)}" for variable in payload.variables
+        ]
         sql = (
             f'SELECT __fd_timestamp AS {_quoted_identifier(timestamp_label)}, {", ".join(columns)} '
             f"FROM read_parquet('{path}') WHERE {where_clause} ORDER BY __fd_timestamp"
@@ -129,12 +132,12 @@ def build_export_query(
     )
     output_columns = [timestamp_header]
     for variable in payload.variables:
-        quoted = _quoted_identifier(variable)
+        value_sql = variable_sql(variable, meta)
         aggregate, _label = aggregation_function(variable)
         value_alias = _quoted_identifier(variable)
         aggregates.append(
-            f"CASE WHEN COUNT({quoted}) * 100.0 / {expected_sql} >= ? "
-            f"THEN {aggregate}({quoted}) ELSE NULL END AS {value_alias}"
+            f"CASE WHEN COUNT({value_sql}) * 100.0 / {expected_sql} >= ? "
+            f"THEN {aggregate}({value_sql}) ELSE NULL END AS {value_alias}"
         )
         coverage_params.append(payload.min_coverage)
         output_columns.append(variable)
@@ -181,7 +184,7 @@ def query_data(
         )
 
     path = str(dataset_path).replace("'", "''")
-    var = variable.replace('"', '""')
+    value_sql = variable_sql(variable, meta)
     period_filters: list[str] = []
     params: list[Any] = []
     if year is not None:
@@ -196,7 +199,7 @@ def query_data(
     period_where_clause = " AND ".join(period_filters) if period_filters else "TRUE"
 
     stats_sql = f"""
-        SELECT COUNT(*) AS total, COUNT("{var}") AS records
+        SELECT COUNT(*) AS total, COUNT({value_sql}) AS records
         FROM read_parquet('{path}')
         WHERE {period_where_clause}
     """
@@ -212,8 +215,8 @@ def query_data(
         WITH bucketed AS (
             SELECT
                 time_bucket(INTERVAL '{interval_label}', __fd_timestamp) AS bucket,
-                COUNT("{var}") AS available,
-                {aggregate}("{var}") AS aggregated_value
+                COUNT({value_sql}) AS available,
+                {aggregate}({value_sql}) AS aggregated_value
             FROM read_parquet('{path}')
             WHERE {period_where_clause}
             GROUP BY bucket

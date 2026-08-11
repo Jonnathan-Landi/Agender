@@ -17,10 +17,20 @@ def main() -> None:
     arguments = parser.parse_args()
     if arguments.climatology_smoke_test:
         from backend.climatology_renderer import ASSET_ROOT
+        from backend.discharge import DISCHARGE_CURVES_FILE, load_discharge_curves
 
-        required = ("report.css", "rain_report.css")
+        required = ("report.css",)
         assets = {name: (ASSET_ROOT / name).is_file() for name in required}
-        print(json.dumps({"ok": all(assets.values()), "assets": assets}))
+        curves = load_discharge_curves()
+        print(
+            json.dumps(
+                {
+                    "ok": all(assets.values()) and DISCHARGE_CURVES_FILE.is_file() and bool(curves),
+                    "assets": assets,
+                    "dischargeCurves": len(curves),
+                }
+            )
+        )
         return
     if arguments.render_smoke_test:
         from backend.browser_render import render_smoke_test

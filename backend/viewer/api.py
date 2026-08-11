@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from ..catalog import normalize_station_code
 from ..config import APP_DATA_DIR, read_settings
+from ..discharge import virtual_discharge_variables
 from ..onedrive_folders import materialize_source
 from ..security import current_user
 from .export_output import (
@@ -113,7 +114,7 @@ class BatchExportRequest(BaseModel):
     custom_unit: str | None = None
 
 
-app = FastAPI(title="Agender Viewer API", version="1.20.6")
+app = FastAPI(title="Agender Viewer API", version="1.21.1")
 
 
 def session_dir(session_id: str) -> Path:
@@ -616,7 +617,7 @@ def open_station(station_code: str, request: Request, source: str = "raw") -> Se
     selected = _station_matches(root, recursive, [station_code]).get(normalized_code)
     if not selected:
         raise HTTPException(status_code=404, detail=f"No hay archivos para la estación {station_code}")
-    return ingest_file(selected, selected.name)
+    return ingest_file(selected, selected.name, station_code=station_code, source=source)
 
 
 @app.post("/api/export-batch")
@@ -652,7 +653,7 @@ def export_batch(payload: BatchExportRequest, request: Request) -> dict[str, Any
             source_path = matches.get(normalize_station_code(code))
             if not source_path:
                 raise ValueError("No se encontró el archivo de la estación")
-            session = ingest_file(source_path, source_path.name)
+            session = ingest_file(source_path, source_path.name, station_code=code, source=payload.source)
             response = export_data(
                 ExportRequest(
                     session_id=session.session_id,
@@ -688,14 +689,23 @@ def export_batch(payload: BatchExportRequest, request: Request) -> dict[str, Any
     }
 
 
-def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
+def ingest_file(
+    source_path: Path,
+    display_name: str,
+    station_code: str | None = None,
+    source: str = "raw",
+) -> SessionInfo:
     """Convierte un archivo a una sesión Viewer sin alterar el original."""
     suffix = source_path.suffix.lower()
     if suffix not in {".dat", ".csv", ".txt", ".xlsx", ".parquet"}:
         raise HTTPException(status_code=415, detail="Formato no soportado")
     existing = cached_session(source_path)
-    if existing:
-        return SessionInfo(**existing)
+    if existing and existing.get("station_code") == station_code and existing.get("source") == source:
+        expected_virtual = virtual_discharge_variables(
+            existing.get("physical_variables", existing["variables"]), station_code, source
+        )
+        if existing.get("virtual_variables", {}) == expected_virtual:
+            return SessionInfo(**existing)
 
     fingerprint = source_fingerprint(source_path)
     session_id = fingerprint[:32]
@@ -707,9 +717,11 @@ def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
         timestamp_column = detect_timestamp_column(raw)
         normalized = normalize_timestamp(raw, timestamp_column)
         normalized = coerce_numeric_columns(normalized, timestamp_column)
-        variables = detect_variables(normalized, timestamp_column)
-        if not variables:
+        physical_variables = detect_variables(normalized, timestamp_column)
+        if not physical_variables:
             raise HTTPException(status_code=422, detail="No se detectaron variables numéricas")
+        virtual_variables = virtual_discharge_variables(physical_variables, station_code, source)
+        variables = [*physical_variables, *virtual_variables]
         normalized, interval_us = complete_time_series(normalized)
 
         normalized.write_parquet(parquet_path(session_id), compression="zstd")
@@ -758,6 +770,10 @@ def ingest_file(source_path: Path, display_name: str) -> SessionInfo:
         "filename": display_name,
         "timestamp_column": timestamp_column,
         "variables": variables,
+        "physical_variables": physical_variables,
+        "virtual_variables": virtual_variables,
+        "station_code": station_code,
+        "source": source,
         "years": [int(year) for year in years],
         "months_by_year": months_by_year,
         "days_by_month": days_by_month,

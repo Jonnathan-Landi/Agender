@@ -87,15 +87,20 @@ def _document(pages: list[dict[str, str]]) -> str:
         else ""
     )
     for item in pages:
-        territory = html.escape(item.get("territory", ""))
         station = html.escape(str(item.get("station", "")).replace("_", " "))
         period = html.escape(item.get("period", "").upper())
-        kind = item.get("kind")
-        title = "SEGUIMIENTO TÉRMICO" if kind == "temperature" else "SEGUIMIENTO DE PRECIPITACIONES"
+        territory_value = item.get("territory", "").casefold()
+        is_flows = territory_value == "seguimiento de caudales"
+        title = "SEGUIMIENTO DE CAUDALES" if is_flows else "SEGUIMIENTO TÉRMICO Y DE PRECIPITACIONES"
+        location = "EN EL PÁRAMO" if territory_value == "páramo" else "EN LA ZONA URBANA"
+        subtitle = (
+            "LLUVIA VS CAUDAL · YANUNCAY · TOMEBAMBA · TARQUI · MACHÁNGARA"
+            if is_flows
+            else f"SEGUIMIENTO MENSUAL DEL CLIMA {location} · ESTACIÓN DE REFERENCIA: {station}"
+        )
         sections.append(
             f'<section class="page"><header><div class="heading"><h1>{title} <span>|</span> {period}</h1>'
-            f"<p>SEGUIMIENTO MENSUAL DEL CLIMA EN LA {territory.upper()} · "
-            f"ESTACIÓN DE REFERENCIA: {station}</p></div>{logo_html}"
+            f"<p>{subtitle}</p></div>{logo_html}"
             f'</header><iframe src="{html.escape(item["file"], quote=True)}"></iframe></section>'
         )
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><style>
@@ -109,15 +114,15 @@ html, body {{ margin: 0; background: white; font-family: "Segoe UI", Arial, sans
 .page:last-child {{ break-after: auto; page-break-after: auto; }}
 header {{
   position: relative; height: 126px; display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; text-align: center;
-  color: white; background: #073f63; border-bottom: 6px solid #54c8dd;
+  grid-template-columns: 320px minmax(0, 1fr) 320px; align-items: center; text-align: center;
+  color: white; background: #073f63; border-bottom: 6px solid #f28c00;
 }}
 .heading {{ grid-column: 2; grid-row: 1; padding: 0; }}
 .report-logo {{
-  grid-column: 1; grid-row: 1; justify-self: start; width: 340px; height: auto; margin-left: 4px;
-  max-width: calc(100% - 12px); max-height: 100px; object-fit: contain;
+  grid-column: 1; grid-row: 1; justify-self: start; width: 300px; height: auto; margin-left: 12px;
+  max-width: none; max-height: 100px; object-fit: contain;
 }}
-h1 {{ margin: 0; font-size: 37px; letter-spacing: .2px; }} h1 span {{ font-weight: 400; }}
+h1 {{ margin: 0; font-size: 34px; line-height: 1.08; letter-spacing: .2px; }} h1 span {{ font-weight: 400; }}
 p {{ margin: 10px 0 0; font-size: 16px; }}
 iframe {{ display: block; width: 100%; height: calc(100% - 126px); border: 0; background: white; }}
 </style></head><body>{"".join(sections)}</body></html>"""

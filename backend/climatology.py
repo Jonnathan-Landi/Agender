@@ -10,40 +10,69 @@ from typing import Any
 import polars as pl
 
 from .catalog import load_station_catalog
-from .climatology_renderer import render_rain, render_temperature
+from .climatology_renderer import render_flows, render_temperature
 from .config import APP_DATA_DIR
+from .discharge import curve_for_station, discharge_from_level
 
 CLIMATOLOGY_REPORT_ROOT = APP_DATA_DIR / "reports" / "climatology"
 
 
 CLIMATE_AREAS = (
-    ("urban", "Zona urbana", "Cuenca"),
-    ("yanuncay", "Cuenca del Yanuncay", "Yanuncay"),
-    ("tomebamba", "Cuenca del Tomebamba", "Tomebamba"),
-    ("tarqui", "Cuenca del Tarqui", "Tarqui"),
-    ("machangara", "Cuenca del Machángara", "Machangara"),
+    ("urban", "Zona Urbana"),
+    ("paramo", "Páramo"),
+)
+FLOW_BASINS = (
+    ("yanuncay", "Yanuncay", "Yanuncay"),
+    ("tomebamba", "Tomebamba", "Tomebamba"),
+    ("tarqui", "Tarqui", "Tarqui"),
+    ("machangara", "Machángara", "Machangara"),
 )
 
 
 def station_configuration_catalog() -> dict[str, object]:
     stations = load_station_catalog().values()
     areas: list[dict[str, Any]] = []
-    for area_id, label, catalog_basin in CLIMATE_AREAS:
-        basin_stations = [station for station in stations if station["basin"] == catalog_basin]
+    all_stations = list(stations)
+    for area_id, label in CLIMATE_AREAS:
         areas.append(
             {
                 "id": area_id,
                 "label": label,
-                "catalogBasin": catalog_basin,
-                "temperatureStations": _options(basin_stations, "temperature"),
-                "rainStations": _options(basin_stations, "rain"),
+                "temperatureStations": _options(all_stations, "temperature"),
+                "rainStations": _options(all_stations, "rain"),
             }
         )
-    return {"areas": areas}
+    return {
+        "areas": areas,
+        "flowBasins": [
+            {
+                "id": basin_id,
+                "label": label,
+                "rainStations": _options(
+                    [station for station in all_stations if station["basin"] == catalog_basin], "flow"
+                ),
+                "flowStations": _options(
+                    [
+                        station
+                        for station in all_stations
+                        if station["basin"] == catalog_basin and curve_for_station(station["code"])
+                    ],
+                    "flow",
+                ),
+            }
+            for basin_id, label, catalog_basin in FLOW_BASINS
+        ],
+    }
 
 
 def build_exact_monthly_report(
-    data_root: str, recursive: bool, year: int, month: int, selections: dict[str, dict[str, str]]
+    data_root: str,
+    recursive: bool,
+    year: int,
+    month: int,
+    selections: dict[str, dict[str, str]],
+    flow_selections: dict[str, dict[str, str]] | None = None,
+    n_percent: float = 80.0,
 ) -> dict[str, object]:
     root = Path(data_root).resolve()
     if not root.is_dir():
@@ -52,55 +81,141 @@ def build_exact_monthly_report(
     job_root = CLIMATOLOGY_REPORT_ROOT / job_id
     job_root.mkdir(parents=True, exist_ok=False)
     catalog = load_station_catalog()
-    results: dict[tuple[str, str], dict[str, str]] = {}
+    results: dict[str, dict[str, str]] = {}
     tasks = []
     with ThreadPoolExecutor(max_workers=3) as executor:
-        for area_id, _label, basin in CLIMATE_AREAS:
+        for area_id, _label in CLIMATE_AREAS:
             selected = selections.get(area_id, {})
-            for kind in ("temperature", "rain"):
-                code = str(selected.get(kind, "")).strip()
-                validation = _validate_selection(catalog, basin, kind, code)
-                if validation:
-                    results[(area_id, kind)] = {"station": code, "error": validation}
-                    continue
-                path = _find_station_file(root, code, recursive)
-                if not path:
-                    results[(area_id, kind)] = {
-                        "station": code,
-                        "error": "No se encontró el archivo procesado de la estación.",
-                    }
-                    continue
-                output = job_root / area_id / kind
-                output.mkdir(parents=True, exist_ok=True)
-                future = executor.submit(_run_python_report, kind, path, code, year, month, output)
-                tasks.append((future, area_id, kind, code, output))
-        for future, area_id, kind, code, output in tasks:
+            temperature_code = str(selected.get("temperature", "")).strip()
+            rain_code = str(selected.get("rain", "")).strip()
+            validation = _validate_selection(catalog, "temperature", temperature_code)
+            validation = validation or _validate_selection(catalog, "rain", rain_code)
+            if validation:
+                results[area_id] = {"station": temperature_code, "rainStation": rain_code, "error": validation}
+                continue
+            temperature_path = _find_station_file(root, temperature_code, recursive)
+            rain_path = _find_station_file(root, rain_code, recursive)
+            if not temperature_path or not rain_path:
+                results[area_id] = {
+                    "station": temperature_code,
+                    "rainStation": rain_code,
+                    "error": "No se encontró el archivo procesado de una de las estaciones.",
+                }
+                continue
+            output = job_root / area_id
+            output.mkdir(parents=True, exist_ok=True)
+            future = executor.submit(
+                _run_python_report,
+                temperature_path,
+                temperature_code,
+                year,
+                month,
+                output,
+                (rain_path, rain_code),
+                n_percent,
+            )
+            tasks.append((future, area_id, temperature_code, rain_code, output))
+        for future, area_id, temperature_code, rain_code, output in tasks:
             try:
                 report_path = future.result()
                 relative = report_path.relative_to(output).as_posix()
-                results[(area_id, kind)] = {
-                    "station": code,
-                    "url": f"/api/climatology/report-file/{job_id}/{area_id}/{kind}/{relative}",
+                results[area_id] = {
+                    "station": temperature_code,
+                    "rainStation": rain_code,
+                    "url": f"/api/climatology/report-file/{job_id}/{area_id}/{relative}",
                 }
             # A malformed station file must not turn the complete batch into a
             # plain-text HTTP 500. Keep failures scoped to the station, just as
             # validation and missing-file errors are scoped above.
             except Exception as error:
-                results[(area_id, kind)] = {"station": code, "error": str(error)}
+                results[area_id] = {
+                    "station": temperature_code,
+                    "rainStation": rain_code,
+                    "error": str(error),
+                }
+    flow_cards = _build_flow_cards(root, recursive, year, month, catalog, flow_selections or {}, n_percent)
+    flow_output = job_root / "flows"
+    flow_output.mkdir(parents=True, exist_ok=True)
+    flow_path = render_flows(flow_cards, flow_output, year, month)
+    flow_relative = flow_path.relative_to(flow_output).as_posix()
     return {
         "jobId": job_id,
         "year": year,
         "month": month,
+        "nPercent": n_percent,
         "areas": [
             {
                 "id": area_id,
                 "label": label,
-                "temperature": results[(area_id, "temperature")],
-                "rain": results[(area_id, "rain")],
+                "report": results[area_id],
             }
-            for area_id, label, _basin in CLIMATE_AREAS
+            for area_id, label in CLIMATE_AREAS
         ],
+        "flows": {
+            "id": "flows",
+            "label": "Seguimiento de Caudales",
+            "url": f"/api/climatology/report-file/{job_id}/flows/{flow_relative}",
+            "cards": flow_cards,
+        },
     }
+
+
+def _build_flow_cards(root, recursive, year, month, catalog, selections, n_percent):
+    cards = []
+    for basin_id, label, catalog_basin in FLOW_BASINS:
+        selected = selections.get(basin_id, {})
+        rain_code = str(selected.get("rain", "")).strip()
+        flow_code = str(selected.get("flow", "")).strip()
+        error = _validate_basin_station(catalog, catalog_basin, rain_code)
+        error = error or _validate_basin_station(catalog, catalog_basin, flow_code, require_curve=True)
+        rain_path = _find_station_file(root, rain_code, recursive) if not error else None
+        flow_path = _find_station_file(root, flow_code, recursive) if not error else None
+        if not error and (not rain_path or not flow_path):
+            error = "No se encontró el archivo procesado de una de las estaciones."
+        if error:
+            cards.append(
+                {
+                    "id": basin_id,
+                    "label": label,
+                    "rainStation": rain_code,
+                    "flowStation": flow_code,
+                    "error": error,
+                }
+            )
+            continue
+        try:
+            data = _rain_flow_report(rain_path, flow_path, flow_code, year, month, n_percent)
+            cards.append(
+                {
+                    "id": basin_id,
+                    "label": label,
+                    "rainStation": rain_code,
+                    "flowStation": flow_code,
+                    "data": data,
+                }
+            )
+        except Exception as error_value:
+            cards.append(
+                {
+                    "id": basin_id,
+                    "label": label,
+                    "rainStation": rain_code,
+                    "flowStation": flow_code,
+                    "error": str(error_value),
+                }
+            )
+    return cards
+
+
+def _validate_basin_station(catalog, basin, code, require_curve=False):
+    if not code:
+        return "Selecciona una estación en Configuración."
+    station = next((item for item in catalog.values() if item["code"] == code), None)
+    if not station or station["basin"] != basin:
+        return "La estación seleccionada no corresponde a esta cuenca."
+    if require_curve and not curve_for_station(code):
+        return "La estación de caudal no tiene una curva de descarga configurada."
+    return ""
 
 
 def resolve_report_asset(job_id: str, asset_path: str) -> Path:
@@ -113,21 +228,30 @@ def resolve_report_asset(job_id: str, asset_path: str) -> Path:
     return target
 
 
-def _validate_selection(catalog: dict[str, dict[str, Any]], basin: str, kind: str, code: str) -> str:
+def _validate_selection(catalog: dict[str, dict[str, Any]], kind: str, code: str) -> str:
     if not code:
         return "Selecciona una estación en Configuración."
     station = next((item for item in catalog.values() if item["code"] == code), None)
-    if not station or station["basin"] != basin or not _supports(station["type"], kind):
-        return "La estación seleccionada no corresponde a este territorio."
+    if not station or not _supports(station["type"], kind):
+        return "La estación seleccionada no es compatible con la variable."
     return ""
 
 
-def _run_python_report(kind: str, data_file: Path, station: str, year: int, month: int, output: Path) -> Path:
-    if kind == "temperature":
-        report = _temperature_report(data_file, station.replace("_", " "), year, month)
-        return render_temperature(report, output, year, month)
-    report = _rain_report(data_file, station.replace("_", " "), year, month)
-    return render_rain(report, output, year, month)
+def _run_python_report(
+    data_file: Path,
+    station: str,
+    year: int,
+    month: int,
+    output: Path,
+    companion_rain: tuple[Path, str] | None = None,
+    n_percent: float = 80.0,
+) -> Path:
+    report = _temperature_report(data_file, station.replace("_", " "), year, month, n_percent)
+    rain_report = None
+    if companion_rain is not None:
+        rain_file, rain_station = companion_rain
+        rain_report = _rain_report(rain_file, rain_station.replace("_", " "), year, month, n_percent)
+    return render_temperature(report, output, year, month, rain_report)
 
 
 def _options(stations: list[dict[str, Any]], capability: str) -> list[dict[str, Any]]:
@@ -152,6 +276,8 @@ def _supports(station_type: str, capability: str) -> bool:
         return "meteorologica" in normalized
     if capability == "rain":
         return "meteorologica" in normalized or "pluviografica" in normalized
+    if capability == "flow":
+        return True
     return False
 
 
@@ -191,7 +317,7 @@ def _read_columns(path: Path, columns: list[str]) -> pl.DataFrame:
     ).filter(pl.col("timestamp").is_not_null())
 
 
-def _temperature_report(path: Path, code: str, year: int, month: int) -> dict[str, object]:
+def _temperature_report(path: Path, code: str, year: int, month: int, n_percent: float = 80.0) -> dict[str, object]:
     frame = _read_columns(path, ["TIMESTAMP", "TempAire_Min", "TempAire_Avg", "TempAire_Max"])
     daily = (
         frame.with_columns(
@@ -208,13 +334,39 @@ def _temperature_report(path: Path, code: str, year: int, month: int) -> dict[st
             pl.col("TempAire_Max").max().alias("maximum"),
         )
         .with_columns(pl.col("date").dt.year().alias("year"), pl.col("date").dt.month().alias("month"))
-        .filter(pl.col("count") >= 288 * 0.8)
+        .filter(pl.col("count") >= 288 * n_percent / 100)
         .sort("date")
     )
     target = daily.filter((pl.col("year") == year) & (pl.col("month") == month))
     if target.is_empty():
         raise ValueError("No existen días válidos para el periodo seleccionado.")
     rows = target.select("date", "minimum", "mean", "maximum").to_dicts()
+    monthly_coverage = (
+        frame.filter((pl.col("timestamp").dt.year() == year) & (pl.col("timestamp").dt.month() <= month))
+        .with_columns(pl.col("timestamp").dt.month().alias("month"))
+        .group_by("month")
+        .agg(
+            pl.col("TempAire_Min").count().alias("minimumCount"),
+            pl.col("TempAire_Avg").count().alias("meanCount"),
+            pl.col("TempAire_Max").count().alias("maximumCount"),
+            pl.col("TempAire_Min").min().alias("minimum"),
+            pl.col("TempAire_Avg").mean().alias("value"),
+            pl.col("TempAire_Max").max().alias("maximum"),
+        )
+    )
+    coverage_by_month = {row["month"]: row for row in monthly_coverage.iter_rows(named=True)}
+    monthly_output = []
+    for output_month in range(1, month + 1):
+        coverage = coverage_by_month.get(output_month, {})
+        required = monthrange(year, output_month)[1] * 288 * n_percent / 100
+        monthly_output.append(
+            {
+                "month": output_month,
+                "value": coverage.get("value") if coverage.get("meanCount", 0) >= required else None,
+                "minimum": coverage.get("minimum") if coverage.get("minimumCount", 0) >= required else None,
+                "maximum": coverage.get("maximum") if coverage.get("maximumCount", 0) >= required else None,
+            }
+        )
     monthly = (
         daily.filter((pl.col("year") == year) & (pl.col("month") <= month))
         .group_by("month")
@@ -297,12 +449,13 @@ def _temperature_report(path: Path, code: str, year: int, month: int) -> dict[st
     minimum_reference = sum(other_minima) / len(other_minima) if other_minima else None
     ranks = sorted(row["value"] for row in monthly if row["value"] is not None)
     historical_years = daily.filter((pl.col("year") < year) & (pl.col("month") == month))["year"].unique().to_list()
+    selected_month = monthly_output[-1]
     return {
         "station": code,
         "summary": {
-            "minimum": target["minimum"].min(),
-            "mean": target["mean"].mean(),
-            "maximum": target["maximum"].max(),
+            "minimum": selected_month["minimum"],
+            "mean": selected_month["value"],
+            "maximum": selected_month["maximum"],
             "validDays": target.height,
             "expectedDays": monthrange(year, month)[1],
             "rank": ranks.index(min(ranks, key=lambda value: abs(value - current_mean))) + 1 if ranks else 1,
@@ -326,13 +479,81 @@ def _temperature_report(path: Path, code: str, year: int, month: int) -> dict[st
             "reportDate": target["date"].max().isoformat(),
         },
         "daily": [{**row, "date": row["date"].isoformat()} for row in rows],
-        "monthly": monthly,
+        "monthly": monthly_output,
         "historical": historical,
         "hottest": hottest_detail,
     }
 
 
-def _rain_report(path: Path, code: str, year: int, month: int) -> dict[str, object]:
+def _rain_flow_report(
+    rain_path: Path, flow_path: Path, flow_code: str, year: int, month: int, n_percent: float = 80.0
+) -> list[dict[str, object]]:
+    if year < 2026:
+        raise ValueError("El seguimiento mensual de caudales comienza en enero de 2026.")
+    period_filter = (pl.col("timestamp").dt.year() >= 2026) & (
+        (pl.col("timestamp").dt.year() < year)
+        | ((pl.col("timestamp").dt.year() == year) & (pl.col("timestamp").dt.month() <= month))
+    )
+    rain = (
+        _read_columns(rain_path, ["TIMESTAMP", "Lluvia_Tot"])
+        .filter(period_filter)
+        .with_columns(
+            pl.col("timestamp").dt.year().alias("year"),
+            pl.col("timestamp").dt.month().alias("month"),
+        )
+        .group_by("year", "month")
+        .agg(
+            pl.col("Lluvia_Tot").count().alias("rainCount"),
+            pl.col("Lluvia_Tot").clip(lower_bound=0).sum().alias("rain"),
+        )
+        .sort("year", "month")
+    )
+    curve = curve_for_station(flow_code)
+    if not curve:
+        raise ValueError("La estación no tiene una curva de descarga configurada.")
+    flow = (
+        _read_columns(flow_path, ["TIMESTAMP", "Level_Avg"])
+        .filter(period_filter)
+        .with_columns(
+            pl.col("timestamp").dt.year().alias("year"),
+            pl.col("timestamp").dt.month().alias("month"),
+            pl.col("Level_Avg")
+            .map_elements(lambda value: discharge_from_level(curve, value), return_dtype=pl.Float64)
+            .alias("flow"),
+        )
+        .group_by("year", "month")
+        .agg(pl.col("flow").count().alias("flowCount"), pl.col("flow").mean().alias("flow"))
+        .sort("year", "month")
+    )
+    rain_by_period = {
+        (row["year"], row["month"]): row["rain"]
+        for row in rain.iter_rows(named=True)
+        if row["rainCount"] >= monthrange(row["year"], row["month"])[1] * 288 * n_percent / 100
+    }
+    flow_by_period = {
+        (row["year"], row["month"]): row["flow"]
+        for row in flow.iter_rows(named=True)
+        if row["flowCount"] >= monthrange(row["year"], row["month"])[1] * 288 * n_percent / 100
+    }
+    periods = []
+    period_year, period_month = 2026, 1
+    while (period_year, period_month) <= (year, month):
+        periods.append((period_year, period_month))
+        period_month += 1
+        if period_month == 13:
+            period_year += 1
+            period_month = 1
+    return [
+        {
+            "period": f"{row_year:04d}-{row_month:02d}",
+            "rain": rain_by_period.get((row_year, row_month)),
+            "flow": flow_by_period.get((row_year, row_month)),
+        }
+        for row_year, row_month in periods
+    ]
+
+
+def _rain_report(path: Path, code: str, year: int, month: int, n_percent: float = 80.0) -> dict[str, object]:
     frame = _read_columns(path, ["TIMESTAMP", "Lluvia_Tot"])
     daily = (
         frame.with_columns(
@@ -342,7 +563,7 @@ def _rain_report(path: Path, code: str, year: int, month: int) -> dict[str, obje
         .group_by("date")
         .agg(pl.col("rain").count().alias("count"), pl.col("rain").sum().alias("rain"))
         .with_columns(pl.col("date").dt.year().alias("year"), pl.col("date").dt.month().alias("month"))
-        .filter(pl.col("count") >= 288 * 0.8)
+        .filter(pl.col("count") >= 288 * n_percent / 100)
         .sort("date")
     )
     target = daily.filter((pl.col("year") == year) & (pl.col("month") == month))
@@ -352,10 +573,19 @@ def _rain_report(path: Path, code: str, year: int, month: int) -> dict[str, obje
     total = target["rain"].sum()
     wettest = target.sort("rain", descending=True).row(0, named=True)
     monthly = (
-        daily.group_by("year", "month")
-        .agg(pl.col("rain").sum().alias("value"), pl.len().alias("validDays"))
+        frame.with_columns(
+            pl.col("timestamp").dt.year().alias("year"),
+            pl.col("timestamp").dt.month().alias("month"),
+        )
+        .group_by("year", "month")
+        .agg(pl.col("Lluvia_Tot").sum().alias("value"), pl.col("Lluvia_Tot").count().alias("validRecords"))
         .sort("year", "month")
     )
+    monthly_rows = []
+    for row in monthly.iter_rows(named=True):
+        required = monthrange(row["year"], row["month"])[1] * 288 * n_percent / 100
+        monthly_rows.append({**row, "value": row["value"] if row["validRecords"] >= required else None})
+    monthly = pl.DataFrame(monthly_rows) if monthly_rows else monthly
     current_monthly = monthly.filter((pl.col("year") == year) & (pl.col("month") <= month)).sort("month")
     historical_cumulative = (
         monthly.filter(pl.col("year") < year)
@@ -375,10 +605,19 @@ def _rain_report(path: Path, code: str, year: int, month: int) -> dict[str, obje
     for row in current_rows:
         running += row["value"] or 0
         row["cumulative"] = running
+    current_by_month = {row["month"]: row for row in current_rows}
+    monthly_output = [
+        {
+            "month": output_month,
+            "value": current_by_month.get(output_month, {}).get("value"),
+            "cumulative": current_by_month.get(output_month, {}).get("cumulative"),
+        }
+        for output_month in range(1, month + 1)
+    ]
     current_to_date = next((row["cumulative"] for row in current_rows if row["month"] == month), total)
     historical_to_date = next((row["mean"] for row in historical_rows if row["month"] == month), None)
     historical_target = monthly.filter(
-        (pl.col("year") < year) & (pl.col("month") == month) & (pl.col("validDays") >= monthrange(year, month)[1] * 0.8)
+        (pl.col("year") < year) & (pl.col("month") == month) & pl.col("value").is_not_null()
     )
     historical_mean = historical_target["value"].mean() if not historical_target.is_empty() else None
     difference = total - historical_mean if historical_mean is not None else None
@@ -397,13 +636,15 @@ def _rain_report(path: Path, code: str, year: int, month: int) -> dict[str, obje
         .sort("day")
         .to_dicts()
     )
+    selected_month_value = monthly_output[-1]["value"]
+    selected_month_valid = selected_month_value is not None
     return {
         "station": code,
         "summary": {
-            "total": total,
-            "rainDays": target.filter(pl.col("rain") >= 0.1).height,
-            "maximum": wettest["rain"],
-            "maximumDate": wettest["date"].isoformat(),
+            "total": selected_month_value,
+            "rainDays": target.filter(pl.col("rain") >= 0.1).height if selected_month_valid else None,
+            "maximum": wettest["rain"] if selected_month_valid else None,
+            "maximumDate": wettest["date"].isoformat() if selected_month_valid else "",
             "validDays": target.height,
             "expectedDays": monthrange(year, month)[1],
             "historicalMean": historical_mean,
@@ -419,7 +660,7 @@ def _rain_report(path: Path, code: str, year: int, month: int) -> dict[str, obje
         },
         "daily": [{**row, "date": row["date"].isoformat()} for row in rows],
         "dailyHistorical": daily_history,
-        "monthly": current_rows,
+        "monthly": monthly_output,
         "monthlyHistorical": historical_rows,
         "history": history,
     }

@@ -183,10 +183,17 @@ class ClimatologyAreaSelection(BaseModel):
     rain: str = ""
 
 
+class ClimatologyFlowSelection(BaseModel):
+    rain: str = ""
+    flow: str = ""
+
+
 class ClimatologyReportRequest(BaseModel):
     year: int = Field(ge=2000, le=2100)
     month: int = Field(ge=1, le=12)
+    nPercent: float = Field(default=80, ge=1, le=100)
     areas: dict[str, ClimatologyAreaSelection]
+    flows: dict[str, ClimatologyFlowSelection] = Field(default_factory=dict)
 
 
 class LoginRequest(BaseModel):
@@ -220,14 +227,13 @@ class WaterQualityPdfExport(BaseModel):
 
 class ClimatologyPdfPage(BaseModel):
     territory: str = Field(min_length=1, max_length=120)
-    kind: str = Field(pattern="^(temperature|rain)$")
     station: str = Field(min_length=1, max_length=120)
     period: str = Field(min_length=1, max_length=80)
     url: str = Field(min_length=1, max_length=1024)
 
 
 class ClimatologyPdfExport(BaseModel):
-    pages: list[ClimatologyPdfPage] = Field(min_length=1, max_length=10)
+    pages: list[ClimatologyPdfPage] = Field(min_length=1, max_length=3)
     suggestedFileName: str = Field(default="Seguimiento_mensual_clima", max_length=160)
 
 
@@ -591,6 +597,8 @@ async def climatology_monthly_report(payload: ClimatologyReportRequest, request:
             payload.year,
             payload.month,
             {key: value.model_dump() for key, value in payload.areas.items()},
+            {key: value.model_dump() for key, value in payload.flows.items()},
+            payload.nPercent,
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error

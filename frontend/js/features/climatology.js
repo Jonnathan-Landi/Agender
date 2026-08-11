@@ -2,6 +2,7 @@
   const CONFIG_KEY = "agender.climatology.station-configuration";
   let initialized = false;
   let areas = [];
+  let flowBasins = [];
   let currentReport = null;
   const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -40,6 +41,7 @@
       });
       const payload = await readApiResponse(response, "No fue posible consultar las estaciones.");
       areas = Array.isArray(payload.areas) ? payload.areas : [];
+      flowBasins = Array.isArray(payload.flowBasins) ? payload.flowBasins : [];
       renderAreas(body);
     } catch (error) {
       console.error(error);
@@ -60,21 +62,37 @@
       <section class="climatology-period-card">
         <div class="climatology-area-title">
           <strong>Periodo del reporte</strong>
-          <small>Se aplicará a todos los territorios</small>
+          <small>Se aplicará a ambas hojas</small>
         </div>
         <label class="climatology-station-field"><span>Año</span><input id="climatology-year" type="number" min="2000" max="2100" value="${now.getFullYear()}"></label>
         <label class="climatology-station-field"><span>Mes</span><select id="climatology-month">${MONTHS.map((name, index) => `<option value="${index + 1}">${name}</option>`).join("")}</select></label>
+        <label class="climatology-station-field"><span>Criterio n (%)</span><input id="climatology-n-percent" type="number" min="1" max="100" step="1" value="80"></label>
       </section>
     ` + areas.map((area) => `
       <section class="climatology-area-card" data-climatology-area="${escapeHtml(area.id)}">
         <div class="climatology-area-title">
           <strong>${escapeHtml(area.label)}</strong>
-          <small>${escapeHtml(area.catalogBasin === "Cuenca" ? "Estaciones del área urbana" : `Estaciones de ${area.catalogBasin}`)}</small>
+          <small>Todas las estaciones compatibles están disponibles</small>
         </div>
         ${stationSelect(area, "temperature", "Estación de temperatura", area.temperatureStations)}
         ${stationSelect(area, "rain", "Estación de lluvia", area.rainStations)}
       </section>
-    `).join("");
+    `).join("") + `
+      <section class="climatology-flow-settings">
+        <div class="climatology-area-title">
+          <strong>Hoja 3 · Seguimiento de Caudales</strong>
+          <small>Configure lluvia y caudal para cada tarjeta</small>
+        </div>
+        <div class="climatology-flow-settings-grid">
+          ${flowBasins.map((basin) => `
+            <article class="climatology-flow-basin" data-climatology-flow="${escapeHtml(basin.id)}">
+              <strong>${escapeHtml(basin.label)}</strong>
+              ${stationSelect({ id: `flows.${basin.id}` }, "rain", "Estación de lluvia", basin.rainStations || [])}
+              ${stationSelect({ id: `flows.${basin.id}` }, "flow", "Estación de caudal", basin.flowStations || [])}
+            </article>
+          `).join("")}
+        </div>
+      </section>`;
     applyConfiguration();
   }
 
@@ -99,11 +117,16 @@
     const now = new Date();
     const year = document.querySelector("#climatology-year");
     const month = document.querySelector("#climatology-month");
+    const nPercent = document.querySelector("#climatology-n-percent");
     if (year) year.value = saved.year || now.getFullYear();
     if (month) month.value = saved.month || Math.max(1, now.getMonth());
+    if (nPercent) nPercent.value = saved.nPercent || 80;
     document.querySelectorAll("#climatology-settings-body select").forEach((select) => {
       if (!select.dataset.area) return;
-      select.value = saved?.[select.dataset.area]?.[select.dataset.variable] || "";
+      const path = select.dataset.area.split(".");
+      select.value = path.length === 2
+        ? saved?.[path[0]]?.[path[1]]?.[select.dataset.variable] || ""
+        : saved?.[path[0]]?.[select.dataset.variable] || "";
     });
   }
 
@@ -111,11 +134,19 @@
     event.preventDefault();
     const configuration = {
       year: Number(document.querySelector("#climatology-year").value),
-      month: Number(document.querySelector("#climatology-month").value)
+      month: Number(document.querySelector("#climatology-month").value),
+      nPercent: Number(document.querySelector("#climatology-n-percent").value)
     };
     document.querySelectorAll("#climatology-settings-body select").forEach((select) => {
-      configuration[select.dataset.area] ||= {};
-      configuration[select.dataset.area][select.dataset.variable] = select.value;
+      if (!select.dataset.area) return;
+      const path = select.dataset.area.split(".");
+      configuration[path[0]] ||= {};
+      if (path.length === 2) {
+        configuration[path[0]][path[1]] ||= {};
+        configuration[path[0]][path[1]][select.dataset.variable] = select.value;
+      } else {
+        configuration[path[0]][select.dataset.variable] = select.value;
+      }
     });
     const button = document.querySelector("#climatology-settings-save");
     const message = document.querySelector("#climatology-dialog-message");
@@ -132,12 +163,11 @@
   }
 
   function updateStatus(configuration = window.NotasStorage.loadJson(CONFIG_KEY, {})) {
-    const selected = Object.values(configuration || {}).reduce(
-      (total, area) => total + [area?.temperature, area?.rain].filter(Boolean).length,
-      0
-    );
+    const areaSelected = areas.reduce((total, area) => total + [configuration?.[area.id]?.temperature, configuration?.[area.id]?.rain].filter(Boolean).length, 0);
+    const flowSelected = flowBasins.reduce((total, basin) => total + [configuration?.flows?.[basin.id]?.rain, configuration?.flows?.[basin.id]?.flow].filter(Boolean).length, 0);
+    const selected = areaSelected + flowSelected;
     document.querySelector("#climatology-status").textContent = selected
-      ? `${selected} de 10 estaciones configuradas`
+      ? `${selected} de 12 estaciones configuradas`
       : "Estaciones pendientes de configurar";
   }
 
@@ -147,21 +177,26 @@
     const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const reportYear = Number(configuration.year) || previousMonth.getFullYear();
     const reportMonth = Number(configuration.month) || previousMonth.getMonth() + 1;
+    const nPercent = Math.min(100, Math.max(1, Number(configuration.nPercent) || 80));
     const selections = Object.fromEntries(areas.map((area) => [area.id, {
       temperature: configuration?.[area.id]?.temperature || "",
       rain: configuration?.[area.id]?.rain || ""
+    }]));
+    const flowSelections = Object.fromEntries(flowBasins.map((basin) => [basin.id, {
+      rain: configuration?.flows?.[basin.id]?.rain || "",
+      flow: configuration?.flows?.[basin.id]?.flow || ""
     }]));
     const button = document.querySelector("#climatology-run");
     const status = document.querySelector("#climatology-status");
     const workspace = document.querySelector("#climatology-workspace");
     button.disabled = true;
-    status.textContent = "Procesando 10 reportes…";
-    workspace.innerHTML = `<div class="climatology-run-loading"><span class="station-viewer-spinner" aria-hidden="true"></span><strong>Generando climatología mensual</strong><span>Procesando temperatura y lluvia de todos los territorios…</span></div>`;
+    status.textContent = "Procesando 3 hojas…";
+    workspace.innerHTML = `<div class="climatology-run-loading"><span class="station-viewer-spinner" aria-hidden="true"></span><strong>Generando climatología mensual</strong><span>Procesando las hojas de Zona Urbana y Páramo…</span></div>`;
     try {
       const response = await fetch("/api/climatology/monthly-report", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ year: reportYear, month: reportMonth, areas: selections })
+        body: JSON.stringify({ year: reportYear, month: reportMonth, nPercent, areas: selections, flows: flowSelections })
       });
       const result = await readApiResponse(response, "No fue posible generar el reporte.");
       renderReport(result, workspace);
@@ -179,15 +214,47 @@
     currentReport = result;
     const period = `${MONTHS[result.month - 1]} ${result.year}`;
     workspace.innerHTML = `<div class="climatology-document">${result.areas.map((area) =>
-      originalReportSheet(area.label, "temperature", area.temperature, period)
-      + originalReportSheet(area.label, "rain", area.rain, period)
-    ).join("")}</div>`;
-    workspace.querySelectorAll(".climate-original-frame").forEach((frame) => {
-      frame.addEventListener("load", () => {
-        const height = frame.contentDocument?.documentElement?.scrollHeight;
-        if (height) frame.style.height = `${height}px`;
-      });
-    });
+      originalReportSheet(area, period)
+    ).join("")}${originalReportSheet(result.flows, period)}</div>`;
+    workspace.querySelectorAll(".climate-original-frame").forEach(initializeReportFrame);
+  }
+
+  function initializeReportFrame(frame) {
+    let resizeObserver;
+
+    const synchronizeHeight = async () => {
+      const document = frame.contentDocument;
+      if (!document?.documentElement || !document.body) return;
+
+      try {
+        await document.fonts?.ready;
+        await Promise.all([...document.images].map((image) => {
+          if (image.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            image.addEventListener("load", resolve, { once: true });
+            image.addEventListener("error", resolve, { once: true });
+          });
+        }));
+      } catch (_error) {
+        // A failed decorative asset must not prevent the report from sizing.
+      }
+
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const applyHeight = () => {
+        const height = Math.ceil(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+        if (height >= 600 && height <= 1400 && frame.style.height !== `${height}px`) {
+          frame.style.height = `${height}px`;
+        }
+      };
+      applyHeight();
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(applyHeight);
+      resizeObserver.observe(document.documentElement);
+      resizeObserver.observe(document.body);
+    };
+
+    frame.addEventListener("load", synchronizeHeight);
+    if (frame.contentDocument?.readyState === "complete") synchronizeHeight();
   }
 
   function openPrintDialog() {
@@ -197,8 +264,8 @@
       return;
     }
     const body = document.querySelector("#climatology-print-areas");
-    body.innerHTML = currentReport.areas.map((area) => {
-      const available = area.temperature?.url && area.rain?.url;
+    body.innerHTML = [...currentReport.areas, currentReport.flows].map((area) => {
+      const available = area.id === "flows" ? area.url : area.report?.url;
       return `<label class="climatology-print-option${available ? "" : " is-disabled"}">
         <input type="checkbox" value="${escapeHtml(area.id)}" ${available ? "checked" : "disabled"}>
         <span>${escapeHtml(area.label)}</span>
@@ -237,10 +304,18 @@
       message.textContent = "Selecciona al menos un territorio.";
       return;
     }
-    const pages = currentReport.areas.filter((area) => selected.has(area.id)).flatMap((area) => [
-      { territory: area.label, kind: "temperature", station: area.temperature.station, period: `${MONTHS[currentReport.month - 1]} ${currentReport.year}`, url: area.temperature.url },
-      { territory: area.label, kind: "rain", station: area.rain.station, period: `${MONTHS[currentReport.month - 1]} ${currentReport.year}`, url: area.rain.url }
-    ]);
+    const pages = currentReport.areas.filter((area) => selected.has(area.id)).map((area) => ({
+      territory: area.label,
+      station: area.report.station,
+      period: `${MONTHS[currentReport.month - 1]} ${currentReport.year}`,
+      url: area.report.url
+    }));
+    if (selected.has("flows")) pages.push({
+      territory: "Seguimiento de Caudales",
+      station: "Cuatro cuencas",
+      period: `${MONTHS[currentReport.month - 1]} ${currentReport.year}`,
+      url: currentReport.flows.url
+    });
     const button = document.querySelector("#climatology-print-export");
     button.disabled = true;
     message.textContent = "Preparando PDF…";
@@ -264,12 +339,18 @@
     }
   }
 
-  function originalReportSheet(territory, kind, report, period) {
-    const isTemperature = kind === "temperature";
-    const title = isTemperature ? "SEGUIMIENTO TÉRMICO" : "SEGUIMIENTO DE PRECIPITACIONES";
-    const reportLabel = isTemperature ? "REPORTE TÉRMICO" : "REPORTE DE PRECIPITACIONES";
+  function originalReportSheet(area, period) {
+    const isFlows = area.id === "flows";
+    const report = isFlows ? area : area.report;
+    const territory = area.label;
+    const title = isFlows ? "SEGUIMIENTO DE CAUDALES" : "SEGUIMIENTO TÉRMICO Y DE PRECIPITACIONES";
+    const reportLabel = "REPORTE CLIMATOLÓGICO";
     const station = String(report.station || "ESTACIÓN PENDIENTE").replaceAll("_", " ");
-    const heading = `<header class="climate-original-band"><div class="climate-original-heading"><h2>${title} <span>|</span> ${escapeHtml(period.toUpperCase())}</h2><p>SEGUIMIENTO MENSUAL DEL CLIMA EN LA ${escapeHtml(territory.toUpperCase())} · ESTACIÓN DE REFERENCIA: ${escapeHtml(station)}</p></div><img class="climate-original-logo" src="wqreport/img/logo.png" alt="Alcaldía de Cuenca · ETAPA"></header>`;
+    const location = area.id === "paramo" ? "EN EL PÁRAMO" : "EN LA ZONA URBANA";
+    const subtitle = isFlows
+      ? "LLUVIA VS CAUDAL · YANUNCAY · TOMEBAMBA · TARQUI · MACHÁNGARA"
+      : `SEGUIMIENTO MENSUAL DEL CLIMA ${location} · ESTACIÓN DE REFERENCIA: ${escapeHtml(station)}`;
+    const heading = `<header class="climate-original-band"><div class="climate-original-heading"><h2>${title} <span>|</span> ${escapeHtml(period.toUpperCase())}</h2><p>${subtitle}</p></div><img class="climate-original-logo" src="wqreport/img/logo.png" alt="Alcaldía de Cuenca · ETAPA"></header>`;
     if (report.error) {
       return `<article class="climate-original-sheet">${heading}<div class="climate-report-error"><span class="font-icon" aria-hidden="true">&#xEA39;</span><div><strong>${escapeHtml(report.station || reportLabel)}</strong><p>${escapeHtml(report.error)}</p></div></div></article>`;
     }

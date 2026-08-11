@@ -31,6 +31,7 @@ analysis = Analysis(
     datas=[
         (str(project_root / "frontend"), "frontend"),
         (str(project_root / "backend" / "data" / "stations.xlsx"), "backend/data"),
+        (str(project_root / "backend" / "data" / "discharge_curves.yml"), "backend/data"),
         (str(project_root / "backend" / "data" / "hydromet_rain_map"), "backend/data/hydromet_rain_map"),
         (str(project_root / "backend" / "data" / "hydromet_temperature_map"), "backend/data/hydromet_temperature_map"),
         (str(project_root / "backend" / "data" / "climatology"), "backend/data/climatology"),

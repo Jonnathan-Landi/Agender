@@ -50,6 +50,18 @@ try {
   if (-not $workerResult.data -or $workerResult.catalogStationCount -lt 1) {
     throw "El backend empaquetado devolvió un inventario de prueba vacío."
   }
+  $climatologyOutput = & $backendExecutable --climatology-smoke-test
+  if ($LASTEXITCODE -ne 0) {
+    throw "El backend empaquetado no pudo validar los recursos de climatología y caudales."
+  }
+  try {
+    $climatologyResult = ($climatologyOutput -join "`n") | ConvertFrom-Json
+  } catch {
+    throw "La prueba empaquetada de climatología no devolvió JSON válido."
+  }
+  if (-not $climatologyResult.ok -or $climatologyResult.dischargeCurves -lt 1) {
+    throw "El backend empaquetado no contiene los estilos o las curvas de descarga requeridas."
+  }
   $renderOutput = & $backendExecutable --render-smoke-test
   if ($LASTEXITCODE -ne 0) {
     throw "El motor Chromium empaquetado no pudo ejecutar la prueba de renderizado."

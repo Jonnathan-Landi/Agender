@@ -1,0 +1,10 @@
+LIM_Yanuncay-AJ-Tarqui:
+  - 0.00000145966 * (nivel - 20)^3.3435
+LIM_Tomebamba-DJ-Mazan:
+  - 0.00998477 * (nivel - 84)^1.59009
+LIM_Tarqui-AJ-Yanuncay:
+  - 7.63569E-6 * (nivel - 26)^3.01851
+LIM_MachángaraLlantera:
+  - 0.000878136 * (nivel - 20)^2.39401
+LPL_MataderoSayausi:
+  - 5.31288E-6 * (nivel - 18)^3.1521
