@@ -9,6 +9,9 @@ duckdb_data, duckdb_binaries, duckdb_hidden = collect_all("duckdb")
 crypto_data, crypto_binaries, crypto_hidden = collect_all("cryptography")
 argon_data, argon_binaries, argon_hidden = collect_all("argon2")
 playwright_data, playwright_binaries, playwright_hidden = collect_all("playwright")
+numpy_data, numpy_binaries, numpy_hidden = collect_all("numpy")
+netcdf_data, netcdf_binaries, netcdf_hidden = collect_all("netCDF4")
+pyproj_data, pyproj_binaries, pyproj_hidden = collect_all("pyproj")
 backend_hidden = collect_submodules("backend")
 browser_setting = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
 browser_root = Path(browser_setting) if browser_setting else None
@@ -27,6 +30,9 @@ analysis = Analysis(
         *crypto_binaries,
         *argon_binaries,
         *playwright_binaries,
+        *numpy_binaries,
+        *netcdf_binaries,
+        *pyproj_binaries,
     ],
     datas=[
         (str(project_root / "frontend"), "frontend"),
@@ -35,6 +41,8 @@ analysis = Analysis(
         (str(project_root / "backend" / "data" / "hydromet_rain_map"), "backend/data/hydromet_rain_map"),
         (str(project_root / "backend" / "data" / "hydromet_temperature_map"), "backend/data/hydromet_temperature_map"),
         (str(project_root / "backend" / "data" / "climatology"), "backend/data/climatology"),
+        (str(project_root / "backend" / "data" / "radar_caxx"), "backend/data/radar_caxx"),
+        (str(project_root / "backend" / "data" / "goes19"), "backend/data/goes19"),
         (str(project_root / "backend" / "security" / "license_public_key.pem"), "backend/security"),
         (str(project_root / "src-tauri" / "tauri.conf.json"), "src-tauri"),
         *polars_data,
@@ -42,6 +50,9 @@ analysis = Analysis(
         *crypto_data,
         *argon_data,
         *playwright_data,
+        *numpy_data,
+        *netcdf_data,
+        *pyproj_data,
         *browser_data,
         *copy_metadata("fastapi"),
         *copy_metadata("pydantic"),
@@ -53,12 +64,15 @@ analysis = Analysis(
         *crypto_hidden,
         *argon_hidden,
         *playwright_hidden,
+        *numpy_hidden,
+        *netcdf_hidden,
+        *pyproj_hidden,
         *backend_hidden,
         "fastexcel",
         "tkinter",
         "tkinter.filedialog",
     ],
-    excludes=["pandas", "numpy", "pyarrow", "tkinter.test"],
+    excludes=["pandas", "pyarrow", "tkinter.test"],
     noarchive=False,
 )
 

@@ -242,6 +242,7 @@ body {
   max-width: 1050px;
   max-height: 180px;
   height: auto;
+  opacity: 0.5;
 }
 
 .ti-report-header {
@@ -285,7 +286,7 @@ body[data-policy-profile="it"] .ti-report-header,
 .ti-header-logo-cell img {
   max-width: 390px;
   max-height: 94px;
-  opacity: 0.78;
+  opacity: 0.5;
 }
 
 .ti-header-title-cell {

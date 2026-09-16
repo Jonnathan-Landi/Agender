@@ -1314,6 +1314,7 @@ body > .hydromet-params-popover {
 }
 
 [data-hydromet-format="pronostico-diario"] .hydromet-image-slot,
+[data-hydromet-format="pronostico-diario-2"] .hydromet-image-slot,
 [data-hydromet-format="pronostico-semanal"] .hydromet-image-slot {
   top: 19.5%;
   left: 2.5%;

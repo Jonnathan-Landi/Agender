@@ -11,9 +11,12 @@
     const reportModules = [...form.querySelectorAll('input[name="modules"][value^="report-"]')];
     const climateAll = document.querySelector("#license-climate-all");
     const climateModules = [...form.querySelectorAll('input[name="modules"][value="climatology"]')];
+    const satelliteAll = document.querySelector("#license-satellite-all");
+    const satelliteModules = [...form.querySelectorAll('input[name="modules"][value="radar-caxx"], input[name="modules"][value="goes19"]')];
     const syncPersonalGroup = setupPermissionGroup(personalAll, personalModules);
     const syncReportsGroup = setupPermissionGroup(reportsAll, reportModules);
     const syncClimateGroup = setupPermissionGroup(climateAll, climateModules);
+    const syncSatelliteGroup = setupPermissionGroup(satelliteAll, satelliteModules);
     updateAuthorityStatus();
     previousLicenseInput.addEventListener("change", async () => {
       const file = previousLicenseInput.files?.[0];
@@ -32,6 +35,7 @@
         syncPersonalGroup();
         syncReportsGroup();
         syncClimateGroup();
+        syncSatelliteGroup();
         output.textContent = `Licencia válida importada. Se generará la revisión ${result.revision}; escribe una nueva clave temporal.`;
         form.elements.temporaryPassword.focus();
       } catch (error) {
@@ -96,10 +100,12 @@
       syncPersonalGroup();
       syncReportsGroup();
       syncClimateGroup();
+      syncSatelliteGroup();
     });
     syncPersonalGroup();
     syncReportsGroup();
     syncClimateGroup();
+    syncSatelliteGroup();
 
     function updateAuthorityStatus() {
       const available = document.body.dataset.authorityAvailable === "true";

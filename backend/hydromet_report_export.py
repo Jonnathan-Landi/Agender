@@ -24,6 +24,7 @@ REPORT_LABELS = {
     "lluvias": "Lluvias por estaciones",
     "temperaturas": "Temperaturas",
     "pronostico-diario": "Pronóstico diario",
+    "pronostico-diario-2": "Pronóstico diario 2",
     "pronostico-semanal": "Pronóstico semanal",
     "indice-ultravioleta": "Índice ultravioleta",
 }
@@ -32,6 +33,7 @@ REPORT_TEMPLATES = {
     "lluvias": "02-lluvias.jpeg",
     "temperaturas": "03-temperaturas.jpeg",
     "pronostico-diario": "04-pronostico-diario.jpeg",
+    "pronostico-diario-2": "04-pronostico-diario.jpeg",
     "pronostico-semanal": "05-pronostico-semanal.jpeg",
     "indice-ultravioleta": "06-indice-ultravioleta.jpeg",
 }
@@ -105,7 +107,7 @@ def export_hydromet_designs(
 
 def _validate_reports(reports: list[dict[str, Any]]) -> list[dict[str, str]]:
     if not 1 <= len(reports) <= len(REPORT_LABELS):
-        raise ValueError("Selecciona entre uno y seis diseños para exportar.")
+        raise ValueError("Selecciona entre uno y siete diseños para exportar.")
     normalized: list[dict[str, str]] = []
     seen: set[str] = set()
     total_bytes = 0

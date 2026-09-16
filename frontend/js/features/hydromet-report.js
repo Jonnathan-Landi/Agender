@@ -31,7 +31,7 @@
     p: 2,
     gridResolution: 0.1,
     nRound: 2,
-    plotLogo: true,
+    plotLogo: false,
     plotDesign: true
   });
   function padNumber(value) {
@@ -536,9 +536,7 @@
       const input = panel.querySelector(`[name="${name}"]`);
       if (input) input.value = String(value);
     });
-    const plotLogo = panel.querySelector('[name="plot_logo"]');
     const plotDesign = panel.querySelector('[name="plot_design"]');
-    if (plotLogo) plotLogo.checked = rainMapParameterDefaults.plotLogo;
     if (plotDesign) plotDesign.checked = rainMapParameterDefaults.plotDesign;
   }
 
@@ -563,7 +561,7 @@
       }
       parameters[key] = value;
     });
-    parameters.plotLogo = Boolean(panel.querySelector('[name="plot_logo"]')?.checked);
+    parameters.plotLogo = false;
     parameters.plotDesign = Boolean(panel.querySelector('[name="plot_design"]')?.checked);
     return parameters;
   }

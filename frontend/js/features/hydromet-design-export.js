@@ -4,6 +4,7 @@
     "lluvias",
     "temperaturas",
     "pronostico-diario",
+    "pronostico-diario-2",
     "pronostico-semanal",
     "indice-ultravioleta"
   ]);

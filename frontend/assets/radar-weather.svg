@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">Radar meteorológico</title>
+  <defs>
+    <linearGradient id="dish" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#91f5ff"/>
+      <stop offset="1" stop-color="#17a9c7"/>
+    </linearGradient>
+  </defs>
+  <path d="M49 13a34 34 0 0 1 34 34" fill="none" stroke="#35d5e8" stroke-width="4" stroke-linecap="round" opacity=".35"/>
+  <path d="M49 23a24 24 0 0 1 24 24" fill="none" stroke="#35d5e8" stroke-width="4" stroke-linecap="round" opacity=".65"/>
+  <path d="M49 34a13 13 0 0 1 13 13" fill="none" stroke="#eafcff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M15 31c5 24 18 37 40 40 2-13-2-24-11-32S25 29 15 31Z" fill="url(#dish)" stroke="#eafcff" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="49" cy="47" r="5" fill="#fff"/>
+  <path d="m43 66-9 16m15-14 9 14M27 83h38" fill="none" stroke="#eafcff" stroke-width="5" stroke-linecap="round"/>
+</svg>

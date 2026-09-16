@@ -41,12 +41,13 @@ def test_document_contains_one_page_per_selected_report():
     assert "SEGUIMIENTO MENSUAL DEL CLIMA EN EL PÁRAMO" in document
     assert "SEGUIMIENTO DE CAUDALES" in document
     assert "LLUVIA VS CAUDAL · YANUNCAY · TOMEBAMBA · TARQUI · MACHÁNGARA" in document
-    assert 'class="report-logo"' in document
-    assert "wqreport/img/logo.png" in document
+    assert 'class="report-brand"' in document
+    assert "<strong>ETAPA</strong><span>&#x276F;&#x276F;</span>" in document
+    assert "color: white; background: #ff8500" in document
     assert "SEGUIMIENTO TÉRMICO Y DE PRECIPITACIONES" in document
     assert "grid-template-columns: 320px minmax(0, 1fr) 320px" in document
     assert ".heading { grid-column: 2; grid-row: 1; padding: 0; }" in document
-    assert "max-width: none; max-height: 100px" in document
+    assert ".report-brand strong { font-size: 39px" in document
 
 
 @pytest.mark.parametrize(

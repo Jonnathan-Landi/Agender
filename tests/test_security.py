@@ -76,6 +76,10 @@ class LicenseRevisionTests(TestCase):
         modules = security._expand_module_access(["climatology"])
         self.assertEqual({"climatology"}, modules)
 
+    def test_satellite_permissions_are_independent(self):
+        self.assertEqual({"radar-caxx"}, security._expand_module_access(["radar-caxx"]))
+        self.assertEqual({"goes19"}, security._expand_module_access(["goes19"]))
+
     def test_activation_rejects_same_or_older_revision(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

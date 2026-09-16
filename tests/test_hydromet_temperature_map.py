@@ -15,7 +15,9 @@ from backend.hydromet_rain_map import _expand_bounds_to_aspect
 
 class HydrometTemperatureMapTests(unittest.TestCase):
     def test_design_uses_hydroclima_style_plot_and_axis_spacing(self) -> None:
-        self.assertEqual((170, 150, 2180, 1160), hydromet_temperature_map.TEMPERATURE_PLOT_BOX)
+        self.assertEqual((2200, 1396), hydromet_temperature_map.TEMPERATURE_MAP_SIZE)
+        self.assertEqual((423, 203, 2001, 1213), hydromet_temperature_map.TEMPERATURE_PLOT_BOX)
+        self.assertAlmostEqual(6141 / 3898, 2200 / 1396, places=2)
         self.assertEqual(
             [-79.05, -79.0, -78.95, -78.9],
             hydromet_temperature_map._temperature_axis_ticks(-79.07, -78.89, 0.05),
@@ -27,10 +29,14 @@ class HydrometTemperatureMapTests(unittest.TestCase):
         self.assertEqual(9, len(hydromet_temperature_map.COOL_STOPS))
         self.assertEqual(9, len(hydromet_temperature_map.WARM_STOPS))
         source = Path(hydromet_temperature_map.__file__).read_text(encoding="utf-8")
-        self.assertIn("padding = 0.009", source)
+        features = hydromet_temperature_map._load_temperature_buffer_features()
+        self.assertEqual(
+            hydromet_temperature_map._feature_bounds(features),
+            hydromet_temperature_map._temperature_map_bounds(features),
+        )
         self.assertIn("panel_width = round((right - left) * 0.24)", source)
         self.assertIn("panel_height = round((bottom - top) * 0.48)", source)
-        self.assertIn("(right-left) * 0.35", source)
+        self.assertNotIn("LOGO_PATH", source)
         self.assertIn("label_lines = [part.upper() for part in name.split()]", source)
 
     def test_hydroclima_stations_are_available(self) -> None:
@@ -83,7 +89,7 @@ class HydrometTemperatureMapTests(unittest.TestCase):
             svg = image_path.read_text(encoding="utf-8")
             root_element = ET.fromstring(svg)
             self.assertEqual("2200", root_element.attrib["width"])
-            self.assertEqual("1332", root_element.attrib["height"])
+            self.assertEqual("1396", root_element.attrib["height"])
             self.assertIn("data:image/png;base64,", svg)
             self.assertIn('id="temperature-scale"', svg)
             self.assertIn("Temperatura mínima en Cuenca:", svg)

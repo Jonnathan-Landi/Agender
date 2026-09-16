@@ -121,6 +121,44 @@ class HydrometReportExportTests(unittest.TestCase):
                 center = result.getpixel((12, 12))
                 self.assertGreater(center[1], center[0] * 2)
 
+    def test_two_daily_forecast_cards_export_with_distinct_names(self) -> None:
+        reports = [
+            {
+                "format": key,
+                "html": '<figure class="hydromet-report-page">'
+                '<img class="hydromet-report-template" src="04-pronostico-diario.jpeg">'
+                "</figure>",
+            }
+            for key in ("pronostico-diario", "pronostico-diario-2")
+        ]
+
+        def fake_capture(_page, _html: Path, png: Path) -> None:
+            Image.new("RGBA", (40, 40), (0, 0, 0, 0)).save(png)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            browser = MagicMock()
+            browser.new_page.return_value = object()
+            with (
+                patch.object(hydromet_report_export, "EXPORT_SIZE", 40),
+                patch.object(hydromet_report_export, "choose_directory", return_value=root),
+                patch.object(hydromet_report_export, "chromium_browser", return_value=nullcontext(browser)),
+                patch.object(hydromet_report_export, "_capture_page", side_effect=fake_capture),
+            ):
+                result = hydromet_report_export.export_hydromet_designs(
+                    reports, date(2026, 7, 23), "08:00"
+                )
+
+            self.assertEqual(
+                [
+                    "pronostico-diario_2026-07-23.jpg",
+                    "pronostico-diario-2_2026-07-23.jpg",
+                ],
+                result["files"],
+            )
+            for filename in result["files"]:
+                self.assertTrue((Path(result["folder"]) / filename).is_file())
+
     def test_canceled_folder_selection_does_not_create_output(self) -> None:
         reports = [
             {"format": "temperaturas", "html": '<figure class="hydromet-report-page"></figure>'},

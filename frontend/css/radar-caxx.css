@@ -1,0 +1,89 @@
+.radar-caxx-view.active { width: calc(100% + 48px); height: calc(100vh - 16px); min-height: 420px; margin: -20px -24px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.radar-caxx-layout { height: 100%; min-height: 0; }
+.radar-caxx-map-card {
+  display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden;
+}
+.radar-caxx-map-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.radar-caxx-control-center, .radar-caxx-frame-control { display: grid; gap: 5px; }
+.radar-caxx-control-center label, .radar-caxx-frame-control label { color: #1ebbd2; font-size: .68rem; font-weight: 750; letter-spacing: .13em; }
+.radar-caxx-map-heading select { min-width: 190px; border: 1px solid var(--line); border-radius: 7px; padding: 7px 34px 7px 10px; background: var(--panel-soft); color: var(--ink); font: inherit; font-weight: 650; }
+.radar-caxx-live { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .78rem; }
+.radar-caxx-live i { width: 8px; height: 8px; border-radius: 50%; background: #27cf92; box-shadow: 0 0 0 5px rgba(39,207,146,.12); }
+.radar-caxx-frame-heading { display: flex; align-items: end; justify-content: flex-end; gap: 20px; }
+.radar-caxx-frame-control select { min-width: 112px; }
+.radar-caxx-frame-status { display: grid; justify-items: end; gap: 5px; }
+.radar-caxx-frame-status > strong { color: #fff; font-size: .88rem; font-variant-numeric: tabular-nums; }
+.radar-caxx-map {
+  position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
+  background: #07131a;
+}
+.radar-caxx-map svg { position: relative; display: block; width: 100%; height: 100%; }
+.radar-basemap { opacity: 0; transition: opacity 120ms ease; }
+.radar-basemap.is-ready { opacity: 1; }
+.radar-basemap-credit { position: absolute; right: 7px; bottom: 5px; z-index: 2; padding: 2px 5px; border-radius: 3px; background: rgba(255,255,255,.82); color: #35464c; font-size: .62rem; }
+.radar-map-legend {
+  position: absolute; left: 18px; bottom: 18px; z-index: 3; width: clamp(300px, 25vw, 410px); padding: 16px 18px;
+  border: 1px solid rgba(255,255,255,.72); border-radius: 13px; color: #101820;
+  background: linear-gradient(180deg, rgba(250,252,253,.94), rgba(225,230,233,.88));
+  box-shadow: 0 10px 30px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.9);
+  backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+.radar-map-legend-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.radar-map-legend-heading img { width: 48px; height: 48px; padding: 7px; border-radius: 10px; background: #073344; }
+.radar-map-legend-heading div { display: grid; gap: 2px; }
+.radar-map-legend-heading strong { font-size: 1rem; }
+.radar-map-legend-heading span { color: #47545b; font-size: .78rem; }
+.radar-country { fill: none; stroke: #fff; stroke-width: 3.5; }
+.radar-radius { fill: none; stroke-width: 3; paint-order: stroke; filter: drop-shadow(0 0 2px rgba(0,0,0,.95)); }
+.radar-radius-20 { stroke: #ffe600; stroke-width: 3.4; }
+.radar-radius-60 { stroke: #00eaff; stroke-dasharray: 9 5; }
+.radar-radius-100 { stroke: #ff3f7f; stroke-dasharray: 13 6; }
+.radar-cuenca-halo { fill: none; stroke: #fff; stroke-width: 8; vector-effect: non-scaling-stroke; }
+.radar-cuenca { fill: none; stroke: #05090c; stroke-width: 4.5; vector-effect: non-scaling-stroke; }
+.radar-area-layer[hidden], .radar-cuenca-label[hidden] { display: none; }
+.radar-area-halo { fill: none; stroke: rgba(255,255,255,.92); stroke-width: 5; vector-effect: non-scaling-stroke; }
+.radar-area-outline { fill: none; stroke: #071016; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.radar-site-pulse { fill: rgba(255,222,89,.22); stroke: #ffde59; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.radar-site { fill: #ffde59; stroke: #fff; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.radar-cuenca-label text { fill: white; font: 800 6500px/1 Arial, sans-serif; text-anchor: middle; letter-spacing: 450px; }
+.radar-cuenca-label .radar-cuenca-label-halo { fill: white; stroke: #020508; stroke-width: 3000; paint-order: stroke; }
+.radar-site-icon { filter: drop-shadow(0 2px 3px rgba(0,0,0,.8)); }
+.radar-caxx-legend { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 45px; padding: 8px 18px; border-top: 1px solid var(--line); }
+.radar-caxx-export-status { min-width: 0; overflow: hidden; color: var(--muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.radar-caxx-export-status.is-success { color: #35d69a; }
+.radar-caxx-export-status.is-error { color: #ff718c; }
+.radar-caxx-legend-items { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 18px; }
+.radar-caxx-legend-items span { display: grid; grid-template-columns: 32px auto; align-items: center; column-gap: 9px; }
+.radar-caxx-legend-items i { grid-row: 1 / 3; width: 30px; height: 0; border-top: 4px solid; filter: drop-shadow(0 1px 1px rgba(0,0,0,.45)); }
+.radar-caxx-legend-items b { font-size: .8rem; line-height: 1.1; }
+.radar-caxx-legend-items small { color: #526068; font-size: .66rem; line-height: 1.2; }
+.radar-caxx-legend-items .radius-20 { border-color: #ffe600; }
+.radar-caxx-legend-items .radius-60 { border-color: #00eaff; border-style: dashed; }
+.radar-caxx-legend-items .radius-100 { border-color: #ff3f7f; border-style: dashed; }
+.radar-caxx-legend-items .country-line { border-color: #fff; filter: drop-shadow(0 0 2px #111); }
+.radar-caxx-player { display: flex; align-items: center; gap: 6px; }
+.radar-caxx-player button { display: grid; place-items: center; width: 32px; height: 28px; border: 1px solid var(--line); border-radius: 6px; padding: 0; background: var(--panel-soft); color: var(--ink); font-size: 1.1rem; cursor: pointer; }
+.radar-caxx-player button:hover { background: var(--subtle-hover); }
+.radar-caxx-player button:disabled { opacity: .35; cursor: default; }
+#radar-caxx-play { width: 38px; color: #25c9dd; }
+.radar-caxx-player .radar-caxx-export { display: flex; grid-template-columns: none; width: auto; min-width: 92px; padding: 0 10px; gap: 6px; color: #25c9dd; font-size: .76rem; }
+.radar-caxx-export b { font-size: .7rem; letter-spacing: .06em; }
+.radar-data-overlay { opacity: .84; pointer-events: none; }
+@media (max-width: 700px) {
+  .radar-caxx-view.active { width: calc(100% + 12px); height: calc(100vh - 12px); min-height: 340px; margin: -12px -6px; }
+  .radar-caxx-map-heading { padding: 11px 13px; }
+  .radar-caxx-map-heading select { min-width: 150px; }
+  .radar-caxx-legend { padding: 8px 13px; }
+  .radar-map-legend { left: 10px; bottom: 10px; width: min(360px, calc(100% - 20px)); padding: 12px 14px; }
+  .radar-map-legend-heading { margin-bottom: 10px; }
+  .radar-map-legend-heading img { width: 40px; height: 40px; }
+  .radar-caxx-frame-status > strong { font-size: .76rem; }
+}
+@media (max-width: 520px) {
+  .radar-caxx-map-heading { align-items: stretch; flex-direction: column; }
+  .radar-caxx-frame-heading { justify-content: space-between; }
+  .radar-caxx-player { justify-content: center; }
+  .radar-caxx-legend-items { gap: 8px 12px; }
+}

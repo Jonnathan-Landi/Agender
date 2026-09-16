@@ -13,12 +13,11 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from .config import APP_DATA_DIR
 from .job_registry import JobRegistry
 from .hydromet_rain_map import (
-    MAP_SIZE,
     SPANISH_MONTHS,
     SPANISH_WEEKDAYS,
     _basemap,
@@ -30,7 +29,6 @@ from .hydromet_rain_map import (
     _map_point,
     _polygon_mask,
     _png_data_uri,
-    _draw_outer_boundary,
 )
 
 REPORT_ROOT = APP_DATA_DIR / "reports" / "hydromet-network"
@@ -44,7 +42,10 @@ DEFAULT_SEARCH_RADIUS_KM = 10.0
 DEFAULT_IDW_POWER = 2.0
 DEFAULT_GRID_RESOLUTION_KM = 0.01
 DEFAULT_ROUND_DIGITS = 2
-TEMPERATURE_PLOT_BOX = (170, 150, 2180, 1160)
+# HydroClima exports a 6141 x 3898 image.  Keep its canvas and map panel
+# proportions, including the generous space for latitude labels at the left.
+TEMPERATURE_MAP_SIZE = (2200, 1396)
+TEMPERATURE_PLOT_BOX = (423, 203, 2001, 1213)
 TEMPERATURE_PLOT_SIZE = (
     TEMPERATURE_PLOT_BOX[2] - TEMPERATURE_PLOT_BOX[0],
     TEMPERATURE_PLOT_BOX[3] - TEMPERATURE_PLOT_BOX[1],
@@ -240,7 +241,7 @@ def generate_temperature_map(
     )
     temperature_layer = temperature_layer.resize(
         TEMPERATURE_PLOT_SIZE,
-        Image.Resampling.BILINEAR,
+        Image.Resampling.NEAREST,
     )
     map_image = Image.alpha_composite(background.convert("RGBA"), temperature_layer)
     image_path.write_text(
@@ -345,16 +346,8 @@ def _load_temperature_buffer_features() -> list[dict[str, Any]]:
 def _temperature_map_bounds(
     features: list[dict[str, Any]],
 ) -> tuple[float, float, float, float]:
-    """Match HydroClima's close urban framing while preserving geographic aspect."""
-    west, south, east, north = _feature_bounds(features)
-    padding = 0.009
-    west, south, east, north = (
-        west - padding,
-        south - padding,
-        east + padding,
-        north + padding,
-    )
-    return west, south, east, north
+    """Frame the visible panel on Cuenca's actual parish footprint."""
+    return _feature_bounds(features)
 
 
 def _point_segment_distance(
@@ -566,6 +559,22 @@ def _temperature_svg_path(
     return " ".join(commands)
 
 
+def _draw_temperature_outer_boundary(
+    image: Image.Image,
+    bounds: tuple[float, float, float, float],
+    features: list[dict[str, Any]],
+) -> None:
+    # HydroClima's exterior line is much heavier than its parish divisions.
+    mask = _polygon_mask(bounds, features, image.size)
+    edge = ImageChops.subtract(
+        mask.filter(ImageFilter.MaxFilter(11)),
+        mask.filter(ImageFilter.MinFilter(11)),
+    )
+    outline = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    outline.putalpha(edge)
+    image.alpha_composite(outline)
+
+
 def _compose_temperature_design_svg(
     map_image: Image.Image,
     bounds: tuple[float, float, float, float],
@@ -578,7 +587,6 @@ def _compose_temperature_design_svg(
 ) -> str:
     left, top, right, bottom = TEMPERATURE_PLOT_BOX
     raster_map = map_image.copy()
-    _draw_outer_boundary(raster_map, bounds, features)
     kind = "mínima" if maximum < 17 else "máxima"
     title_line = (
         f"{SPANISH_WEEKDAYS[report_date.weekday()].capitalize()} "
@@ -587,8 +595,8 @@ def _compose_temperature_design_svg(
     )
     palette = _temperature_palette(maximum)
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{MAP_SIZE[0]}" '
-        f'height="{MAP_SIZE[1]}" viewBox="0 0 {MAP_SIZE[0]} {MAP_SIZE[1]}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{TEMPERATURE_MAP_SIZE[0]}" '
+        f'height="{TEMPERATURE_MAP_SIZE[1]}" viewBox="0 0 {TEMPERATURE_MAP_SIZE[0]} {TEMPERATURE_MAP_SIZE[1]}">',
         "<defs>",
         '<linearGradient id="temperature-scale" x1="0" y1="1" x2="0" y2="0">',
     ]
@@ -613,9 +621,15 @@ def _compose_temperature_design_svg(
         path = _temperature_svg_path(feature, bounds)
         if path:
             parts.append(
-                f'<path d="{path}" fill="none" stroke="#080808" stroke-width="4" '
-                'stroke-dasharray="13 10" stroke-linecap="round" stroke-linejoin="round"/>'
+                f'<path d="{path}" fill="none" stroke="#080808" stroke-width="5" '
+                'stroke-dasharray="20 14" stroke-linecap="round" stroke-linejoin="round"/>'
             )
+    exterior = Image.new("RGBA", TEMPERATURE_PLOT_SIZE, (0, 0, 0, 0))
+    _draw_temperature_outer_boundary(exterior, bounds, features)
+    parts.append(
+        f'<image x="{left}" y="{top}" width="{TEMPERATURE_PLOT_SIZE[0]}" '
+        f'height="{TEMPERATURE_PLOT_SIZE[1]}" href="{_png_data_uri(exterior)}"/>'
+    )
     vertical = {"Gil Ramirez Dávalos", "El Sagrario", "San Blas"}
     small = vertical | {"Cañaribamba"}
     for feature in features:
@@ -664,9 +678,9 @@ def _compose_temperature_design_svg(
             f'{transform}>{tspans}</text>'
         )
     parts.extend([
-        f'<text x="{MAP_SIZE[0] / 2}" y="58" text-anchor="middle" '
+        f'<text x="{TEMPERATURE_MAP_SIZE[0] / 2}" y="65" text-anchor="middle" '
         f'font-size="54" font-weight="700">Temperatura {kind} en Cuenca:</text>',
-        f'<text x="{MAP_SIZE[0] / 2}" y="116" text-anchor="middle" '
+        f'<text x="{TEMPERATURE_MAP_SIZE[0] / 2}" y="129" text-anchor="middle" '
         f'font-size="54" font-weight="700">{escape(title_line)}</text>',
     ])
     west, south, east, north = bounds
@@ -682,10 +696,10 @@ def _compose_temperature_design_svg(
             f'dominant-baseline="middle">{abs(latitude):.2f}°S</text>'
         )
     parts.extend([
-        f'<text x="{(left + right) / 2}" y="{MAP_SIZE[1] - 20}" text-anchor="middle" '
+        f'<text x="{(left + right) / 2}" y="{TEMPERATURE_MAP_SIZE[1] - 32}" text-anchor="middle" '
         'font-size="43" font-weight="700">Longitud (°W)</text>',
-        f'<text x="55" y="{(top + bottom) / 2}" text-anchor="middle" font-size="43" '
-        f'font-weight="700" transform="rotate(-90 55 {(top + bottom) / 2})">Latitud (°S)</text>',
+        f'<text x="190" y="{(top + bottom) / 2}" text-anchor="middle" font-size="43" '
+        f'font-weight="700" transform="rotate(-90 190 {(top + bottom) / 2})">Latitud (°S)</text>',
     ])
     center_x, center_y = left + 190, top + 190
     parts.extend([
@@ -713,7 +727,7 @@ def _compose_temperature_design_svg(
         f'<rect x="{panel_left}" y="{panel_top}" width="{panel_width}" height="{panel_height}" '
         'fill="#f8f8f8" fill-opacity=".70"/>',
         f'<text x="{panel_left + panel_width / 2}" y="{panel_top + margin_top + 30}" text-anchor="middle" '
-        f'font-size="34" font-weight="700">Temperatura {kind} (°C)</text>',
+        f'font-size="28" font-weight="700">Temperatura {kind} (°C)</text>',
         f'<rect x="{bar_left}" y="{bar_top}" width="{bar_right - bar_left}" height="{bar_bottom - bar_top}" '
         'fill="url(#temperature-scale)" stroke="#222" stroke-width="2"/>',
     ])
@@ -726,20 +740,9 @@ def _compose_temperature_design_svg(
             f'<text x="{bar_right + panel_width * 0.07}" y="{y}" '
             f'dominant-baseline="middle" font-size="46" font-weight="700">{value:.2f}</text>'
         )
-    from .hydromet_rain_map import LOGO_PATH
-    if LOGO_PATH.is_file():
-        with Image.open(LOGO_PATH) as logo:
-            logo_uri = _png_data_uri(logo.convert("RGBA"))
-        parts.extend([
-            f'<rect x="{left + (right-left) * 0.65}" y="{top}" width="{(right-left) * 0.35}" '
-            f'height="{(bottom-top) * 0.10}" fill="#fff" fill-opacity=".70"/>',
-            f'<image x="{left + (right-left) * 0.65}" y="{top}" width="{(right-left) * 0.35}" '
-            f'height="{(bottom-top) * 0.10}" '
-            f'href="{logo_uri}" preserveAspectRatio="xMidYMid meet"/>',
-        ])
     parts.append(
         f'<rect x="{left}" y="{top}" width="{right-left}" height="{bottom-top}" '
-        'fill="none" stroke="#050505" stroke-width="8"/>'
+        'fill="none" stroke="#050505" stroke-width="12"/>'
     )
     parts.append("</svg>")
     return "".join(parts)

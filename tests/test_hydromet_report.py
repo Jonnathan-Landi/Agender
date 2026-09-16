@@ -57,7 +57,7 @@ class HydrometReportIntegrationTests(TestCase):
         self.assertIn("window.NotasHydrometReport.init()", self.app)
 
     def test_only_forecast_and_uv_formats_have_editable_image_areas(self) -> None:
-        self.assertEqual(3, self.document.count('class="hydromet-image-slot"'))
+        self.assertEqual(4, self.document.count('class="hydromet-image-slot"'))
         editable_formats = (
             'data-hydromet-format="pronostico-diario"',
             'data-hydromet-format="pronostico-semanal"',
@@ -110,9 +110,9 @@ class HydrometReportIntegrationTests(TestCase):
 
     def test_one_datetime_control_updates_every_report_page(self) -> None:
         self.assertEqual(1, self.document.count('id="hydromet-datetime-trigger"'))
-        self.assertEqual(6, self.document.count('class="hydromet-page-datetime"'))
-        self.assertEqual(6, self.document.count('class="hydromet-page-date"'))
-        self.assertEqual(6, self.document.count('class="hydromet-page-time"'))
+        self.assertEqual(7, self.document.count('class="hydromet-page-datetime"'))
+        self.assertEqual(7, self.document.count('class="hydromet-page-date"'))
+        self.assertEqual(7, self.document.count('class="hydromet-page-time"'))
         self.assertIn("function initializeDateTimeControl", self.feature)
         self.assertIn("function updatePageDateTimes", self.feature)
         self.assertIn("formatPageDate", self.feature)
@@ -274,12 +274,13 @@ class HydrometReportIntegrationTests(TestCase):
             ('p', 'value="2"'),
             ('grid_resolution', 'value="0.1"'),
             ('n_round', 'value="2"'),
-            ('plot_logo', 'type="checkbox" checked'),
             ('plot_design', 'type="checkbox" checked'),
         )
         for name, default_markup in expected_inputs:
             self.assertIn(f'name="{name}"', self.document)
             self.assertIn(default_markup, self.document)
+        self.assertNotIn('name="plot_logo"', self.document)
+        self.assertIn("plotLogo: false", self.feature)
         self.assertIn("function readRainMapParameters", self.feature)
         self.assertIn("function resetRainMapParameters", self.feature)
         self.assertIn("parameters,", self.feature)

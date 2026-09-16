@@ -192,7 +192,7 @@ def generate_rain_map(
     p: float = DEFAULT_IDW_POWER,
     grid_resolution: float = DEFAULT_GRID_RESOLUTION_KM,
     n_round: int = DEFAULT_ROUND_DIGITS,
-    plot_logo: bool = True,
+    plot_logo: bool = False,
     plot_design: bool = True,
 ) -> tuple[Path, Path, Path]:
     stations = _load_stations()
@@ -235,7 +235,7 @@ def generate_rain_map(
     preview_background = background.copy()
     _draw_boundaries(preview_background, bounds, features)
     _draw_feature_labels(preview_background, bounds, features)
-    preview_map = _compose_clean_map(preview_background, bounds, plot_logo=plot_logo)
+    preview_map = _compose_clean_map(preview_background, bounds, plot_logo=False)
     if plot_design:
         image_path.write_text(
             _compose_map_design_svg(
@@ -245,7 +245,7 @@ def generate_rain_map(
                 report_date,
                 start_time,
                 end_time,
-                plot_logo=plot_logo,
+                plot_logo=False,
             ),
             encoding="utf-8",
         )

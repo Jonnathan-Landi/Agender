@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from .config import APP_DATA_DIR
 
 REPORT_MODULES = {"report-water-quality", "report-hydromet-network"}
+SATELLITE_MODULES = {"radar-caxx", "goes19"}
 ALL_MODULES = {
     "hydromet",
     "viewer",
@@ -29,6 +30,7 @@ ALL_MODULES = {
     "diary",
     "agenda",
     "climatology",
+    *SATELLITE_MODULES,
     "reports",
     *REPORT_MODULES,
     "settings",
@@ -183,6 +185,7 @@ def inspect_license_for_reissue(content: bytes) -> dict[str, Any]:
         "agenda",
         *REPORT_MODULES,
         "climatology",
+        *SATELLITE_MODULES,
     }
     return {
         "licenseId": str(payload.get("licenseId") or ""),
@@ -449,6 +452,7 @@ def generate_license(values: dict[str, Any]) -> bytes:
         "reports",
         *REPORT_MODULES,
         "climatology",
+        *SATELLITE_MODULES,
     }
     modules = _expand_module_access(requested)
     if "hydromet" in requested:

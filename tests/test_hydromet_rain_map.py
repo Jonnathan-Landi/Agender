@@ -123,7 +123,7 @@ class HydrometRainMapTests(unittest.TestCase):
         self.assertIn("font-size=\"29\"", source)
         self.assertIn("text-rendering:geometricPrecision", source)
 
-    def test_logo_and_design_parameters_control_the_composition(self) -> None:
+    def test_logo_stays_disabled_even_for_an_old_enabled_parameter(self) -> None:
         observations = dict.fromkeys(hydromet_rain_map.station_names(), 1.0)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -140,7 +140,7 @@ class HydrometRainMapTests(unittest.TestCase):
                     observations=observations,
                     fetch_basemap=False,
                     grid_resolution=1,
-                    plot_logo=False,
+                    plot_logo=True,
                     plot_design=False,
                 )
 

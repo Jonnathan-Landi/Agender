@@ -22,7 +22,7 @@
   </head>
   <body>
     <div class="startup-screen" id="startup-screen" role="status" aria-live="polite">
-      <img src="assets/agender-logo.svg" alt="">
+      <img src="assets/agender-logo.svg" alt="Agender">
       <strong>Agender</strong>
       <span>Preparando tu espacio…</span>
     </div>
@@ -92,6 +92,23 @@
               </button>
             </div>
           </div>
+          <div class="nav-group" data-nav-group="satellite-monitoring">
+            <button class="nav-item nav-group-toggle" type="button" aria-expanded="false" aria-controls="satellite-monitoring-nav-items">
+              <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE707;</span></span>
+              <span class="nav-label">Monitoreo Satelital</span>
+              <span class="nav-group-chevron font-icon" aria-hidden="true">&#xE70D;</span>
+            </button>
+            <div class="nav-submenu" id="satellite-monitoring-nav-items">
+              <button class="nav-item nav-subitem" type="button" data-view="radar-caxx">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE81E;</span></span>
+                <span class="nav-label">Radar Caxx</span>
+              </button>
+              <button class="nav-item nav-subitem" type="button" data-view="goes19">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE81E;</span></span>
+                <span class="nav-label">GOES 19</span>
+              </button>
+            </div>
+          </div>
         </nav>
 
         <div class="nav-footer">
@@ -109,6 +126,86 @@
       </aside>
 
       <main class="workspace">
+        <section class="view goes19-view" id="goes19-view" aria-labelledby="goes19-title">
+          <div class="goes19-layout">
+            <h1 class="visually-hidden" id="goes19-title">GOES 19 · Banda 13</h1>
+            <div class="goes19-toolbar">
+              <span id="goes19-export-status" role="status" aria-live="polite"></span>
+              <button type="button" id="goes19-export" disabled>Exportar</button>
+            </div>
+            <div class="goes19-map" id="goes19-map" role="group" aria-label="Secuencia infrarroja GOES 19 de Azuay y Ecuador">
+              <img id="goes19-frame" alt="Imagen infrarroja GOES 19, banda 13" hidden>
+              <div class="goes19-empty" id="goes19-empty">Buscando y preparando las imágenes más recientes…</div>
+            </div>
+            <div class="goes19-controls">
+              <button type="button" id="goes19-previous" aria-label="Imagen anterior">‹</button>
+              <button type="button" id="goes19-play" aria-label="Reproducir secuencia">▶</button>
+              <button type="button" id="goes19-next" aria-label="Imagen siguiente">›</button>
+              <strong id="goes19-frame-time">Esperando imágenes…</strong>
+              <span id="goes19-position">0 / 0 imágenes</span>
+              <small id="goes19-cache-status">Ventana móvil de 3 horas</small>
+            </div>
+          </div>
+        </section>
+        <section class="view radar-caxx-view" id="radar-caxx-view" aria-labelledby="radar-caxx-title">
+          <h1 class="visually-hidden" id="radar-caxx-title">Radar Caxx</h1>
+          <div class="radar-caxx-layout">
+            <section class="radar-caxx-map-card" aria-labelledby="radar-caxx-map-title">
+              <div class="radar-caxx-map-heading">
+                <div class="radar-caxx-control-center">
+                  <label for="radar-caxx-area" id="radar-caxx-map-title">ÁREA DE VIGILANCIA</label>
+                  <select id="radar-caxx-area" aria-label="Área de vigilancia">
+                    <option value="cuenca">Cantón Cuenca</option>
+                    <option value="subcuencas">Subcuencas</option>
+                    <option value="urbana">Zona urbana</option>
+                  </select>
+                </div>
+                <div class="radar-caxx-frame-heading">
+                  <div class="radar-caxx-frame-control">
+                    <label for="radar-caxx-frame-count">FRAMES</label>
+                    <select id="radar-caxx-frame-count" aria-label="Cantidad de frames">
+                      <option value="5">5</option>
+                      <option value="10" selected>10</option>
+                      <option value="15">15</option>
+                      <option value="20">20</option>
+                      <option value="25">25 (2 horas)</option>
+                      <option value="49">49 (4 horas)</option>
+                    </select>
+                  </div>
+                  <div class="radar-caxx-frame-status">
+                    <strong id="radar-caxx-frame-time">Preparando radar…</strong>
+                    <span class="radar-caxx-live"><i></i> Radar Cuenca</span>
+                  </div>
+                </div>
+              </div>
+              <div class="radar-caxx-map" id="radar-caxx-map" role="group" aria-label="Mapa del Ecuador con Cuenca destacada y radios de cobertura de 20, 60 y 100 kilómetros">
+                <aside class="radar-map-legend" aria-label="Leyenda del radar meteorológico">
+                  <div class="radar-map-legend-heading">
+                    <img src="assets/radar-weather.svg" alt="" aria-hidden="true">
+                    <div><strong>Radar meteorológico</strong><span>Cobertura de vigilancia</span></div>
+                  </div>
+                  <div class="radar-caxx-legend-items">
+                    <span><i class="radius-20"></i><b>20 km</b><small>Radio cercano</small></span>
+                    <span><i class="radius-60"></i><b>60 km</b><small>Radio intermedio</small></span>
+                    <span><i class="radius-100"></i><b>100 km</b><small>Radio extendido</small></span>
+                    <span><i class="country-line"></i><b>Ecuador</b><small>Límite continental</small></span>
+                  </div>
+                </aside>
+                <span class="radar-basemap-credit">Mapa base © Esri</span>
+              </div>
+              <div class="radar-caxx-legend">
+                <span class="radar-caxx-export-status" id="radar-caxx-export-status" role="status" aria-live="polite"></span>
+                <div class="radar-caxx-player" aria-label="Reproductor de imágenes del radar">
+                  <button type="button" id="radar-caxx-export" class="radar-caxx-export" aria-label="Exportar animación MP4" title="Exportar animación"><span aria-hidden="true">⇩</span><b>Exportar</b></button>
+                  <button type="button" id="radar-caxx-previous" aria-label="Imagen anterior" title="Imagen anterior">‹</button>
+                  <button type="button" id="radar-caxx-play" aria-label="Reproducir secuencia" title="Reproducir secuencia">▶</button>
+                  <button type="button" id="radar-caxx-next" aria-label="Imagen siguiente" title="Imagen siguiente">›</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
         <section class="view report-module-view" id="report-water-quality-view" aria-labelledby="report-water-quality-title">
           <header class="toolbar report-module-toolbar">
             <div>
@@ -408,10 +505,6 @@
                             <input name="n_round" type="number" min="0" max="6" step="1" value="2">
                           </label>
                           <label class="hydromet-params-check">
-                            <input name="plot_logo" type="checkbox" checked>
-                            <span>plot_logo</span>
-                          </label>
-                          <label class="hydromet-params-check">
                             <input name="plot_design" type="checkbox" checked>
                             <span>plot_design</span>
                           </label>
@@ -616,6 +709,23 @@
                 </div>
                 <div class="hydromet-image-slot" tabindex="0" aria-label="Área para insertar la imagen del pronóstico diario">
                   <img class="hydromet-inserted-image" alt="Imagen insertada en el pronóstico diario" tabindex="0" hidden>
+                  <div class="hydromet-upload-zone">
+                    <label class="hydromet-upload-button">
+                      <input class="hydromet-image-input" type="file" accept="image/*">
+                      <span>Seleccionar imagen</span>
+                    </label>
+                    <span class="hydromet-upload-hint">o arrastra y pega aquí</span>
+                  </div>
+                </div>
+              </figure>
+              <figure class="hydromet-report-page hydromet-report-page-editable" data-hydromet-format="pronostico-diario-2">
+                <img class="hydromet-report-template" src="assets/hydromet-report/04-pronostico-diario.jpeg" alt="Formato de pronóstico diario 2" loading="lazy" decoding="async">
+                <div class="hydromet-page-datetime">
+                  <span class="hydromet-page-date"></span>
+                  <span class="hydromet-page-time"></span>
+                </div>
+                <div class="hydromet-image-slot" tabindex="0" aria-label="Área para insertar la imagen del pronóstico diario 2">
+                  <img class="hydromet-inserted-image" alt="Imagen insertada en el pronóstico diario 2" tabindex="0" hidden>
                   <div class="hydromet-upload-zone">
                     <label class="hydromet-upload-button">
                       <input class="hydromet-image-input" type="file" accept="image/*">
@@ -861,6 +971,24 @@
                     <span class="license-permission-check" aria-hidden="true">✓</span>
                     <span class="license-permission-icon font-icon" aria-hidden="true">&#xE9D2;</span>
                     <span><strong>Climatología mensual</strong><small>Configuración, ejecución y exportación de reportes de temperatura y precipitación.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-group">
+                    <input type="checkbox" id="license-satellite-all">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE753;</span>
+                    <span><strong>Monitoreo Satelital</strong><small>Selecciona Radar Caxx, GOES 19 o ambos módulos.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="radar-caxx">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE81E;</span>
+                    <span><strong>Radar Caxx</strong><small>Monitoreo, animación y exportación del radar meteorológico.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="goes19">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE709;</span>
+                    <span><strong>GOES 19</strong><small>Imágenes satelitales Banda 13, caché móvil y exportación MP4.</small></span>
                   </label>
                 </fieldset>
               </section>
@@ -1589,7 +1717,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.21.1.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.22.2.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -1605,31 +1733,7 @@
               </div>
               <section class="about-card">
                 <div class="about-product">
-                  <span class="about-logo" aria-hidden="true">
-                    <svg viewBox="0 0 1024 1024" role="img" aria-label="Agender">
-                      <defs>
-                        <linearGradient id="about-logo-left" x1="250" y1="180" x2="520" y2="840" gradientUnits="userSpaceOnUse">
-                          <stop offset="0" stop-color="#20b9f2"/>
-                          <stop offset="1" stop-color="#0067c0"/>
-                        </linearGradient>
-                        <linearGradient id="about-logo-right" x1="510" y1="180" x2="780" y2="840" gradientUnits="userSpaceOnUse">
-                          <stop offset="0" stop-color="#59d2ff"/>
-                          <stop offset="1" stop-color="#0078d4"/>
-                        </linearGradient>
-                        <linearGradient id="about-logo-bar" x1="330" y1="560" x2="720" y2="560" gradientUnits="userSpaceOnUse">
-                          <stop offset="0" stop-color="#0b8fd8"/>
-                          <stop offset="1" stop-color="#21bdf4"/>
-                        </linearGradient>
-                      </defs>
-                      <rect width="1024" height="1024" rx="176" fill="#202633"/>
-                      <g transform="translate(-138.24 -138.24) scale(1.27)">
-                        <path d="M190 790 435 220C450 185 486 185 503 220L566 355 503 505 470 430 287 830Z" fill="url(#about-logo-left)"/>
-                        <path d="M470 220C487 185 523 185 540 220L834 790 737 830 502 370Z" fill="url(#about-logo-right)"/>
-                        <path d="M320 620 455 520 724 520 585 620Z" fill="url(#about-logo-bar)"/>
-                        <path d="M455 520 585 620 520 735 390 645Z" fill="#0056b3"/>
-                      </g>
-                    </svg>
-                  </span>
+                  <span class="about-logo"><img src="assets/agender-logo.svg" alt="Agender"></span>
                   <div><h2 id="about-product-name">Agender</h2><p>Versión: <strong id="about-version">—</strong></p></div>
                 </div>
                 <dl class="about-details">
@@ -1644,35 +1748,35 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.21.1</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.22.2</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.21.1</strong>
+                <strong class="news-version-number">1.22.2</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
-                  <h2>Climatología mensual renovada</h2>
+                  <h2>Mapas y pronósticos renovados</h2>
                   <ul>
-                    <li>Los reportes térmicos integran temperatura y precipitación en una sola composición.</li>
-                    <li>Las comparaciones mensuales e históricas presentan análisis ejecutivos y escalas más legibles.</li>
-                    <li>Los reportes conservan el diseño institucional tanto en la vista previa como en el PDF.</li>
+                    <li>El mapa de temperatura adopta el diseño, las proporciones y la presentación visual de HydroClima.</li>
+                    <li>Los gráficos de lluvia y temperatura se presentan sin el logotipo Amor por Cuenca.</li>
+                    <li>El reporte incluye dos tarjetas de pronóstico diario y guarda cada exportación con un nombre diferente.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Seguimiento de caudales</h2>
+                  <h2>Monitoreo satelital</h2>
                   <ul>
-                    <li>Los niveles procesados se convierten a caudal mediante curvas de descarga por estación.</li>
-                    <li>Los gráficos reúnen lluvia mensual y caudal desde enero de 2026 para cada subcuenca.</li>
-                    <li>Cada subtítulo indica la posición del caudal del mes entre los registros disponibles.</li>
+                    <li>GOES 19 Banda 13 muestra la nubosidad con potencial de tormentas y el diseño cartográfico de GOESHub.</li>
+                    <li>La aplicación busca nuevas tomas cada diez minutos y reintenta cada minuto cuando aún no están disponibles.</li>
+                    <li>La caché móvil conserva únicamente imágenes, descargas y datos procesados de las últimas tres horas.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Estabilidad y empaquetado</h2>
+                  <h2>Radar y exportación de video</h2>
                   <ul>
-                    <li>La configuración de estaciones se limita a Zona Urbana, Páramo y Seguimiento de Caudales.</li>
-                    <li>Los errores de una estación quedan aislados y no interrumpen el reporte completo.</li>
-                    <li>El backend empaquetado incorpora las curvas de descarga y todos los recursos climatológicos.</li>
+                    <li>Monitoreo Satelital incorpora las vistas Radar Caxx y GOES 19.</li>
+                    <li>Las secuencias GOES 19 pueden exportarse como video MP4 desde la propia aplicación.</li>
+                    <li>La exportación utiliza FFmpeg incluido con Agender y permite elegir la ubicación del archivo.</li>
                   </ul>
                 </section>
               </div>
@@ -2180,7 +2284,7 @@
             <input type="checkbox" id="hydromet-design-export-all" checked>
             <span>
               <strong>Seleccionar todo</strong>
-              <small>Exportar las seis hojas del reporte.</small>
+              <small>Exportar las siete hojas del reporte.</small>
             </span>
           </label>
           <div class="hydromet-design-export-list" id="hydromet-design-export-list">
@@ -2188,6 +2292,7 @@
             <label><input type="checkbox" value="lluvias" checked><span>Lluvias por estaciones</span></label>
             <label><input type="checkbox" value="temperaturas" checked><span>Temperaturas</span></label>
             <label><input type="checkbox" value="pronostico-diario" checked><span>Pronóstico diario</span></label>
+            <label><input type="checkbox" value="pronostico-diario-2" checked><span>Pronóstico diario 2</span></label>
             <label><input type="checkbox" value="pronostico-semanal" checked><span>Pronóstico semanal</span></label>
             <label><input type="checkbox" value="indice-ultravioleta" checked><span>Índice ultravioleta</span></label>
           </div>

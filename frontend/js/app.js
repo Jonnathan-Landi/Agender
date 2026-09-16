@@ -109,6 +109,14 @@
   await window.NotasStorage.init();
   const user = window.NotasLogin.getCurrentUser();
   const modules = new Set(user?.modules || []);
+  if (modules.has("climatology")) {
+    // Las tres vistas se preparan durante el arranque para que el selector responda al instante.
+    window.__radarCaxxBasemapPreload = ["cuenca", "subcuencas", "urbana"].map((area) => {
+      const basemap = new Image();
+      basemap.src = `/api/radar-caxx/basemap.jpg?area=${area}&v=5`;
+      return basemap;
+    });
+  }
   const moduleLoads = [];
   if (user?.role === "admin") {
     moduleLoads.push(loadScriptOnce("js/core/license-admin.js"), loadStyleOnce("css/license-admin.css"));
@@ -144,6 +152,18 @@
       loadStyleOnce("css/climatology.css")
     );
   }
+  if (modules.has("radar-caxx")) {
+    moduleLoads.push(
+      loadScriptOnce("js/data/radar-caxx-geodata.js").then(() => loadScriptOnce("js/features/radar-caxx.js")),
+      loadStyleOnce("css/radar-caxx.css")
+    );
+  }
+  if (modules.has("goes19")) {
+    moduleLoads.push(
+      loadScriptOnce("js/features/goes19.js"),
+      loadStyleOnce("css/goes19.css")
+    );
+  }
   if (modules.has("hydromet")) {
     moduleLoads.push(
       loadScriptOnce("js/features/viewer.js"),
@@ -173,6 +193,8 @@
     window.NotasHydrometReport.init();
   }
   if (modules.has("climatology")) window.NotasClimatology?.init();
+  if (modules.has("climatology")) window.NotasRadarCaxx?.init();
+  if (modules.has("climatology")) window.NotasGoes19?.init();
   if (modules.has("hydromet") && window.NotasViewer && window.NotasHydromet && window.NotasHydrometMap) {
     try {
       window.NotasViewer.initViewer();

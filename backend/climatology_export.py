@@ -15,9 +15,6 @@ from .desktop_dialogs import choose_save_file
 PAGE_WIDTH = 1536
 PAGE_HEIGHT = 1220
 CSS_PIXELS_PER_INCH = 96
-REPORT_LOGO = Path(__file__).resolve().parent.parent / "frontend" / "wqreport" / "img" / "logo.png"
-
-
 def export_climatology_pdf(pages: list[dict[str, str]], suggested_name: str) -> dict[str, object]:
     if not pages:
         raise ValueError("Selecciona al menos un territorio para exportar.")
@@ -80,11 +77,9 @@ def _resolve_page(item: dict[str, str]) -> dict[str, str]:
 
 def _document(pages: list[dict[str, str]]) -> str:
     sections = []
-    logo = REPORT_LOGO.as_uri() if REPORT_LOGO.is_file() else ""
-    logo_html = (
-        f'<img class="report-logo" src="{html.escape(logo, quote=True)}" alt="Alcaldía de Cuenca · ETAPA">'
-        if logo
-        else ""
+    brand_html = (
+        '<div class="report-brand" aria-label="ETAPA">'
+        "<strong>ETAPA</strong><span>&#x276F;&#x276F;</span></div>"
     )
     for item in pages:
         station = html.escape(str(item.get("station", "")).replace("_", " "))
@@ -100,7 +95,7 @@ def _document(pages: list[dict[str, str]]) -> str:
         )
         sections.append(
             f'<section class="page"><header><div class="heading"><h1>{title} <span>|</span> {period}</h1>'
-            f"<p>{subtitle}</p></div>{logo_html}"
+            f"<p>{subtitle}</p></div>{brand_html}"
             f'</header><iframe src="{html.escape(item["file"], quote=True)}"></iframe></section>'
         )
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><style>
@@ -115,13 +110,15 @@ html, body {{ margin: 0; background: white; font-family: "Segoe UI", Arial, sans
 header {{
   position: relative; height: 126px; display: grid;
   grid-template-columns: 320px minmax(0, 1fr) 320px; align-items: center; text-align: center;
-  color: white; background: #073f63; border-bottom: 6px solid #f28c00;
+  color: white; background: #ff8500; border-bottom: 6px solid #173247;
 }}
 .heading {{ grid-column: 2; grid-row: 1; padding: 0; }}
-.report-logo {{
-  grid-column: 1; grid-row: 1; justify-self: start; width: 300px; height: auto; margin-left: 12px;
-  max-width: none; max-height: 100px; object-fit: contain;
+.report-brand {{
+  grid-column: 1; grid-row: 1; justify-self: start; display: flex; align-items: center;
+  gap: 13px; margin-left: 28px; color: white; white-space: nowrap;
 }}
+.report-brand strong {{ font-size: 39px; font-weight: 650; letter-spacing: 3px; }}
+.report-brand span {{ font-size: 44px; font-weight: 900; letter-spacing: -12px; }}
 h1 {{ margin: 0; font-size: 34px; line-height: 1.08; letter-spacing: .2px; }} h1 span {{ font-weight: 400; }}
 p {{ margin: 10px 0 0; font-size: 16px; }}
 iframe {{ display: block; width: 100%; height: calc(100% - 126px); border: 0; background: white; }}

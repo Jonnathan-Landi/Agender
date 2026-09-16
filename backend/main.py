@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import html
 import json
 import math
 import os
 import subprocess
 import sys
+import threading
+import urllib.error
+import urllib.parse
+import urllib.request
 import webbrowser
 from contextlib import asynccontextmanager
 from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +34,7 @@ from .cloud_account import (
 )
 from .cloud_sync import synchronize_onedrive
 from .config import read_settings, write_settings
+from .config import CACHE_DIR
 from .portable_profile import PROFILE_SOURCES_KEY, portable_onedrive_sources
 from .desktop_dialogs import choose_directory
 from .lazy_asgi import LazyAsgiApp
@@ -49,12 +56,68 @@ from .user_data import read_user_data, write_user_data
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
+RADAR_BASEMAP_BOUNDS = {
+    "cuenca": (406_951, 9_559_793, 982_951, 9_799_793),
+    "subcuencas": (605_974, 9_639_119, 804_528, 9_721_850),
+    "urbana": (698_424, 9_671_257, 750_169, 9_692_836),
+}
 
 
 @asynccontextmanager
 async def lifespan(_application: FastAPI):
     anyio.to_thread.current_default_thread_limiter().total_tokens = 8
-    yield
+    async def update_radar_cache() -> None:
+        from .radar_caxx import refresh_cache
+
+        while True:
+            try:
+                await anyio.to_thread.run_sync(refresh_cache)
+            except Exception:
+                pass
+            await asyncio.sleep(60)
+
+    radar_task = asyncio.create_task(update_radar_cache())
+    async def update_goes_cache() -> None:
+        from .goes19 import (
+            claim_cache_ownership,
+            floor_slot,
+            frame_catalog,
+            next_refresh_time,
+            refresh_cache,
+            release_cache_ownership,
+            slot_id,
+        )
+        from datetime import UTC, datetime
+
+        claim_cache_ownership()
+        try:
+            while True:
+                try:
+                    await anyio.to_thread.run_sync(refresh_cache)
+                except Exception:
+                    pass
+                now = datetime.now(UTC)
+                current_id = slot_id(floor_slot(now))
+                current_ready = any(item["id"] == current_id for item in frame_catalog(now))
+                next_run = next_refresh_time(now, current_ready)
+                await asyncio.sleep(max(1, (next_run - now).total_seconds()))
+        finally:
+            release_cache_ownership()
+
+    goes_task = asyncio.create_task(update_goes_cache())
+    try:
+        yield
+    finally:
+        radar_task.cancel()
+        goes_task.cancel()
+        try:
+            await radar_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await goes_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Agender", docs_url=None, redoc_url=None, lifespan=lifespan)
@@ -140,6 +203,10 @@ async def enforce_module_access(request: Request, call_next):
         required = "report-hydromet-network"
     elif path.startswith("/api/climatology"):
         required = "climatology"
+    elif path.startswith("/api/radar-caxx"):
+        required = "radar-caxx"
+    elif path.startswith("/api/goes19"):
+        required = "goes19"
     elif path.startswith("/wqreport"):
         required = "report-water-quality"
     if required:
@@ -149,9 +216,16 @@ async def enforce_module_access(request: Request, call_next):
         if required not in user["modules"]:
             return Response(content='{"detail":"Módulo no autorizado"}', status_code=403, media_type="application/json")
     response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    if path.startswith(("/api/radar-caxx/imagery", "/api/radar-caxx/basemap")) and response.status_code == 200:
+        response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+        if "Pragma" in response.headers:
+            del response.headers["Pragma"]
+        if "Expires" in response.headers:
+            del response.headers["Expires"]
+    else:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: blob:; font-src 'self' data:; "
@@ -237,12 +311,21 @@ class ClimatologyPdfExport(BaseModel):
     suggestedFileName: str = Field(default="Seguimiento_mensual_clima", max_length=160)
 
 
+class RadarVideoExport(BaseModel):
+    area: str = Field(pattern=r"^(?:cuenca|subcuencas|urbana)$")
+    frameIds: list[str] = Field(min_length=2, max_length=49)
+
+
+class Goes19VideoExport(BaseModel):
+    frameIds: list[str] = Field(min_length=2, max_length=19)
+
+
 class HydrometRainMapParameters(BaseModel):
     searchRadius: float = Field(default=10, ge=1, le=100)
     p: float = Field(default=2, ge=0.1, le=10)
     gridResolution: float = Field(default=0.1, ge=0.02, le=5)
     nRound: int = Field(default=2, ge=0, le=6)
-    plotLogo: bool = True
+    plotLogo: bool = False
     plotDesign: bool = True
 
 
@@ -265,7 +348,7 @@ class HydrometTemperatureMapGeneration(BaseModel):
 class HydrometDesignItem(BaseModel):
     format: str = Field(
         pattern=(
-            r"^(caudales|lluvias|temperaturas|pronostico-diario|"
+            r"^(caudales|lluvias|temperaturas|pronostico-diario|pronostico-diario-2|"
             r"pronostico-semanal|indice-ultravioleta)$"
         )
     )
@@ -275,7 +358,7 @@ class HydrometDesignItem(BaseModel):
 class HydrometDesignExport(BaseModel):
     reportDate: date
     reportTime: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
-    reports: list[HydrometDesignItem] = Field(min_length=1, max_length=6)
+    reports: list[HydrometDesignItem] = Field(min_length=1, max_length=7)
 
 
 class LicenseGenerationRequest(BaseModel):
@@ -579,6 +662,166 @@ def climatology_stations() -> dict[str, object]:
     from .climatology import station_configuration_catalog
 
     return station_configuration_catalog()
+
+
+@lru_cache(maxsize=256)
+def _download_esri_world_imagery_tile(zoom: int, tile_y: int, tile_x: int) -> bytes:
+    url = (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        f"World_Imagery/MapServer/tile/{zoom}/{tile_y}/{tile_x}"
+    )
+    request = urllib.request.Request(url, headers={"User-Agent": "Agender-Radar-Caxx/1.0"})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        content_type = response.headers.get_content_type()
+        if content_type not in {"image/jpeg", "image/png"}:
+            raise ValueError("El servicio cartográfico no devolvió una imagen")
+        return response.read()
+
+
+@app.get("/api/radar-caxx/imagery/{zoom}/{tile_y}/{tile_x}")
+def radar_caxx_imagery_tile(zoom: int, tile_y: int, tile_x: int) -> Response:
+    maximum = 2**zoom if 4 <= zoom <= 14 else 0
+    if maximum == 0 or not (0 <= tile_x < maximum and 0 <= tile_y < maximum):
+        raise HTTPException(status_code=404, detail="Tesela cartográfica no válida")
+    try:
+        content = _download_esri_world_imagery_tile(zoom, tile_y, tile_x)
+    except (OSError, ValueError, urllib.error.URLError) as error:
+        raise HTTPException(status_code=502, detail="No fue posible cargar el mapa base satelital") from error
+    return Response(content=content, media_type="image/jpeg")
+
+
+@lru_cache(maxsize=32)
+def _download_esri_world_imagery_export(min_x: int, min_y: int, max_x: int, max_y: int) -> bytes:
+    parameters = urllib.parse.urlencode(
+        {
+            "bbox": f"{min_x},{min_y},{max_x},{max_y}",
+            "bboxSR": 32717,
+            "imageSR": 32717,
+            "size": "2048,854",
+            "format": "jpg",
+            "f": "image",
+        }
+    )
+    url = (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        f"World_Imagery/MapServer/export?{parameters}"
+    )
+    request = urllib.request.Request(url, headers={"User-Agent": "Agender-Radar-Caxx/1.0"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        if response.headers.get_content_type() != "image/jpeg":
+            raise ValueError("El servicio cartográfico no devolvió una imagen satelital")
+        return response.read()
+
+
+def _radar_caxx_cached_basemap(area: str) -> bytes:
+    if area not in RADAR_BASEMAP_BOUNDS:
+        raise ValueError("Área de vigilancia no válida")
+    cache_path = CACHE_DIR / "radar-caxx" / f"basemap-v5-{area}.jpg"
+    if cache_path.is_file():
+        return cache_path.read_bytes()
+    bounds = RADAR_BASEMAP_BOUNDS[area]
+    content = _download_esri_world_imagery_export(*bounds)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = cache_path.with_name(
+        f"{cache_path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    temporary.write_bytes(content)
+    temporary.replace(cache_path)
+    return content
+
+
+@app.get("/api/radar-caxx/imagery")
+def radar_caxx_imagery_export(
+    min_x: float = Query(...),
+    min_y: float = Query(...),
+    max_x: float = Query(...),
+    max_y: float = Query(...),
+) -> Response:
+    bounds = tuple(round(value) for value in (min_x, min_y, max_x, max_y))
+    west, south, east, north = bounds
+    if not (250_000 <= west < east <= 1_150_000 and 9_300_000 <= south < north <= 10_200_000):
+        raise HTTPException(status_code=400, detail="Encuadre satelital no válido")
+    try:
+        content = _download_esri_world_imagery_export(west, south, east, north)
+    except (OSError, ValueError, urllib.error.URLError) as error:
+        raise HTTPException(status_code=502, detail="No fue posible preparar el mapa base satelital") from error
+    return Response(content=content, media_type="image/jpeg")
+
+
+@app.get("/api/radar-caxx/basemap.jpg")
+def radar_caxx_basemap(area: str = Query("cuenca")) -> Response:
+    try:
+        content = _radar_caxx_cached_basemap(area)
+    except (OSError, ValueError, urllib.error.URLError) as error:
+        raise HTTPException(status_code=502, detail="No fue posible preparar el mapa base satelital") from error
+    return Response(content=content, media_type="image/jpeg")
+
+
+@app.get("/api/radar-caxx/frames")
+def radar_caxx_frames(background_tasks: BackgroundTasks) -> dict[str, object]:
+    from .radar_caxx import frame_catalog, refresh_cache
+
+    frames = frame_catalog()
+    background_tasks.add_task(refresh_cache)
+    return {"frames": frames, "intervalMinutes": 5, "windowMinutes": 240}
+
+
+@app.get("/api/goes19/frames")
+def goes19_frames() -> dict[str, object]:
+    from .goes19 import RENDER_VERSION, frame_catalog
+
+    return {
+        "frames": frame_catalog(),
+        "intervalMinutes": 10,
+        "windowMinutes": 180,
+        "rendererVersion": RENDER_VERSION,
+    }
+
+
+@app.get("/api/goes19/frames/{frame_id}.png")
+def goes19_frame_image(frame_id: str) -> FileResponse:
+    from .goes19 import resolve_frame
+
+    try:
+        path = resolve_frame(frame_id)
+    except (ValueError, FileNotFoundError) as error:
+        raise HTTPException(status_code=404, detail="Fotograma GOES 19 no disponible") from error
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/goes19/export-mp4")
+def goes19_export_mp4(payload: Goes19VideoExport) -> dict[str, object]:
+    from .goes19_video_export import export_goes19_mp4
+
+    try:
+        return export_goes19_mp4(payload.frameIds)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(status_code=500, detail="No se pudo guardar el video MP4.") from error
+
+
+@app.get("/api/radar-caxx/frames/{frame_id}.png")
+def radar_caxx_frame_image(frame_id: str, area: str = Query("cuenca")) -> FileResponse:
+    from .radar_caxx import resolve_area_frame
+
+    try:
+        path = resolve_area_frame(frame_id, area)
+    except (ValueError, FileNotFoundError) as error:
+        raise HTTPException(status_code=404, detail="Fotograma de radar no disponible") from error
+    return FileResponse(path, media_type="image/png")
+
+
+@app.post("/api/radar-caxx/export-mp4")
+def radar_caxx_export_mp4(payload: RadarVideoExport) -> dict[str, object]:
+    from .radar_video_export import export_radar_mp4
+
+    try:
+        return export_radar_mp4(payload.frameIds, payload.area)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(status_code=500, detail="No se pudo guardar el video MP4.") from error
 
 
 @app.post("/api/climatology/monthly-report")

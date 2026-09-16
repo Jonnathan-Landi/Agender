@@ -52,3 +52,10 @@ settings.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Fuentes locales usadas para preparar recursos ya incorporados
+shape_Temporales/
+
+# La aplicación solo requiere el codificador; reproductor y analizador no se empaquetan
+dependencies/ffmpeg/bin/ffplay.exe
+dependencies/ffmpeg/bin/ffprobe.exe
