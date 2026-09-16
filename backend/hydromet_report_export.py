@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REPORT_CSS = PROJECT_ROOT / "frontend" / "css" / "hydromet-report.css"
 REPORT_ASSET_DIR = PROJECT_ROOT / "frontend" / "assets" / "hydromet-report"
 EXPORT_SIZE = 4167
-MAX_EXPORT_HTML_BYTES = 45 * 1024 * 1024
+MAX_EXPORT_HTML_BYTES = 256 * 1024 * 1024
 REPORT_LABELS = {
     "caudales": "Caudales",
     "lluvias": "Lluvias por estaciones",

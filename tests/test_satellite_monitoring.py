@@ -32,6 +32,10 @@ class SatelliteMonitoringNavigationTests(TestCase):
     def test_satellite_views_use_independent_permissions(self) -> None:
         self.assertIn('"radar-caxx": "radar-caxx"', self.login)
         self.assertIn('goes19: "goes19"', self.login)
+        self.assertIn('if (modules.has("radar-caxx")) window.NotasRadarCaxx?.init();', self.app)
+        self.assertIn('if (modules.has("goes19")) window.NotasGoes19?.init();', self.app)
+        self.assertNotIn('if (modules.has("climatology")) window.NotasRadarCaxx?.init();', self.app)
+        self.assertNotIn('if (modules.has("climatology")) window.NotasGoes19?.init();', self.app)
 
     def test_license_generator_exposes_satellite_modules(self) -> None:
         controller = (ROOT / "frontend/js/core/license-admin.js").read_text(encoding="utf-8")

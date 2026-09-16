@@ -352,7 +352,7 @@ class HydrometDesignItem(BaseModel):
             r"pronostico-semanal|indice-ultravioleta)$"
         )
     )
-    html: str = Field(min_length=1, max_length=45 * 1024 * 1024)
+    html: str = Field(min_length=1, max_length=256 * 1024 * 1024)
 
 
 class HydrometDesignExport(BaseModel):

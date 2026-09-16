@@ -356,6 +356,8 @@ class HydrometReportIntegrationTests(TestCase):
         self.assertIn('clonedImage.removeAttribute("src")', self.export_feature)
         self.assertIn("NotasHydrometDesignExport", self.export_feature)
         self.assertIn('fetch("/api/reports/hydromet-network/export-designs"', self.export_feature)
+        self.assertIn("function errorMessage(detail, fallback)", self.export_feature)
+        self.assertIn('typeof item.msg === "string"', self.export_feature)
         self.assertIn("reportTime:", self.export_feature)
         self.assertIn(".hydromet-design-export-dialog", self.styles)
         self.assertIn('@app.post("/api/reports/hydromet-network/export-designs")', main)

@@ -108,20 +108,20 @@ html, body {{ margin: 0; background: white; font-family: "Segoe UI", Arial, sans
 }}
 .page:last-child {{ break-after: auto; page-break-after: auto; }}
 header {{
-  position: relative; height: 126px; display: grid;
+  position: relative; height: 146px; display: grid;
   grid-template-columns: 320px minmax(0, 1fr) 320px; align-items: center; text-align: center;
-  color: white; background: #ff8500; border-bottom: 6px solid #173247;
+  padding: 22px 4px 19px; color: white; background: #ff8500; border-bottom: 6px solid #173247;
 }}
 .heading {{ grid-column: 2; grid-row: 1; padding: 0; }}
 .report-brand {{
   grid-column: 1; grid-row: 1; justify-self: start; display: flex; align-items: center;
-  gap: 13px; margin-left: 28px; color: white; white-space: nowrap;
+  gap: 13px; padding-left: 28px; color: white; white-space: nowrap;
 }}
-.report-brand strong {{ font-size: 39px; font-weight: 650; letter-spacing: 3px; }}
-.report-brand span {{ font-size: 44px; font-weight: 900; letter-spacing: -12px; }}
-h1 {{ margin: 0; font-size: 34px; line-height: 1.08; letter-spacing: .2px; }} h1 span {{ font-weight: 400; }}
-p {{ margin: 10px 0 0; font-size: 16px; }}
-iframe {{ display: block; width: 100%; height: calc(100% - 126px); border: 0; background: white; }}
+.report-brand strong {{ font-size: 39.2px; font-weight: 650; letter-spacing: 3.136px; }}
+.report-brand span {{ font-size: 44px; font-weight: 900; letter-spacing: -12.32px; transform: translateY(-1px); }}
+h1 {{ margin: 0; font-size: 32.8px; line-height: 1.08; font-weight: 780; }} h1 span {{ font-weight: 400; }}
+p {{ margin: 8px 0 0; font-size: 14.72px; letter-spacing: .04em; }}
+iframe {{ display: block; width: 100%; height: calc(100% - 146px); border: 0; background: #f8fafc; }}
 </style></head><body>{"".join(sections)}</body></html>"""
 
 

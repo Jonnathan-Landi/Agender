@@ -14,6 +14,9 @@ from backend import hydromet_report_export
 
 
 class HydrometReportExportTests(unittest.TestCase):
+    def test_export_payload_limit_accepts_image_heavy_designs(self) -> None:
+        self.assertEqual(256 * 1024 * 1024, hydromet_report_export.MAX_EXPORT_HTML_BYTES)
+
     def test_capture_document_uses_native_size_and_sanitizes_active_content(self) -> None:
         document = hydromet_report_export._build_capture_document(
             '<figure class="hydromet-report-page" onclick="bad()">'

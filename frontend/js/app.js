@@ -193,8 +193,8 @@
     window.NotasHydrometReport.init();
   }
   if (modules.has("climatology")) window.NotasClimatology?.init();
-  if (modules.has("climatology")) window.NotasRadarCaxx?.init();
-  if (modules.has("climatology")) window.NotasGoes19?.init();
+  if (modules.has("radar-caxx")) window.NotasRadarCaxx?.init();
+  if (modules.has("goes19")) window.NotasGoes19?.init();
   if (modules.has("hydromet") && window.NotasViewer && window.NotasHydromet && window.NotasHydrometMap) {
     try {
       window.NotasViewer.initViewer();

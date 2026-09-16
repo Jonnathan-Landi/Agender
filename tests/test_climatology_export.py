@@ -47,7 +47,10 @@ def test_document_contains_one_page_per_selected_report():
     assert "SEGUIMIENTO TÉRMICO Y DE PRECIPITACIONES" in document
     assert "grid-template-columns: 320px minmax(0, 1fr) 320px" in document
     assert ".heading { grid-column: 2; grid-row: 1; padding: 0; }" in document
-    assert ".report-brand strong { font-size: 39px" in document
+    assert ".report-brand strong { font-size: 39.2px" in document
+    assert "height: 146px" in document
+    assert "height: calc(100% - 146px)" in document
+    assert "padding: 22px 4px 19px" in document
 
 
 @pytest.mark.parametrize(

@@ -84,6 +84,20 @@
     element.classList.toggle("is-error", isError);
   }
 
+  function errorMessage(detail, fallback) {
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (Array.isArray(detail)) {
+      const messages = detail.map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item.msg === "string") return item.msg;
+        return "";
+      }).filter(Boolean);
+      if (messages.length) return messages.join(" ");
+    }
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
+  }
+
   function setBusy(busy) {
     const form = document.querySelector("#hydromet-design-export-form");
     const confirm = document.querySelector("#hydromet-design-export-confirm");
@@ -165,7 +179,7 @@
             };
           }
           if (!response.ok) {
-            throw new Error(result.detail || "No fue posible exportar los diseños.");
+            throw new Error(errorMessage(result.detail, "No fue posible exportar los diseños."));
           }
           if (result.canceled) {
             setMessage("Exportación cancelada.");
