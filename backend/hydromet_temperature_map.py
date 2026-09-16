@@ -42,9 +42,11 @@ DEFAULT_SEARCH_RADIUS_KM = 10.0
 DEFAULT_IDW_POWER = 2.0
 DEFAULT_GRID_RESOLUTION_KM = 0.01
 DEFAULT_ROUND_DIGITS = 2
-# HydroClima exports a 6141 x 3898 image.  Keep its canvas and map panel
-# proportions, including the generous space for latitude labels at the left.
-TEMPERATURE_MAP_SIZE = (2200, 1396)
+# HydroClima exports a 6141 x 3898 image.  The SVG uses a smaller internal
+# coordinate system so generation stays fast, while its declared output size
+# remains identical to the original high-resolution export.
+TEMPERATURE_MAP_SIZE = (6141, 3898)
+TEMPERATURE_VIEWBOX_SIZE = (2200, 1396)
 TEMPERATURE_PLOT_BOX = (423, 203, 2001, 1213)
 TEMPERATURE_PLOT_SIZE = (
     TEMPERATURE_PLOT_BOX[2] - TEMPERATURE_PLOT_BOX[0],
@@ -596,7 +598,8 @@ def _compose_temperature_design_svg(
     palette = _temperature_palette(maximum)
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{TEMPERATURE_MAP_SIZE[0]}" '
-        f'height="{TEMPERATURE_MAP_SIZE[1]}" viewBox="0 0 {TEMPERATURE_MAP_SIZE[0]} {TEMPERATURE_MAP_SIZE[1]}">',
+        f'height="{TEMPERATURE_MAP_SIZE[1]}" '
+        f'viewBox="0 0 {TEMPERATURE_VIEWBOX_SIZE[0]} {TEMPERATURE_VIEWBOX_SIZE[1]}">',
         "<defs>",
         '<linearGradient id="temperature-scale" x1="0" y1="1" x2="0" y2="0">',
     ]
@@ -678,9 +681,9 @@ def _compose_temperature_design_svg(
             f'{transform}>{tspans}</text>'
         )
     parts.extend([
-        f'<text x="{TEMPERATURE_MAP_SIZE[0] / 2}" y="65" text-anchor="middle" '
+        f'<text x="{TEMPERATURE_VIEWBOX_SIZE[0] / 2}" y="65" text-anchor="middle" '
         f'font-size="54" font-weight="700">Temperatura {kind} en Cuenca:</text>',
-        f'<text x="{TEMPERATURE_MAP_SIZE[0] / 2}" y="129" text-anchor="middle" '
+        f'<text x="{TEMPERATURE_VIEWBOX_SIZE[0] / 2}" y="129" text-anchor="middle" '
         f'font-size="54" font-weight="700">{escape(title_line)}</text>',
     ])
     west, south, east, north = bounds
@@ -696,7 +699,7 @@ def _compose_temperature_design_svg(
             f'dominant-baseline="middle">{abs(latitude):.2f}°S</text>'
         )
     parts.extend([
-        f'<text x="{(left + right) / 2}" y="{TEMPERATURE_MAP_SIZE[1] - 32}" text-anchor="middle" '
+        f'<text x="{(left + right) / 2}" y="{TEMPERATURE_VIEWBOX_SIZE[1] - 32}" text-anchor="middle" '
         'font-size="43" font-weight="700">Longitud (°W)</text>',
         f'<text x="190" y="{(top + bottom) / 2}" text-anchor="middle" font-size="43" '
         f'font-weight="700" transform="rotate(-90 190 {(top + bottom) / 2})">Latitud (°S)</text>',

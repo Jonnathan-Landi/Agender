@@ -36,7 +36,18 @@ $modules = (& $python -m PyInstaller.utils.cliutils.archive_viewer -l $archivePa
 if ($LASTEXITCODE -ne 0) {
   throw "No se pudo inspeccionar el backend empaquetado con $python."
 }
-foreach ($required in "backend.main", "backend.cloud_account", "backend.cloud_sync", "backend.config", "backend.climatology_renderer", "backend.discharge") {
+foreach ($required in @(
+  "backend.main",
+  "backend.cloud_account",
+  "backend.cloud_sync",
+  "backend.config",
+  "backend.climatology_renderer",
+  "backend.discharge",
+  "backend.goes19",
+  "backend.goes19_video_export",
+  "backend.hydromet_report_export",
+  "backend.hydromet_temperature_map"
+)) {
   if ($modules -notmatch "'$([regex]::Escape($required))'") {
     throw "El módulo requerido $required no está incluido en el backend empaquetado."
   }
@@ -45,6 +56,18 @@ foreach ($required in "backend.main", "backend.cloud_account", "backend.cloud_sy
 $backendExecutable = Join-Path $projectRoot "src-tauri\resources\backend\agender-backend.exe"
 if (-not (Test-Path -LiteralPath $backendExecutable)) {
   throw "No existe el ejecutable del backend empaquetado: $backendExecutable"
+}
+$packagedData = Join-Path $projectRoot "src-tauri\resources\backend\_internal\backend\data"
+foreach ($requiredAsset in @(
+  "goes19\logo.png",
+  "hydromet_temperature_map\buffer.geojson",
+  "climatology\report.css",
+  "radar_caxx\ZonaUrbana.gpkg"
+)) {
+  $assetPath = Join-Path $packagedData $requiredAsset
+  if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+    throw "El backend empaquetado no contiene el recurso requerido: $requiredAsset"
+  }
 }
 $climatologyOutput = & $backendExecutable --climatology-smoke-test
 if ($LASTEXITCODE -ne 0) {
@@ -102,6 +125,17 @@ try {
   }
   if (-not $ready) {
     throw "El backend empaquetado no respondió correctamente dentro del tiempo esperado."
+  }
+  $openApi = Invoke-RestMethod -Uri "http://127.0.0.1:18765/openapi.json" -TimeoutSec 5
+  foreach ($requiredRoute in @(
+    "/api/goes19/frames",
+    "/api/goes19/export-mp4",
+    "/api/reports/hydromet-network/temperature-map",
+    "/api/reports/hydromet-network/export-designs"
+  )) {
+    if (-not $openApi.paths.PSObject.Properties[$requiredRoute]) {
+      throw "El backend empaquetado no expone la ruta requerida: $requiredRoute"
+    }
   }
 } finally {
   if (-not $backend.HasExited) {

@@ -15,7 +15,8 @@ from backend.hydromet_rain_map import _expand_bounds_to_aspect
 
 class HydrometTemperatureMapTests(unittest.TestCase):
     def test_design_uses_hydroclima_style_plot_and_axis_spacing(self) -> None:
-        self.assertEqual((2200, 1396), hydromet_temperature_map.TEMPERATURE_MAP_SIZE)
+        self.assertEqual((6141, 3898), hydromet_temperature_map.TEMPERATURE_MAP_SIZE)
+        self.assertEqual((2200, 1396), hydromet_temperature_map.TEMPERATURE_VIEWBOX_SIZE)
         self.assertEqual((423, 203, 2001, 1213), hydromet_temperature_map.TEMPERATURE_PLOT_BOX)
         self.assertAlmostEqual(6141 / 3898, 2200 / 1396, places=2)
         self.assertEqual(
@@ -88,8 +89,9 @@ class HydrometTemperatureMapTests(unittest.TestCase):
             )
             svg = image_path.read_text(encoding="utf-8")
             root_element = ET.fromstring(svg)
-            self.assertEqual("2200", root_element.attrib["width"])
-            self.assertEqual("1396", root_element.attrib["height"])
+            self.assertEqual("6141", root_element.attrib["width"])
+            self.assertEqual("3898", root_element.attrib["height"])
+            self.assertEqual("0 0 2200 1396", root_element.attrib["viewBox"])
             self.assertIn("data:image/png;base64,", svg)
             self.assertIn('id="temperature-scale"', svg)
             self.assertIn("Temperatura mínima en Cuenca:", svg)
