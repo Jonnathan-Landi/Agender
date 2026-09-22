@@ -1,6 +1,7 @@
+import { reportKey, sessionKey } from "./profile.js";
 import { formatDateShort } from "./utils.js";
 
-const preferencesKey = "agender.reports.water-quality.preferences";
+const preferencesKey = `${reportKey}.preferences`;
 let policyProfile = readPolicyProfile();
 
 export function getStoredPolicyProfile() {
@@ -52,7 +53,7 @@ export function savePolicyProfile(profile, select = null) {
 
 function readPolicyProfile() {
   const stored = (
-    window.parent?.NotasWaterQualitySession?.initialPreferences
+    window.parent?.[sessionKey]?.initialPreferences
     || window.parent?.NotasStorage?.loadJson(preferencesKey, null)
   )?.policy;
   return ["default", "it"].includes(stored) ? stored : "default";

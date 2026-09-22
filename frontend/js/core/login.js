@@ -5,6 +5,7 @@
     diary: "diary",
     agenda: "agenda",
     "report-water-quality": "report-water-quality",
+    "report-caudales": "report-caudales",
     "report-hydromet-network": "report-hydromet-network",
     climatology: "climatology",
     "radar-caxx": "radar-caxx",

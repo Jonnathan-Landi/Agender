@@ -10,6 +10,8 @@ from .sync_lock import user_sync_lock
 from .portable_profile import MAX_PROFILE_BYTES, PROFILE_KEYS
 
 DATA_MODULES = {
+    "agender.reports.caudales": "report-caudales",
+    "agender.reports.caudales.preferences": "report-caudales",
     "agender.profile.preferences": None,
     "agender.profile.onedrive-sources": None,
     "agender.agenda.events": "agenda",
@@ -23,6 +25,8 @@ DATA_MODULES = {
 }
 LOCAL_ONLY_DATA_KEYS = {
     "agender.reports.water-quality",
+    "agender.reports.caudales",
+    "agender.reports.caudales.preferences",
     "agender.reports.water-quality.preferences",
 }
 MAX_VALUE_BYTES = 5 * 1024 * 1024

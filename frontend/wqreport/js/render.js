@@ -1,3 +1,4 @@
+import { isFlowReport, basins } from "./profile.js";
 import { totalPages, parameters, graphs } from "./data.js";
 import { normalizeText } from "./utils.js";
 
@@ -47,6 +48,7 @@ export function createReportPage(pageNumber) {
   return `
     <section class="report-page">
 
+      ${isFlowReport ? "" : `
       <div class="header-top">
         <img src="img/logo.png" alt="logo">
       </div>
@@ -57,7 +59,7 @@ export function createReportPage(pageNumber) {
         </div>
 
         <div class="ti-header-title-cell">
-          <div class="ti-header-title editable-text-target" data-edit-key="ti-header-title" contenteditable="true">REPORTE DIARIO DE CALIDAD DEL AGUA CRUDA</div>
+          <div class="ti-header-title editable-text-target" data-edit-key="ti-header-title" contenteditable="true">${isFlowReport ? "REPORTE DIARIO DE LA RED HIDROMETEOROLÓGICA" : "REPORTE DIARIO DE CALIDAD DEL AGUA CRUDA"}</div>
         </div>
 
         <div class="ti-header-meta-cell">
@@ -82,11 +84,15 @@ export function createReportPage(pageNumber) {
         </div>
       </div>
 
+      `}
+
       <div class="banner">
+        ${isFlowReport ? '<img class="caudales-logo caudales-logo-etapa" src="../assets/report-logos/logo ETAPA EP_mejorado_v3.png" alt="Alcaldía de Cuenca · ETAPA EP">' : ""}
         <div class="banner-text">
-          <h1 class="editable editable-text-target" data-edit-key="banner-title" contenteditable="true">REPORTE DIARIO DE CALIDAD DEL AGUA</h1>
+          <h1 class="editable editable-text-target" data-edit-key="banner-title" contenteditable="true">${isFlowReport ? "REPORTE DIARIO DE LA RED HIDROMETEOROLÓGICA" : "REPORTE DIARIO DE CALIDAD DEL AGUA"}</h1>
           <p class="editable editable-text-target" data-edit-key="banner-subtitle" contenteditable="true">SISTEMA DE MONITOREO AUTOMÁTICO – ETAPA EP</p>
         </div>
+        ${isFlowReport ? '<img class="caudales-logo caudales-logo-rhup" src="../assets/report-logos/logo_RHUP_transparente.png" alt="Red Hidrometeorológica Unificada de la Cuenca del Río Paute (RHUP)">' : ""}
       </div>
 
       <div class="cards">
@@ -94,13 +100,13 @@ export function createReportPage(pageNumber) {
         <div class="card">
           <div class="card-icon">📍</div>
           <div class="card-content">
-            <div class="card-title editable-text-target" data-edit-key="station-label" contenteditable="true">ESTACIÓN</div>
+            <div class="card-title editable-text-target" data-edit-key="station-label" contenteditable="true">${isFlowReport ? "CUENCA" : "ESTACIÓN"}</div>
 
             <select class="station-select">
-              <option value="CEBOLLAR" selected>Cebollar</option>
+${isFlowReport ? basins.map((name, index) => `<option value="${name.toUpperCase()}" ${index === pageNumber - 1 ? "selected" : ""}>${name}</option>`).join("") : `              <option value="CEBOLLAR" selected>Cebollar</option>
               <option value="TIXÁN">Tixán</option>
               <option value="SUSTAG">Sustag</option>
-              <option value="CULEBRILLAS">Culebrillas</option>
+              <option value="CULEBRILLAS">Culebrillas</option>`}
             </select>
           </div>
         </div>
@@ -109,7 +115,7 @@ export function createReportPage(pageNumber) {
           <div class="card-icon">≋</div>
           <div class="card-content">
             <div class="card-title editable-text-target" data-edit-key="type-label" contenteditable="true">TIPO</div>
-            <div class="card-value editable editable-text-target" data-edit-key="type-value" contenteditable="true">Calidad del agua</div>
+            <div class="card-value editable editable-text-target" data-edit-key="type-value" contenteditable="true">${isFlowReport ? "Hidrometeorología" : "Calidad del agua"}</div>
           </div>
         </div>
 
@@ -198,7 +204,7 @@ export function createReportPage(pageNumber) {
       <div class="obs">
         <h2 class="editable-text-target" data-edit-key="observations-title" contenteditable="true">OBSERVACIONES GENERALES</h2>
         <p class="editable editable-text-target" data-edit-key="observations-text" contenteditable="true">
-          Todos los parametros se encuentran dentro de los limites de operatividad.
+          ${isFlowReport ? "" : "Todos los parametros se encuentran dentro de los limites de operatividad."}
         </p>
       </div>
 
@@ -215,6 +221,8 @@ export function renderReports() {
 
   if (!reportsContainer) return;
 
+  reportsContainer.dataset.reportKind = isFlowReport ? "caudales" : "water-quality";
+  if (isFlowReport) document.title = "Reporte de Caudales";
   reportsContainer.innerHTML = "";
 
   for (let page = 1; page <= totalPages; page++) {

@@ -292,23 +292,20 @@
   grid-column: 1;
   grid-row: 1;
   justify-self: start;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding-left: 28px;
-  color: #fff;
-  white-space: nowrap;
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  object-fit: contain;
 }
-.climate-original-brand strong {
-  font-size: 2.45rem;
-  font-weight: 650;
-  letter-spacing: .08em;
-}
-.climate-original-brand span {
-  font-size: 2.75rem;
-  font-weight: 900;
-  letter-spacing: -.28em;
-  transform: translateY(-1px);
+.climate-original-rhup {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  width: 108px;
+  height: 94px;
+  margin-right: 12px;
+  object-fit: contain;
 }
 .climate-original-band h2 { margin: 0; font-size: clamp(1.55rem, 2.05vw, 2.2rem); line-height: 1.08; font-weight: 780; }
 .climate-original-band p { margin: 8px 0 0; font-size: .92rem; letter-spacing: .04em; }
@@ -367,9 +364,7 @@
 
 @media (max-width: 900px) {
   .climate-original-band { grid-template-columns: 230px minmax(0, 1fr) 230px; }
-  .climate-original-brand { gap: 9px; padding-left: 18px; }
-  .climate-original-brand strong { font-size: 1.8rem; }
-  .climate-original-brand span { font-size: 2rem; }
+  .climate-original-brand { max-width: 230px; }
   .climatology-toolbar {
     align-items: flex-start;
   }

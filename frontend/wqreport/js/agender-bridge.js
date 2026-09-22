@@ -1,3 +1,4 @@
+import { isFlowReport } from "./profile.js";
 import { saveEditInheritance, saveEditMode, isEditInheritanceEnabled, isEditModeEnabled } from "./edit-mode.js";
 import { getStoredPolicyProfile, savePolicyProfile } from "./policies.js";
 import { clearReportValuesAndGraphs } from "./state.js";
@@ -32,10 +33,10 @@ function serializeReports() {
 function suggestedFileName() {
   const value = document.querySelector(".report-date-input")?.value || "";
   const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return "Reporte_CA";
+  if (Number.isNaN(date.getTime())) return (isFlowReport ? "Reporte_Caudales" : "Reporte_CA");
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `Reporte_CA_${day}${month}${date.getFullYear()}`;
+  return `${isFlowReport ? "Reporte_Caudales" : "Reporte_CA"}_${day}${month}${date.getFullYear()}`;
 }
 
 function pageHeight() {

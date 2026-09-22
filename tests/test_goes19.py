@@ -39,6 +39,19 @@ class Goes19Tests(unittest.TestCase):
         self.assertEqual(at_six - timedelta(hours=3, minutes=-10), shifted[0])
         self.assertNotIn(initial[0], shifted)
 
+    def test_window_at_0617_is_0315_to_0615_regardless_of_publication(self) -> None:
+        now = datetime(2026, 9, 22, 6, 17, tzinfo=goes19.LOCAL_TZ)
+        start, end = goes19.window_bounds(now)
+        self.assertEqual("03:15", start.astimezone(goes19.LOCAL_TZ).strftime("%H:%M"))
+        self.assertEqual("06:15", end.astimezone(goes19.LOCAL_TZ).strftime("%H:%M"))
+        slots = goes19.window_slots(now)
+        self.assertEqual(18, len(slots))
+        self.assertTrue(all(start <= slot <= end for slot in slots))
+        self.assertEqual("03:20", slots[0].astimezone(goes19.LOCAL_TZ).strftime("%H:%M"))
+        self.assertEqual("06:10", slots[-1].astimezone(goes19.LOCAL_TZ).strftime("%H:%M"))
+        later = now + timedelta(minutes=5)
+        self.assertEqual("06:20", goes19.window_bounds(later)[1].astimezone(goes19.LOCAL_TZ).strftime("%H:%M"))
+
     def test_noaa_channel_13_filename_is_grouped_by_scan_start(self) -> None:
         key = (
             "ABI-L2-CMIPF/2026/259/18/"

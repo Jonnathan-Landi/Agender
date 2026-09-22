@@ -1784,3 +1784,27 @@ body[data-app-theme="dark"] .font-size-dropdown {
 }
 
 
+
+/* Same orange as the monthly climatology heading, including PDF output. */
+#reports[data-report-kind="caudales"] .banner {
+  background: #ff8500;
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr) 420px;
+  gap: 24px;
+  padding: 20px 34px;
+}
+
+#reports[data-report-kind="caudales"] .banner h1 {
+  font-size: 32px;
+  line-height: 1.15;
+}
+
+#reports[data-report-kind="caudales"] .banner p {
+  margin: 10px 0 0;
+  font-size: 21px;
+}
+
+.caudales-logo { display: block; object-fit: contain; }
+.caudales-logo-etapa { width: 460px; height: auto; justify-self: start; margin-left: -42px; }
+.caudales-logo-rhup { width: 138px; height: 120px; justify-self: end; }
+#reports[data-report-kind="caudales"] .hydrocarbon-note-card { display: none; }

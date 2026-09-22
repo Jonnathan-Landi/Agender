@@ -73,6 +73,10 @@
                 <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE790;</span></span>
                 <span class="nav-label">Calidad del agua</span>
               </button>
+              <button class="nav-item nav-subitem" type="button" data-view="report-caudales">
+                <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xE790;</span></span>
+                <span class="nav-label">Caudales</span>
+              </button>
               <button class="nav-item nav-subitem" type="button" data-view="report-hydromet-network">
                 <span class="nav-icon" aria-hidden="true"><span class="font-icon">&#xEC4A;</span></span>
                 <span class="nav-label">Red hidrometeorológica</span>
@@ -238,6 +242,41 @@
               src="about:blank"
               data-src="wqreport/index.html"
               title="Editor del reporte de calidad del agua"
+            ></iframe>
+          </div>
+        </section>
+        <section class="view report-module-view" id="report-caudales-view" aria-labelledby="report-caudales-title">
+          <header class="toolbar report-module-toolbar">
+            <div>
+              <p class="eyebrow" id="report-caudales-title">Reporte de Caudales</p>
+            </div>
+            <div class="toolbar-actions">
+              <span class="caudales-save-state" id="caudales-save-state" role="status" aria-live="polite"></span>
+              <button class="button secondary compact-button" type="button" id="caudales-clear">
+                <span class="font-icon" aria-hidden="true">&#xE74D;</span>
+                <span>Limpiar valores</span>
+              </button>
+              <button class="button secondary compact-button" type="button" id="caudales-settings" aria-label="Configurar reporte" title="Configurar reporte">
+                <span class="font-icon" aria-hidden="true">&#xE713;</span>
+                <span>Configurar</span>
+              </button>
+              <button class="button secondary compact-button" type="button" id="caudales-print">
+                <span class="font-icon" aria-hidden="true">&#xE749;</span>
+                <span>Imprimir</span>
+              </button>
+              <button class="button primary compact-button" type="button" id="caudales-save">
+                <span class="font-icon" aria-hidden="true">&#xE74E;</span>
+                <span>Guardar</span>
+              </button>
+            </div>
+          </header>
+          <div class="caudales-workspace">
+            <iframe
+              class="caudales-frame"
+              id="caudales-frame"
+              src="about:blank"
+              data-src="wqreport/index.html?report=caudales"
+              title="Editor del reporte de caudales"
             ></iframe>
           </div>
         </section>
@@ -953,6 +992,12 @@
                     <span class="license-permission-check" aria-hidden="true">✓</span>
                     <span class="license-permission-icon font-icon" aria-hidden="true">&#xE790;</span>
                     <span><strong>Calidad del agua</strong><small>Edición, almacenamiento e impresión del reporte.</small></span>
+                  </label>
+                  <label class="license-permission-row license-permission-child">
+                    <input type="checkbox" name="modules" value="report-caudales">
+                    <span class="license-permission-check" aria-hidden="true">✓</span>
+                    <span class="license-permission-icon font-icon" aria-hidden="true">&#xE790;</span>
+                    <span><strong>Caudales</strong><small>Edición, almacenamiento e impresión del reporte.</small></span>
                   </label>
                   <label class="license-permission-row license-permission-child">
                     <input type="checkbox" name="modules" value="report-hydromet-network">
@@ -1717,7 +1762,7 @@
                   <span class="information-link-icon news font-icon" aria-hidden="true">&#xE789;</span>
                   <span>
                     <strong>News</strong>
-                    <small>Conoce las funciones y mejoras incluidas en Agender 1.22.3.</small>
+                    <small>Conoce las funciones y mejoras incluidas en Agender 1.23.5.</small>
                   </span>
                   <span class="information-link-chevron font-icon" aria-hidden="true">&#xE76C;</span>
                 </button>
@@ -1748,43 +1793,43 @@
                 <button type="button" data-settings-page="information" aria-label="Volver a Información">
                   <span class="font-icon" aria-hidden="true">&#xE72B;</span>
                 </button>
-                <div><h1>News</h1><p>Novedades de Agender 1.22.3</p></div>
+                <div><h1>News</h1><p>Novedades de Agender 1.23.5</p></div>
               </div>
               <section class="news-hero">
                 <span class="news-eyebrow">VERSIÓN ACTUAL</span>
-                <strong class="news-version-number">1.22.3</strong>
+                <strong class="news-version-number">1.23.5</strong>
               </section>
               <div class="news-release-notes">
                 <section class="news-note-section">
-                  <h2>Correcciones de exportación</h2>
+                  <h2>Nuevo reporte de Caudales</h2>
                   <ul>
-                    <li>La exportación de diseños hidrometeorológicos admite reportes con imágenes de alta resolución y muestra errores comprensibles.</li>
-                    <li>Los PDF de Climatología mensual conservan el encabezado naranja, los textos blancos y la marca tipográfica ETAPA del diseño actual.</li>
-                    <li>GOES 19 y Radar Caxx respetan sus permisos independientes al iniciar cada módulo.</li>
+                    <li>Reportes incorpora Caudales con cuatro hojas: Yanuncay, Tomebamba, Machángara y Tarqui.</li>
+                    <li>Cada hoja incluye Caudal, Lluvia y Temperatura, con edición, guardado independiente e impresión.</li>
+                    <li>El encabezado naranja muestra los logos de ETAPA EP y RHUP, con el título centrado y más espacio útil.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Mapas y pronósticos renovados</h2>
+                  <h2>Climatología mensual</h2>
                   <ul>
-                    <li>El mapa de temperatura adopta el diseño, las proporciones y la presentación visual de HydroClima.</li>
-                    <li>Los gráficos de lluvia y temperatura se presentan sin el logotipo Amor por Cuenca.</li>
-                    <li>El reporte incluye dos tarjetas de pronóstico diario y guarda cada exportación con un nombre diferente.</li>
+                    <li>Los reportes muestran el logo de ETAPA EP a la izquierda y RHUP con fondo transparente a la derecha.</li>
+                    <li>La exportación PDF conserva los mismos logos y el encabezado del reporte.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Monitoreo satelital</h2>
+                  <h2>GOES 19: carga y actualización</h2>
                   <ul>
-                    <li>GOES 19 Banda 13 muestra la nubosidad con potencial de tormentas y el diseño cartográfico de GOESHub.</li>
-                    <li>La aplicación busca nuevas tomas cada diez minutos y reintenta cada minuto cuando aún no están disponibles.</li>
-                    <li>La caché móvil conserva únicamente imágenes, descargas y datos procesados de las últimas tres horas.</li>
+                    <li>La toma más reciente tiene prioridad y el historial se completa en tandas cortas.</li>
+                    <li>La ventana móvil de tres horas avanza por la hora de consulta, sin esperar a que se publiquen todas las tomas.</li>
+                    <li>Las tomas faltantes se reintentan sin volver a descargar las imágenes listas; los errores y estados de carga se muestran en pantalla.</li>
+                    <li>Se limitan las esperas de descarga y se evitan consultas en bucle cuando falla una imagen.</li>
                   </ul>
                 </section>
                 <section class="news-note-section">
-                  <h2>Radar y exportación de video</h2>
+                  <h2>GOES 19: datos y caché</h2>
                   <ul>
-                    <li>Monitoreo Satelital incorpora las vistas Radar Caxx y GOES 19.</li>
-                    <li>Las secuencias GOES 19 pueden exportarse como video MP4 desde la propia aplicación.</li>
-                    <li>La exportación utiliza FFmpeg incluido con Agender y permite elegir la ubicación del archivo.</li>
+                    <li>Las tomas sin píxeles válidos en la zona de Cuenca se excluyen de la animación y del video MP4.</li>
+                    <li>Las imágenes vacías guardadas en caché se filtran y se informa la hora sin datos.</li>
+                    <li>Las tomas sin datos válidos se vuelven a consultar después de diez minutos y la caché dañada se reconstruye.</li>
                   </ul>
                 </section>
               </div>
@@ -2268,6 +2313,49 @@
           </section>
         </div>
         <footer><button class="button primary" type="button" id="water-quality-settings-done">Listo</button></footer>
+      </form>
+    </dialog>
+    <dialog id="caudales-settings-dialog" class="caudales-settings-dialog" aria-labelledby="caudales-settings-title">
+      <form method="dialog" class="caudales-settings-form">
+        <header>
+          <div>
+            <p class="eyebrow">Reporte de Caudales</p>
+            <h2 id="caudales-settings-title">Configuración</h2>
+          </div>
+          <button class="icon-button" type="button" id="caudales-settings-close" aria-label="Cerrar">×</button>
+        </header>
+        <div class="caudales-settings-body">
+          <section class="caudales-settings-section" aria-labelledby="caudales-policy-title" hidden>
+            <div class="caudales-settings-section-title">
+              <span class="font-icon" aria-hidden="true">&#xE8D7;</span>
+              <div><strong id="caudales-policy-title">Políticas</strong><small>Selecciona el encabezado y perfil institucional del reporte.</small></div>
+            </div>
+            <label class="caudales-setting-row">
+              <span><strong>Perfil de políticas</strong><small>Aplica el formato predeterminado o el encabezado de TI.</small></span>
+              <select id="caudales-policy-select">
+                <option value="default">Defecto</option>
+                <option value="it">TI</option>
+              </select>
+            </label>
+          </section>
+          <section class="caudales-settings-section" aria-labelledby="caudales-editing-title">
+            <div class="caudales-settings-section-title">
+              <span class="font-icon" aria-hidden="true">&#xE70F;</span>
+              <div><strong id="caudales-editing-title">Edición</strong><small>Controla la modificación de textos y su propagación entre hojas.</small></div>
+            </div>
+            <label class="caudales-setting-row caudales-toggle-row">
+              <span><strong>Modo edición</strong><small>Permite modificar textos y utilizar el menú de formato con clic derecho.</small></span>
+              <input id="caudales-edit-mode" type="checkbox">
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label class="caudales-setting-row caudales-toggle-row">
+              <span><strong>Heredar ediciones</strong><small>Copia en las demás páginas los cambios realizados en la página 1.</small></span>
+              <input id="caudales-edit-inheritance" type="checkbox">
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+          </section>
+        </div>
+        <footer><button class="button primary" type="button" id="caudales-settings-done">Listo</button></footer>
       </form>
     </dialog>
 

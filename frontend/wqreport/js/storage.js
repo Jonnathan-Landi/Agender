@@ -1,3 +1,4 @@
+import { reportKey, sessionKey } from "./profile.js";
 import { STORAGE_KEY } from "./data.js";
 import { ensureParameterUnits, setGraphImage } from "./state.js";
 import { restoreCustomParameterRows, restoreParameterRows, serializeCustomParameterRows, serializeParameterRows } from "./table-rows.js";
@@ -119,7 +120,7 @@ export async function saveConfig() {
 export function loadConfig() {
   try {
     const storage = window.parent?.NotasStorage;
-    const stagedConfig = window.parent?.NotasWaterQualitySession?.initialConfig;
+    const stagedConfig = window.parent?.[sessionKey]?.initialConfig;
     const config = stagedConfig || (storage
       ? storage.loadJson(STORAGE_KEY, null)
       : standaloneConfig

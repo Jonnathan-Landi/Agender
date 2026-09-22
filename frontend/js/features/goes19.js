@@ -6,6 +6,7 @@
   let followLatest = true;
   let exporting = false;
   let refreshTimer = null;
+  let refreshing = false;
 
   function updateExportButton() {
     document.querySelector("#goes19-export").disabled = exporting || frames.length < 2;
@@ -42,44 +43,58 @@
     const item = frames[position];
     const image = document.querySelector("#goes19-frame");
     image.onload = () => { image.hidden = false; document.querySelector("#goes19-empty").hidden = true; };
-    image.onerror = () => { document.querySelector("#goes19-cache-status").textContent = "La toma ya salió de la ventana; actualizando…"; refresh(); };
-    image.src = item.imageUrl;
+    image.onerror = () => {
+      document.querySelector("#goes19-cache-status").textContent = "No se pudo cargar esta toma. Se reintentará en la siguiente actualización.";
+      image.removeAttribute("src");
+    };
+    if (image.getAttribute("src") !== item.imageUrl) image.src = item.imageUrl;
     document.querySelector("#goes19-frame-time").textContent =
       new Date(item.localTime).toLocaleString("es-EC", { dateStyle: "medium", timeStyle: "short" });
     document.querySelector("#goes19-position").textContent = `${position + 1} / ${frames.length} imágenes`;
   }
 
   async function refresh() {
+    if (refreshing) return;
+    refreshing = true;
+    let busy = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch("/api/goes19/frames", { cache: "no-store" });
+      const response = await fetch("/api/goes19/frames", { cache: "no-store", signal: controller.signal });
       if (!response.ok) throw new Error("No se pudo consultar GOES 19.");
       const catalog = await response.json();
       const currentId = frames[position]?.id;
       frames = catalog.frames || [];
       updateExportButton();
+      const status = catalog.status || {};
+      busy = ["starting", "listing", "downloading", "processing", "backfill"].includes(status.phase);
       document.querySelector("#goes19-cache-status").textContent =
-        frames.length < 19
-          ? `${frames.length} tomas disponibles · completando las últimas 3 horas en segundo plano…`
-          : `${frames.length} tomas disponibles · últimas 3 horas · actualización cada 10 minutos`;
+        `${frames.length} tomas disponibles · ${status.message || "Esperando la próxima publicación de NOAA."}`;
       if (!frames.length) {
         position = -1;
         const image = document.querySelector("#goes19-frame");
         image.removeAttribute("src");
         image.hidden = true;
         document.querySelector("#goes19-empty").hidden = false;
-        document.querySelector("#goes19-frame-time").textContent = "Preparando imágenes con el diseño actual…";
+        document.querySelector("#goes19-frame-time").textContent = status.phase === "error"
+          ? "No se pudo preparar la imagen; se reintentará automáticamente."
+          : "Esperando la primera toma disponible…";
+        document.querySelector("#goes19-empty").textContent = status.message || "Buscando imágenes en NOAA…";
         document.querySelector("#goes19-position").textContent = "0 / 0 imágenes";
         return;
       }
       const retained = frames.findIndex((frame) => frame.id === currentId);
       showFrame(followLatest || retained < 0 ? frames.length - 1 : retained);
     } catch (error) {
-      document.querySelector("#goes19-cache-status").textContent = error.message;
+      document.querySelector("#goes19-cache-status").textContent = error.name === "AbortError"
+        ? "El servidor tardó demasiado en responder. Se reintentará automáticamente."
+        : error.message;
     } finally {
+      clearTimeout(timeout);
+      refreshing = false;
       clearTimeout(refreshTimer);
-      // During the first fill, show each frame as soon as the background
-      // worker finishes it. Once the window is full, a minute is sufficient.
-      refreshTimer = window.setTimeout(refresh, frames.length < 19 ? 5_000 : 60_000);
+      // Poll quickly only while work is active; NOAA may publish fewer than 19 scans.
+      refreshTimer = window.setTimeout(refresh, busy ? 5_000 : 60_000);
     }
   }
 

@@ -79,8 +79,10 @@ async def lifespan(_application: FastAPI):
     radar_task = asyncio.create_task(update_radar_cache())
     async def update_goes_cache() -> None:
         from .goes19 import (
+            cache_status,
+            report_worker_error,
             claim_cache_ownership,
-            floor_slot,
+            window_slots,
             frame_catalog,
             next_refresh_time,
             refresh_cache,
@@ -94,11 +96,16 @@ async def lifespan(_application: FastAPI):
             while True:
                 try:
                     await anyio.to_thread.run_sync(refresh_cache)
-                except Exception:
-                    pass
+                except Exception as error:
+                    report_worker_error(error)
+                status = cache_status()
+                if status["phase"] == "backfill":
+                    await asyncio.sleep(0.5)
+                    continue
                 now = datetime.now(UTC)
-                current_id = slot_id(floor_slot(now))
-                current_ready = any(item["id"] == current_id for item in frame_catalog(now))
+                available_ids = {item["id"] for item in frame_catalog(now)}
+                # Retry every missing scan, including gaps before the newest frame.
+                current_ready = all(slot_id(slot) in available_ids for slot in window_slots(now))
                 next_run = next_refresh_time(now, current_ready)
                 await asyncio.sleep(max(1, (next_run - now).total_seconds()))
         finally:
@@ -208,7 +215,12 @@ async def enforce_module_access(request: Request, call_next):
     elif path.startswith("/api/goes19"):
         required = "goes19"
     elif path.startswith("/wqreport"):
-        required = "report-water-quality"
+        user = current_user(request.cookies.get("agender_session"))
+        # The shared editor assets are used by either report module.
+        if path.rstrip("/") in {"/wqreport", "/wqreport/index.html"}:
+            required = "report-caudales" if request.query_params.get("report") == "caudales" else "report-water-quality"
+        elif not user or not ({"report-water-quality", "report-caudales"} & set(user["modules"])):
+            required = "report-water-quality"
     if required:
         user = current_user(request.cookies.get("agender_session"))
         if not user:
@@ -768,13 +780,17 @@ def radar_caxx_frames(background_tasks: BackgroundTasks) -> dict[str, object]:
 
 @app.get("/api/goes19/frames")
 def goes19_frames() -> dict[str, object]:
-    from .goes19 import RENDER_VERSION, frame_catalog
+    from .goes19 import RENDER_VERSION, cache_status, frame_catalog, window_bounds
 
+    start, end = window_bounds()
     return {
         "frames": frame_catalog(),
+        "windowStart": start.isoformat(),
+        "windowEnd": end.isoformat(),
         "intervalMinutes": 10,
         "windowMinutes": 180,
         "rendererVersion": RENDER_VERSION,
+        "status": cache_status(),
     }
 
 
@@ -786,7 +802,7 @@ def goes19_frame_image(frame_id: str) -> FileResponse:
         path = resolve_frame(frame_id)
     except (ValueError, FileNotFoundError) as error:
         raise HTTPException(status_code=404, detail="Fotograma GOES 19 no disponible") from error
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-store"})
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "private, max-age=60"})
 
 
 @app.post("/api/goes19/export-mp4")
@@ -1050,6 +1066,29 @@ def export_water_quality_pdf(payload: WaterQualityPdfExport, request: Request) -
 
     user = _require_user(request)
     if "report-water-quality" not in user.get("modules", []):
+        raise HTTPException(status_code=403, detail="Módulo no autorizado")
+    try:
+        return export_report_pdf(
+            payload.reportsHtml,
+            payload.suggestedFileName,
+            payload.pageHeight,
+            (FRONTEND_DIR / "wqreport").as_uri() + "/",
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo guardar el PDF. Verifica los permisos de la ubicación y el espacio disponible.",
+        ) from error
+
+
+@app.post("/api/reports/caudales/export-pdf")
+def export_caudales_pdf(payload: WaterQualityPdfExport, request: Request) -> dict[str, object]:
+    from .wqreport_export import export_report_pdf
+
+    user = _require_user(request)
+    if "report-caudales" not in user.get("modules", []):
         raise HTTPException(status_code=403, detail="Módulo no autorizado")
     try:
         return export_report_pdf(

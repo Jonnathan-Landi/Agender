@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import threading
+import time
 import uuid
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -41,6 +42,61 @@ FRAME_ID = re.compile(r"^\d{12}$")
 _lock = threading.Lock()
 _hour_listing: dict[str, tuple[datetime, list[str]]] = {}
 _logger = logging.getLogger(__name__)
+_status_lock = threading.Lock()
+_status: dict[str, object] = {"phase": "starting", "message": "Iniciando GOES 19…", "pending": 0, "error": None}
+DOWNLOAD_DEADLINE_SECONDS = 120
+MAX_BATCH = 4
+_no_data_until: dict[str, datetime] = {}
+
+
+class NoSatelliteData(ValueError):
+    """A complete NOAA file with no valid measurements in our region."""
+
+
+def _validate_temperature(temperature) -> None:
+    import numpy as np
+
+    if not np.isfinite(temperature).any():
+        raise NoSatelliteData("NOAA no contiene píxeles válidos para esta toma en la zona de Cuenca.")
+
+
+@lru_cache(maxsize=64)
+def _processed_has_data(path: Path, modified: int, size: int) -> bool:
+    import numpy as np
+
+    try:
+        with np.load(path) as values:
+            _validate_temperature(values["temperature"])
+        return True
+    except (OSError, ValueError, KeyError):
+        return False
+
+
+def _frame_has_data(identifier: str) -> bool:
+    processed = PROCESSED_ROOT / f"{identifier}.npz"
+    try:
+        metadata = processed.stat()
+    except FileNotFoundError:
+        return identifier not in _no_data_until
+    return _processed_has_data(processed, metadata.st_mtime_ns, metadata.st_size)
+
+
+
+def cache_status() -> dict[str, object]:
+    with _status_lock:
+        return dict(_status)
+
+
+def _set_status(**values) -> None:
+    with _status_lock:
+        _status.update(values, updatedAt=datetime.now(UTC).isoformat())
+
+
+def report_worker_error(error: Exception) -> None:
+    _logger.exception("GOES 19: el ciclo no pudo completarse")
+    _set_status(phase="error", error=str(error), message=f"No se pudo actualizar GOES 19: {error}", pending=0)
+
+
 _instance_token = f"{uuid.uuid4().hex}"
 
 
@@ -68,9 +124,19 @@ def floor_slot(now: datetime | None = None) -> datetime:
     return current.replace(minute=current.minute // 10 * 10, second=0, microsecond=0)
 
 
+def window_bounds(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Wall-clock window: 06:17 selects 03:15 to 06:15, even if scans are missing."""
+    current = (now or datetime.now(UTC)).astimezone(UTC)
+    end = current.replace(minute=current.minute // 5 * 5, second=0, microsecond=0)
+    return end - WINDOW, end
+
+
 def window_slots(now: datetime | None = None) -> list[datetime]:
-    end = floor_slot(now)
-    return [end - WINDOW + index * INTERVAL for index in range(19)]
+    start, end = window_bounds(now)
+    first = floor_slot(start)
+    if first < start:
+        first += INTERVAL
+    return [first + index * INTERVAL for index in range(int((end - first) / INTERVAL) + 1)]
 
 
 def slot_id(slot: datetime) -> str:
@@ -131,17 +197,20 @@ def _download(key: str, destination: Path) -> bool:
         return True
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(".nc.part")
+    started = time.monotonic()
     try:
-        with requests.get(f"{BUCKET_URL}/{key}", stream=True, timeout=(20, 120)) as response:
+        with requests.get(f"{BUCKET_URL}/{key}", stream=True, timeout=(10, 30)) as response:
             if response.status_code == 404:
                 return False
             response.raise_for_status()
             with temporary.open("wb") as stream:
-                for chunk in response.iter_content(1024 * 1024):
+                for chunk in response.iter_content(64 * 1024):
+                    if time.monotonic() - started > DOWNLOAD_DEADLINE_SECONDS:
+                        raise requests.Timeout("La descarga GOES superó el tiempo máximo; se reintentará.")
                     if chunk:
                         stream.write(chunk)
         if temporary.stat().st_size < 50_000:
-            return False
+            raise ValueError("NOAA devolvió una descarga GOES incompleta.")
         temporary.replace(destination)
         return True
     finally:
@@ -205,6 +274,7 @@ def _render_frame(temperature, slot: datetime, destination: Path) -> None:
     import numpy as np
     from PIL import Image, ImageDraw
 
+    _validate_temperature(temperature)
     side = GOES_VIEW_SIDE
     west = GOES_VIEW_CENTER[0] - side / 2
     north = GOES_VIEW_CENTER[1] + side / 2
@@ -310,6 +380,7 @@ def _process(source: Path, processed: Path, frame: Path) -> None:
             sampled = cmi[row[valid] - r0, col[valid] - c0]
             quality = dqf[row[valid] - r0, col[valid] - c0] == 0
             temperature[valid] = np.where(quality, sampled - 273.15, np.nan)
+    _validate_temperature(temperature)
     processed.parent.mkdir(parents=True, exist_ok=True)
     frame.parent.mkdir(parents=True, exist_ok=True)
     temporary_data = processed.with_suffix(".npz.part")
@@ -361,92 +432,151 @@ def _ensure_render_version() -> bool:
     return True
 
 
+def _prepare_frame(key: str | None, raw: Path, processed: Path, frame: Path) -> None:
+    if processed.is_file():
+        try:
+            _render_processed(processed, frame)
+            return
+        except (OSError, ValueError, KeyError):
+            # A partial/corrupt cache must not fail forever on every restart.
+            processed.unlink(missing_ok=True)
+    if not raw.is_file() and key is None:
+        raise ValueError("La toma necesita descargarse de nuevo.")
+    if key is not None and not _download(key, raw):
+        raise ValueError("La toma aún no está disponible en NOAA.")
+    try:
+        _process(raw, processed, frame)
+    except OSError:
+        raw.unlink(missing_ok=True)
+        raise
+
+
 def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
     current = (now or datetime.now(UTC)).astimezone(UTC)
-    if not owns_cache():
+    if not owns_cache() or not _lock.acquire(blocking=False):
         return frame_catalog(current)
-    slots = window_slots(current)
-    valid_ids = {slot_id(slot) for slot in slots}
-    if not _lock.acquire(blocking=False):
-        return frame_catalog(current)
+    errors: list[str] = []
+    remaining = 0
     try:
+        _set_status(phase="listing", message="Consultando las tomas publicadas por NOAA…", error=None, pending=0)
+        # Detect missing native dependencies before downloading hundreds of MB.
+        import netCDF4  # noqa: F401
+        from pyproj import CRS
+        CRS.from_epsg(32717)
         CACHE_ROOT.mkdir(parents=True, exist_ok=True)
-        migrating = _ensure_render_version()
+        _ensure_render_version()
+        version_time = VERSION_PATH.stat().st_mtime_ns
+        slots = window_slots(current)
+        valid_ids = {slot_id(slot) for slot in slots}
         _cleanup(valid_ids)
-        active_prefixes = {
-            f"{PRODUCT}/{slot:%Y}/{slot:%j}/{slot:%H}/" for slot in slots
-        }
+        for identifier in list(_no_data_until):
+            if identifier not in valid_ids or _no_data_until[identifier] <= current:
+                del _no_data_until[identifier]
+        active_prefixes = {f"{PRODUCT}/{slot:%Y}/{slot:%j}/{slot:%H}/" for slot in slots}
         for prefix in list(_hour_listing):
             if prefix not in active_prefixes:
                 del _hour_listing[prefix]
         hour_keys: dict[datetime, list[str]] = {}
-        pending: list[tuple[str, Path, Path, Path]] = []
-        for slot in slots:
-            frame = FRAME_ROOT / f"{slot_id(slot)}.png"
-            if not migrating and frame.is_file() and frame.stat().st_size > 0:
-                continue
-            hour = slot.replace(minute=0)
-            if hour not in hour_keys:
-                try:
-                    hour_keys[hour] = _list_hour(hour, current)
-                except (requests.RequestException, ET.ParseError) as error:
-                    _logger.warning("GOES 19: no se pudo listar %s: %s", hour, error)
-                    hour_keys[hour] = []
-            matches = [key for key in hour_keys[hour] if key_slot(key) == slot]
-            if not matches:
-                continue
-            key = max(matches)
+        pending = []
+        priority_done = False
+
+        def prepare(item) -> None:
+            key, raw, processed, frame = item
+            _set_status(phase="processing", message=f"Preparando toma {raw.stem}…")
+            try:
+                _prepare_frame(key, raw, processed, frame)
+            except NoSatelliteData as error:
+                # Remove only this rejected scan; recheck NOAA after ten minutes.
+                _no_data_until[raw.stem] = current + INTERVAL
+                for rejected in (frame, processed, raw):
+                    rejected.unlink(missing_ok=True)
+                _logger.warning("GOES 19: toma sin datos %s: %s", raw.stem, error)
+            except Exception as error:
+                errors.append(str(error))
+                _logger.warning("GOES 19: falló la toma %s: %s", raw.stem, error)
+
+        # Publish the newest image before listing or downloading older hours.
+        for slot in reversed(slots):
             identifier = slot_id(slot)
+            frame = FRAME_ROOT / f"{identifier}.png"
+            if identifier in _no_data_until:
+                continue
+            if frame.is_file() and _frame_has_data(identifier):
+                frame_stat = frame.stat()
+                if frame_stat.st_size > 0 and frame_stat.st_mtime_ns >= version_time:
+                    continue
             raw = RAW_ROOT / f"{identifier}.nc"
             processed = PROCESSED_ROOT / f"{identifier}.npz"
-            pending.append((key, raw, processed, frame))
-
-        # On a cold start the full three-hour window can exceed 400 MB. Make
-        # the newest available scan usable first, then backfill older scans in
-        # parallel. The completed PNG is immediately visible to the catalog.
-        pending.sort(key=lambda item: item[1].stem, reverse=True)
-        if pending:
-            key, raw, processed, frame = pending.pop(0)
-            try:
-                if processed.is_file():
-                    _render_processed(processed, frame)
-                elif _download(key, raw):
-                    _process(raw, processed, frame)
-            except Exception as error:
-                _logger.warning("GOES 19: falló la toma prioritaria %s: %s", raw.stem, error)
-        uncached = []
-        for key, raw, processed, frame in pending:
-            if processed.is_file():
-                try:
-                    _render_processed(processed, frame)
-                except Exception as error:
-                    _logger.warning("GOES 19: no pudo regenerar %s: %s", processed.stem, error)
+            key = None
+            if not processed.is_file() and not raw.is_file():
+                hour = slot.replace(minute=0)
+                if hour not in hour_keys:
+                    try:
+                        hour_keys[hour] = _list_hour(hour, current)
+                    except (requests.RequestException, ET.ParseError) as error:
+                        errors.append(str(error))
+                        _logger.warning("GOES 19: no se pudo listar %s: %s", hour, error)
+                        hour_keys[hour] = []
+                matches = [key for key in hour_keys[hour] if key_slot(key) == slot]
+                if not matches:
+                    continue
+                key = max(matches)
+            item = (key, raw, processed, frame)
+            if not priority_done:
+                prepare(item)
+                priority_done = True
             else:
-                uncached.append((key, raw, processed, frame))
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = {executor.submit(_download, key, raw): (raw, processed, frame)
-                       for key, raw, processed, frame in uncached}
+                pending.append(item)
+        # Short batches let a new scan take priority even on slow connections.
+        batch = pending[:MAX_BATCH - 1]
+        remaining = max(0, len(pending) - len(batch))
+        _set_status(phase="downloading", message="Descargando tomas anteriores…", pending=len(pending))
+        with ThreadPoolExecutor(max_workers=MAX_BATCH - 1) as executor:
+            futures = {executor.submit(_download, key, raw): item
+                       for item in batch for key, raw, processed, frame in [item]
+                       if key is not None and not processed.is_file()}
+            for item in batch:
+                if item[0] is None or item[2].is_file():
+                    prepare(item)
+            # netCDF processing stays serial: native HDF5 is not thread-safe.
             for future in as_completed(futures):
-                raw, processed, frame = futures[future]
+                item = futures[future]
                 try:
-                    if future.result():
-                        _process(raw, processed, frame)
+                    if not future.result():
+                        raise ValueError("La toma aún no está disponible en NOAA.")
+                    prepare((None, *item[1:]))
                 except Exception as error:
-                    _logger.warning("GOES 19: falló la toma %s: %s", raw.stem, error)
+                    errors.append(str(error))
+                    _logger.warning("GOES 19: falló la descarga %s: %s", item[1].stem, error)
         current = datetime.now(UTC) if now is None else current
         slots = window_slots(current)
-        valid_ids = {slot_id(slot) for slot in slots}
-        _cleanup(valid_ids)
+        _cleanup({slot_id(slot) for slot in slots})
+        unavailable = [identifier for identifier in _no_data_until if identifier in {slot_id(s) for s in slots}]
+        _set_status(unavailableFrames=unavailable)
+        if errors:
+            _set_status(phase="error", message=f"No se completaron algunas tomas: {errors[-1]}",
+                        error=errors[-1], pending=remaining)
+        elif remaining:
+            _set_status(phase="backfill", message="Completando imágenes anteriores…", pending=remaining)
+        elif unavailable:
+            times = ", ".join(datetime.strptime(identifier, "%Y%m%d%H%M").replace(tzinfo=UTC)
+                              .astimezone(LOCAL_TZ).strftime("%H:%M") for identifier in sorted(unavailable))
+            _set_status(phase="ready",
+                        message=f"Tomas sin datos válidos: {times}. Se omiten y se reintentarán.", pending=0)
+        else:
+            _set_status(phase="ready", message="Al día con las tomas disponibles en NOAA.", pending=0)
         state = {
-            "updatedAt": current.isoformat(),
-            "windowStart": slots[0].isoformat(),
-            "windowEnd": slots[-1].isoformat(),
-            "frames": [path.stem for path in sorted(FRAME_ROOT.glob("????????????.png"))],
-            "rendererVersion": RENDER_VERSION,
+            "updatedAt": current.isoformat(), "windowStart": window_bounds(current)[0].isoformat(),
+            "windowEnd": window_bounds(current)[1].isoformat(),
+            "frames": [item["id"] for item in frame_catalog(current)],
+            "rendererVersion": RENDER_VERSION, "status": cache_status(),
         }
         temporary_state = STATE_PATH.with_suffix(".json.part")
         temporary_state.write_text(json.dumps(state), encoding="utf-8")
         temporary_state.replace(STATE_PATH)
+        return frame_catalog(current)
+    except Exception as error:
+        report_worker_error(error)
         return frame_catalog(current)
     finally:
         _lock.release()
@@ -458,7 +588,7 @@ def frame_catalog(now: datetime | None = None) -> list[dict[str, str]]:
     if not FRAME_ROOT.is_dir():
         return frames
     for path in sorted(FRAME_ROOT.glob("????????????.png")):
-        if path.stem not in valid_ids or not path.is_file():
+        if path.stem not in valid_ids or not path.is_file() or not _frame_has_data(path.stem):
             continue
         stamp = datetime.strptime(path.stem, "%Y%m%d%H%M").replace(tzinfo=UTC)
         local = stamp.astimezone(LOCAL_TZ)
@@ -477,6 +607,6 @@ def resolve_frame(frame_id: str) -> Path:
     if frame_id not in {slot_id(slot) for slot in window_slots()}:
         raise FileNotFoundError(frame_id)
     path = FRAME_ROOT / f"{frame_id}.png"
-    if not path.is_file():
+    if not path.is_file() or not _frame_has_data(frame_id):
         raise FileNotFoundError(frame_id)
     return path

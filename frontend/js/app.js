@@ -139,6 +139,12 @@
       loadStyleOnce("css/water-quality-report.css")
     );
   }
+  if (modules.has("report-caudales")) {
+    moduleLoads.push(
+      loadScriptOnce("js/features/caudales-report.js"),
+      loadStyleOnce("css/caudales-report.css")
+    );
+  }
   if (modules.has("report-hydromet-network")) {
     moduleLoads.push(
       loadScriptOnce("js/features/hydromet-design-export.js")
@@ -186,6 +192,7 @@
   if (modules.has("requests")) window.NotasRequests?.initRequests();
   if (modules.has("diary")) window.NotasDiary?.initDiary();
   if (modules.has("agenda")) window.NotasAgenda?.initAgenda();
+  if (modules.has("report-caudales")) window.NotasCaudalesReport?.init();
   if (modules.has("report-water-quality") && window.NotasWaterQualityReport) {
     window.NotasWaterQualityReport.init();
   }

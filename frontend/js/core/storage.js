@@ -8,6 +8,8 @@
     "agender.request.records",
     "agender.hydromet.qc-methods",
     "agender.reports.water-quality",
+    "agender.reports.caudales",
+    "agender.reports.caudales.preferences",
     "agender.reports.water-quality.preferences",
     "agender.climatology.station-configuration"
   ];

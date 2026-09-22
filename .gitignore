@@ -12,6 +12,7 @@ htmlcov/
 
 # Documentación interna y auditorías locales
 audit/
+update.md
 
 # Compilaciones y artefactos generados
 build/

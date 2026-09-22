@@ -42,12 +42,15 @@ def test_document_contains_one_page_per_selected_report():
     assert "SEGUIMIENTO DE CAUDALES" in document
     assert "LLUVIA VS CAUDAL · YANUNCAY · TOMEBAMBA · TARQUI · MACHÁNGARA" in document
     assert 'class="report-brand"' in document
-    assert "<strong>ETAPA</strong><span>&#x276F;&#x276F;</span>" in document
+    assert document.count('class="report-rhup"') == 3
+    assert "logo_RHUP_transparente.png" in document
+    assert "logo%20ETAPA%20EP_mejorado_v3.png" in document
+    assert "<strong>ETAPA</strong>" not in document
     assert "color: white; background: #ff8500" in document
     assert "SEGUIMIENTO TÉRMICO Y DE PRECIPITACIONES" in document
     assert "grid-template-columns: 320px minmax(0, 1fr) 320px" in document
     assert ".heading { grid-column: 2; grid-row: 1; padding: 0; }" in document
-    assert ".report-brand strong { font-size: 39.2px" in document
+    assert "width: 320px; height: auto; object-fit: contain" in document
     assert "height: 146px" in document
     assert "height: calc(100% - 146px)" in document
     assert "padding: 22px 4px 19px" in document

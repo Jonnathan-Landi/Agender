@@ -1,8 +1,9 @@
+import { isFlowReport, reportKey } from "./profile.js";
 export const totalPages = 4;
 
-export const STORAGE_KEY = "agender.reports.water-quality";
+export const STORAGE_KEY = reportKey;
 
-export const parameters = [
+export const parameters = isFlowReport ? [["Caudal", "m³/s"], ["Lluvia", "mm"], ["Temperatura", "°C"]] : [
   ["Oxígeno disuelto", "mg/L"],
   ["Turbidez", "NTU"],
   ["Conductividad específica", "µS/cm"],
@@ -17,7 +18,7 @@ export const parameters = [
   ["Hidrocarburos", "RFU"]
 ];
 
-export const defaultParameterOrder = [
+export const defaultParameterOrder = isFlowReport ? ["CAUDAL", "LLUVIA", "TEMPERATURA"] : [
   "OXIGENO DISUELTO",
   "TURBIDEZ",
   "CONDUCTIVIDAD ESPECIFICA",
@@ -32,7 +33,7 @@ export const defaultParameterOrder = [
   "HIDROCARBUROS"
 ];
 
-export const parameterUnits = {
+export const parameterUnits = isFlowReport ? { CAUDAL: "m³/s", LLUVIA: "mm", TEMPERATURA: "°C" } : {
   "OXIGENO DISUELTO": "mg/L",
   "TURBIDEZ": "NTU",
   "CONDUCTIVIDAD ESPECIFICA": "µS/cm",
@@ -47,7 +48,11 @@ export const parameterUnits = {
   "HIDROCARBUROS": "RFU"
 };
 
-export const graphs = [
+export const graphs = isFlowReport ? [
+  { iconClass: "icon-turbidez", icon: "≈", title: "CAUDALES (m³/s)", average: "Promedio:", paramKey: "CAUDAL", alt: "Gráfico de caudales" },
+  { iconClass: "icon-sst", icon: "💧", title: "LLUVIA (mm)", average: "Promedio:", paramKey: "LLUVIA", alt: "Gráfico de lluvia" },
+  { iconClass: "icon-color", icon: "🌡", title: "TEMPERATURA (°C)", average: "Promedio:", paramKey: "TEMPERATURA", alt: "Gráfico de temperatura" }
+] : [
   {
     iconClass: "icon-turbidez",
     icon: "💧",

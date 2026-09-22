@@ -77,9 +77,12 @@ def _resolve_page(item: dict[str, str]) -> dict[str, str]:
 
 def _document(pages: list[dict[str, str]]) -> str:
     sections = []
+    logos = Path(__file__).resolve().parent.parent / "frontend" / "assets" / "report-logos"
+    etapa_logo = html.escape((logos / "logo ETAPA EP_mejorado_v3.png").as_uri(), quote=True)
+    rhup_logo = html.escape((logos / "logo_RHUP_transparente.png").as_uri(), quote=True)
     brand_html = (
-        '<div class="report-brand" aria-label="ETAPA">'
-        "<strong>ETAPA</strong><span>&#x276F;&#x276F;</span></div>"
+        f'<img class="report-brand" src="{etapa_logo}" alt="Alcaldía de Cuenca · ETAPA EP">'
+        f'<img class="report-rhup" src="{rhup_logo}" alt="RHUP">'
     )
     for item in pages:
         station = html.escape(str(item.get("station", "")).replace("_", " "))
@@ -114,11 +117,13 @@ header {{
 }}
 .heading {{ grid-column: 2; grid-row: 1; padding: 0; }}
 .report-brand {{
-  grid-column: 1; grid-row: 1; justify-self: start; display: flex; align-items: center;
-  gap: 13px; padding-left: 28px; color: white; white-space: nowrap;
+  grid-column: 1; grid-row: 1; justify-self: start; display: block;
+  width: 320px; height: auto; object-fit: contain;
 }}
-.report-brand strong {{ font-size: 39.2px; font-weight: 650; letter-spacing: 3.136px; }}
-.report-brand span {{ font-size: 44px; font-weight: 900; letter-spacing: -12.32px; transform: translateY(-1px); }}
+.report-rhup {{
+  grid-column: 3; grid-row: 1; justify-self: end;
+  width: 108px; height: 94px; margin-right: 12px; object-fit: contain;
+}}
 h1 {{ margin: 0; font-size: 32.8px; line-height: 1.08; font-weight: 780; }} h1 span {{ font-weight: 400; }}
 p {{ margin: 8px 0 0; font-size: 14.72px; letter-spacing: .04em; }}
 iframe {{ display: block; width: 100%; height: calc(100% - 146px); border: 0; background: #f8fafc; }}

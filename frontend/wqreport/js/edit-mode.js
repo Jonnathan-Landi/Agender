@@ -1,5 +1,6 @@
-const preferencesKey = "agender.reports.water-quality.preferences";
-const storedPreferences = window.parent?.NotasWaterQualitySession?.initialPreferences
+import { reportKey, sessionKey } from "./profile.js";
+const preferencesKey = `${reportKey}.preferences`;
+const storedPreferences = window.parent?.[sessionKey]?.initialPreferences
   || window.parent?.NotasStorage?.loadJson(preferencesKey, null)
   || {};
 let editModeEnabled = Boolean(storedPreferences.editMode);

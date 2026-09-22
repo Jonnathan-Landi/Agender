@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .config import APP_DATA_DIR
 
-REPORT_MODULES = {"report-water-quality", "report-hydromet-network"}
+REPORT_MODULES = {"report-caudales", "report-water-quality", "report-hydromet-network"}
 SATELLITE_MODULES = {"radar-caxx", "goes19"}
 ALL_MODULES = {
     "hydromet",

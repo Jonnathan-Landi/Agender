@@ -350,7 +350,7 @@
     const subtitle = isFlows
       ? "LLUVIA VS CAUDAL · YANUNCAY · TOMEBAMBA · TARQUI · MACHÁNGARA"
       : `SEGUIMIENTO MENSUAL DEL CLIMA ${location} · ESTACIÓN DE REFERENCIA: ${escapeHtml(station)}`;
-    const heading = `<header class="climate-original-band"><div class="climate-original-heading"><h2>${title} <span>|</span> ${escapeHtml(period.toUpperCase())}</h2><p>${subtitle}</p></div><div class="climate-original-brand" aria-label="ETAPA"><strong>ETAPA</strong><span aria-hidden="true">❯❯</span></div></header>`;
+    const heading = `<header class="climate-original-band"><div class="climate-original-heading"><h2>${title} <span>|</span> ${escapeHtml(period.toUpperCase())}</h2><p>${subtitle}</p></div><img class="climate-original-brand" src="assets/report-logos/logo ETAPA EP_mejorado_v3.png" alt="Alcaldía de Cuenca · ETAPA EP"><img class="climate-original-rhup" src="assets/report-logos/logo_RHUP_transparente.png" alt="RHUP"></header>`;
     if (report.error) {
       return `<article class="climate-original-sheet">${heading}<div class="climate-report-error"><span class="font-icon" aria-hidden="true">&#xEA39;</span><div><strong>${escapeHtml(report.station || reportLabel)}</strong><p>${escapeHtml(report.error)}</p></div></div></article>`;
     }
