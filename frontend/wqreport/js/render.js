@@ -1,6 +1,8 @@
 import { isFlowReport, basins } from "./profile.js";
 import { totalPages, parameters, graphs } from "./data.js";
 import { normalizeText } from "./utils.js";
+import { createDailyFlowPage } from "./daily-flows.js";
+import { createManualQualityPage } from "./manual-quality.js";
 
 export function createParameterRows() {
   return parameters.map(([name, value]) => {
@@ -45,6 +47,8 @@ export function createGraphCards() {
 }
 
 export function createReportPage(pageNumber) {
+  if (isFlowReport && pageNumber === 1) return createDailyFlowPage();
+  if (isFlowReport && pageNumber === 2) return createManualQualityPage();
   return `
     <section class="report-page">
 

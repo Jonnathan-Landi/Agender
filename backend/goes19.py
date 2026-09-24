@@ -92,9 +92,21 @@ def _set_status(**values) -> None:
         _status.update(values, updatedAt=datetime.now(UTC).isoformat())
 
 
+def _error_message(error: Exception) -> str:
+    if isinstance(error, requests.exceptions.SSLError):
+        return (
+            "Falló la conexión segura HTTPS con NOAA (SSL). "
+            "Revisa la fecha y hora del equipo y los certificados del sistema o del proxy. "
+            "Se reintentará automáticamente."
+        )
+    if isinstance(error, requests.Timeout):
+        return "NOAA tardó demasiado en responder. Se reintentará automáticamente."
+    return str(error)
+
+
 def report_worker_error(error: Exception) -> None:
     _logger.exception("GOES 19: el ciclo no pudo completarse")
-    _set_status(phase="error", error=str(error), message=f"No se pudo actualizar GOES 19: {error}", pending=0)
+    _set_status(phase="error", error=str(error), message=f"No se pudo actualizar GOES 19: {_error_message(error)}", pending=0)
 
 
 _instance_token = f"{uuid.uuid4().hex}"
@@ -455,10 +467,11 @@ def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
     current = (now or datetime.now(UTC)).astimezone(UTC)
     if not owns_cache() or not _lock.acquire(blocking=False):
         return frame_catalog(current)
-    errors: list[str] = []
+    errors: list[Exception] = []
     remaining = 0
     try:
-        _set_status(phase="listing", message="Consultando las tomas publicadas por NOAA…", error=None, pending=0)
+        _set_status(phase="listing", message="Consultando las tomas publicadas por NOAA…", error=None, pending=0,
+                    unpublishedFrames=[])
         # Detect missing native dependencies before downloading hundreds of MB.
         import netCDF4  # noqa: F401
         from pyproj import CRS
@@ -477,6 +490,8 @@ def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
             if prefix not in active_prefixes:
                 del _hour_listing[prefix]
         hour_keys: dict[datetime, list[str]] = {}
+        failed_hours: set[datetime] = set()
+        unpublished: list[str] = []
         pending = []
         priority_done = False
 
@@ -492,7 +507,7 @@ def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
                     rejected.unlink(missing_ok=True)
                 _logger.warning("GOES 19: toma sin datos %s: %s", raw.stem, error)
             except Exception as error:
-                errors.append(str(error))
+                errors.append(error)
                 _logger.warning("GOES 19: falló la toma %s: %s", raw.stem, error)
 
         # Publish the newest image before listing or downloading older hours.
@@ -514,11 +529,14 @@ def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
                     try:
                         hour_keys[hour] = _list_hour(hour, current)
                     except (requests.RequestException, ET.ParseError) as error:
-                        errors.append(str(error))
+                        errors.append(error)
+                        failed_hours.add(hour)
                         _logger.warning("GOES 19: no se pudo listar %s: %s", hour, error)
                         hour_keys[hour] = []
                 matches = [key for key in hour_keys[hour] if key_slot(key) == slot]
                 if not matches:
+                    if hour not in failed_hours:
+                        unpublished.append(identifier)
                     continue
                 key = max(matches)
             item = (key, raw, processed, frame)
@@ -546,16 +564,17 @@ def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
                         raise ValueError("La toma aún no está disponible en NOAA.")
                     prepare((None, *item[1:]))
                 except Exception as error:
-                    errors.append(str(error))
+                    errors.append(error)
                     _logger.warning("GOES 19: falló la descarga %s: %s", item[1].stem, error)
         current = datetime.now(UTC) if now is None else current
         slots = window_slots(current)
         _cleanup({slot_id(slot) for slot in slots})
         unavailable = [identifier for identifier in _no_data_until if identifier in {slot_id(s) for s in slots}]
-        _set_status(unavailableFrames=unavailable)
+        unpublished = sorted(set(unpublished) & {slot_id(s) for s in slots})
+        _set_status(unavailableFrames=unavailable, unpublishedFrames=unpublished)
         if errors:
-            _set_status(phase="error", message=f"No se completaron algunas tomas: {errors[-1]}",
-                        error=errors[-1], pending=remaining)
+            _set_status(phase="error", message=f"No se completaron algunas tomas: {_error_message(errors[-1])}",
+                        error=str(errors[-1]), pending=remaining)
         elif remaining:
             _set_status(phase="backfill", message="Completando imágenes anteriores…", pending=remaining)
         elif unavailable:
@@ -563,6 +582,12 @@ def refresh_cache(now: datetime | None = None) -> list[dict[str, str]]:
                               .astimezone(LOCAL_TZ).strftime("%H:%M") for identifier in sorted(unavailable))
             _set_status(phase="ready",
                         message=f"Tomas sin datos válidos: {times}. Se omiten y se reintentarán.", pending=0)
+        elif unpublished:
+            times = ", ".join(datetime.strptime(identifier, "%Y%m%d%H%M").replace(tzinfo=UTC)
+                              .astimezone(LOCAL_TZ).strftime("%H:%M") for identifier in unpublished)
+            _set_status(phase="ready",
+                        message=f"NOAA aún no ha publicado las tomas de: {times}. Se consultará de nuevo automáticamente.",
+                        pending=0)
         else:
             _set_status(phase="ready", message="Al día con las tomas disponibles en NOAA.", pending=0)
         state = {

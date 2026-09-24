@@ -131,7 +131,7 @@ def _build_print_document(reports_html: str, page_height: int, assets_base_url: 
     .graph-image-context-menu, input[type="file"],
     .add-parameter-row-button, .remove-parameter-row-button {{ display: none !important; }}
     .report-page {{
-      display: block !important; width: {REPORT_WIDTH}px !important; height: {page_height}px !important;
+      width: {REPORT_WIDTH}px !important; height: {page_height}px !important;
       min-height: {REPORT_MIN_HEIGHT}px !important; max-height: {page_height}px !important;
       margin: 0 !important; box-shadow: none !important; overflow: hidden !important;
       page-break-after: always !important; break-after: page !important;

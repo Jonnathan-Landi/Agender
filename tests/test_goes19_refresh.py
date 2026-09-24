@@ -75,6 +75,19 @@ def test_network_failure_is_reported_to_ui(cache):
         goes19.refresh_cache(datetime(2026, 9, 22, 12, 0, tzinfo=UTC))
     assert goes19.cache_status()["phase"] == "error"
     assert "Sin conexión" in goes19.cache_status()["message"]
+    assert goes19.cache_status()["unpublishedFrames"] == []
+
+
+def test_ssl_failure_is_identified_without_disabling_verification(cache):
+    error = requests.exceptions.SSLError("CERTIFICATE_VERIFY_FAILED")
+    with patch.object(goes19, "_list_hour", side_effect=error):
+        goes19.refresh_cache(datetime(2026, 9, 22, 12, 0, tzinfo=UTC))
+    status = goes19.cache_status()
+    assert status["phase"] == "error"
+    assert "HTTPS" in status["message"]
+    assert "SSL" in status["message"]
+    assert status["error"] == "CERTIFICATE_VERIFY_FAILED"
+    assert status["unpublishedFrames"] == []
 
 
 def test_cached_raster_can_render_even_when_noaa_is_offline(cache):
@@ -137,8 +150,12 @@ def test_late_publication_is_added_without_downloading_ready_frames_again(cache)
           patch.object(goes19, "_download", side_effect=download),
           patch.object(goes19, "_process", side_effect=process)):
         assert len(goes19.refresh_cache(now)) == 1
+        assert goes19.cache_status()["unpublishedFrames"] == [goes19.slot_id(now)]
+        assert "NOAA aún no ha publicado" in goes19.cache_status()["message"]
+        assert "07:00" in goes19.cache_status()["message"]
         published.append(key(now))
         assert len(goes19.refresh_cache(now)) == 2
+        assert goes19.cache_status()["unpublishedFrames"] == []
     assert downloaded == [goes19.slot_id(previous), goes19.slot_id(now)]
 
 

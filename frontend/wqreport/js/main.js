@@ -1,4 +1,6 @@
 import { renderReports } from "./render.js";
+import { initializeDailyFlows } from "./daily-flows.js";
+import { initializeManualQuality } from "./manual-quality.js";
 
 import {
   initializeCalendarControls,
@@ -33,3 +35,5 @@ updateAllReportState();
 applyPolicyProfile();
 applyEditMode();
 refreshAddParameterRowButtons();
+initializeDailyFlows();
+initializeManualQuality();

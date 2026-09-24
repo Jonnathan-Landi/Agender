@@ -208,6 +208,8 @@ async def enforce_module_access(request: Request, call_next):
         required = "viewer"
     elif path.startswith("/api/reports/hydromet-network"):
         required = "report-hydromet-network"
+    elif path.startswith("/api/reports/caudales"):
+        required = "report-caudales"
     elif path.startswith("/api/climatology"):
         required = "climatology"
     elif path.startswith("/api/radar-caxx"):
@@ -838,6 +840,19 @@ def radar_caxx_export_mp4(payload: RadarVideoExport) -> dict[str, object]:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except OSError as error:
         raise HTTPException(status_code=500, detail="No se pudo guardar el video MP4.") from error
+
+
+@app.get("/api/reports/caudales/daily")
+async def caudales_daily(request: Request, end: str = Query(...)) -> dict[str, object]:
+    from .caudales_report import build_daily_flows
+
+    user = _require_user(request)
+    settings = read_settings(user["username"], user["role"] == "admin")
+    try:
+        root, _remote_sync = await run_in_threadpool(materialize_source, user, settings, "quality")
+        return await run_in_threadpool(build_daily_flows, root, settings["qualityIncludeSubfolders"], end)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/climatology/monthly-report")

@@ -1,6 +1,6 @@
 [package]
 name = "agender"
-version = "1.23.5"
+version = "1.24.2"
 description = "Agender - gestión local modular"
 authors = ["ETAPA EP"]
 edition = "2021"

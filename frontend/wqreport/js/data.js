@@ -1,5 +1,5 @@
 import { isFlowReport, reportKey } from "./profile.js";
-export const totalPages = 4;
+export const totalPages = isFlowReport ? 2 : 4;
 
 export const STORAGE_KEY = reportKey;
 

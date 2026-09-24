@@ -312,8 +312,15 @@ def _read_columns(path: Path, columns: list[str]) -> pl.DataFrame:
         ignore_errors=True,
         try_parse_dates=False,
     )
+    # Historical exports and appended station records use different ISO formats.
+    # Inference picks one format and silently drops the other with strict=False.
+    timestamp = pl.col("TIMESTAMP").cast(pl.String).str.strip_chars()
     return frame.with_columns(
-        pl.col("TIMESTAMP").cast(pl.String).str.to_datetime(strict=False, time_zone="UTC").alias("timestamp")
+        pl.coalesce(
+            timestamp.str.to_datetime(format="%+", strict=False, time_zone="UTC"),
+            timestamp.str.to_datetime(format="%Y-%m-%d %H:%M:%S%.f", strict=False, time_zone="UTC"),
+            timestamp.str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.f", strict=False, time_zone="UTC"),
+        ).alias("timestamp")
     ).filter(pl.col("timestamp").is_not_null())
 
 

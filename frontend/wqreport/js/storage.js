@@ -1,9 +1,10 @@
-import { reportKey, sessionKey } from "./profile.js";
+import { isFlowReport, reportKey, sessionKey } from "./profile.js";
 import { STORAGE_KEY } from "./data.js";
 import { ensureParameterUnits, setGraphImage } from "./state.js";
 import { restoreCustomParameterRows, restoreParameterRows, serializeCustomParameterRows, serializeParameterRows } from "./table-rows.js";
 
 let standaloneConfig = null;
+import { readManualQuality, restoreManualQuality } from "./manual-quality.js";
 
 function getReportConfigElements() {
   return {
@@ -85,6 +86,8 @@ function restoreEditableElementsByKey(items) {
 export async function saveConfig() {
   const { editableElements, tiHeaderEditableElements, stationSelects, tlpSelects, dateInputs, graphImages } = getReportConfigElements();
   const config = {
+    layoutVersion: isFlowReport ? 2 : 1,
+    manualQuality: readManualQuality(),
     editables: editableElements.map(serializeEditableElement),
     tiHeaderEditables: tiHeaderEditableElements.map(serializeEditableElement),
     stations: stationSelects.map(select => select.value),
@@ -121,11 +124,15 @@ export function loadConfig() {
   try {
     const storage = window.parent?.NotasStorage;
     const stagedConfig = window.parent?.[sessionKey]?.initialConfig;
-    const config = stagedConfig || (storage
+    let config = stagedConfig || (storage
       ? storage.loadJson(STORAGE_KEY, null)
       : standaloneConfig
     );
     if (!config) return;
+    if (isFlowReport && config.layoutVersion !== 2) {
+      // Keep the original second sheet's station and uploaded charts together.
+      config = { ...config, stations: config.stations?.slice(1, 2), graphImages: config.graphImages?.slice(3, 6) };
+    }
     const { editableElements, tiHeaderEditableElements, stationSelects, tlpSelects, dateInputs, graphImages } = getReportConfigElements();
 
     restoreEditableElementsByKey(config.editables);
@@ -168,6 +175,7 @@ export function loadConfig() {
       restoreCustomParameterRows(config.customParameterRows);
     }
     ensureParameterUnits();
+    restoreManualQuality(config.manualQuality || {});
   } catch (error) {
     console.error("No se pudo cargar la configuracion guardada:", error);
   }

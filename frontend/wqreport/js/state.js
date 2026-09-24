@@ -271,6 +271,7 @@ function getFooterPrefix(footer) {
 }
 
 export function clearReportValuesAndGraphs() {
+  document.dispatchEvent(new CustomEvent("wqreport:clearmanual"));
   document.querySelectorAll(".quality-table tbody tr").forEach(row => {
     const cell = row.querySelector(".parameter-value");
 
